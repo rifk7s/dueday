@@ -61,6 +61,12 @@
       "skillPath": "plugins/expo/skills/expo-tailwind-setup/SKILL.md",
       "computedHash": "d39e806942fe880347f161056729b588a3cb0f1796270eebf52633fe11cfdce1"
     },
+    "fallow": {
+      "source": "fallow-rs/fallow-skills",
+      "sourceType": "github",
+      "skillPath": "fallow/skills/fallow/SKILL.md",
+      "computedHash": "5e87d5bde138476f3e8518ae777d4e0e471c2e9e13a78aa12e0eafb4b829b5ff"
+    },
     "native-data-fetching": {
       "source": "expo/skills",
       "sourceType": "github",
