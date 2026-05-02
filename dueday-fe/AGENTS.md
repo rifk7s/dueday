@@ -6,9 +6,7 @@
 ```
 src/
 ├── app/          → Expo Router (app shell, routing)
-├── components/   → Reusable UI components
-├── hooks/        → Custom React hooks
-└── constants/    → Config, theme constants
+└── global.css    → Tailwind + NativeWind entry
 ```
 
 **Commands**:
@@ -29,6 +27,11 @@ expo start --clear   # Clear cache if changes don't reflect
 - Tailwind for web, NativeWind for cross-platform
 - Platform-specific: `.web.tsx`, `.native.tsx`, `.tsx` (shared)
 - Theme constants in `src/constants/theme.ts`
+
+**NativeWind v5 Notes**:
+- Keep `global.css` in `src/`
+- Import CSS in the top-most component (prefer `src/app/_layout.tsx`) or use the alias `@/global.css` to avoid wrong relative paths
+- If you hit `failed to deserialize` errors, pin `lightningcss` via `overrides: { "lightningcss": "1.30.1" }` and reinstall
 
 **Platform-Specific Files**:
 ```
