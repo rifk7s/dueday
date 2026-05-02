@@ -9,6 +9,7 @@
 - Framework: Expo, React Native, TypeScript
 - Skills: Auto-managed by Expo, synced via `expo install`
 - Load: [`dueday-fe/AGENTS.md`](./dueday-fe/AGENTS.md)
+- Note: See frontend AGENTS for NativeWind v5 specifics
 
 ## Workflow
 
