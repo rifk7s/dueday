@@ -1,17 +1,21 @@
 import { colors } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, LayoutChangeEvent, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const TAB_HEIGHT = 74;
-const BUBBLE_SIZE = 60;
-type IconName = React.ComponentProps<typeof Ionicons>["name"];
+const NAV_HEIGHT = 126;
+const TAB_HEIGHT = 78;
+const ACTIVE_BUBBLE_SIZE = 92;
+const ACTIVE_DISC_SIZE = 70;
+const ACTIVE_BUBBLE_TOP = -(NAV_HEIGHT - TAB_HEIGHT);
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
-export default function BottomNav({ state, navigation }: BottomTabBarProps) {
+export default function BottomNav({ state, navigation }: Readonly<BottomTabBarProps>) {
   const { bottom } = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(96)).current;
+  const bottomInset = Math.min(bottom, 12);
+  const translateY = useRef(new Animated.Value(TAB_HEIGHT + bottomInset + 24)).current;
   const bubbleX = useRef(new Animated.Value(0)).current;
   const [layouts, setLayouts] = useState<({ x: number; width: number } | undefined)[]>([]);
 
@@ -27,7 +31,7 @@ export default function BottomNav({ state, navigation }: BottomTabBarProps) {
     const activeLayout = layouts[state.index];
 
     if (activeLayout) {
-      const targetX = activeLayout.x + activeLayout.width / 2 - BUBBLE_SIZE / 2;
+      const targetX = activeLayout.x + activeLayout.width / 2 - ACTIVE_BUBBLE_SIZE / 2;
 
       Animated.spring(bubbleX, {
         toValue: targetX,
@@ -41,33 +45,35 @@ export default function BottomNav({ state, navigation }: BottomTabBarProps) {
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={[styles.wrapper, { paddingBottom: bottom, transform: [{ translateY }] }]}
+      style={[styles.wrapper, { transform: [{ translateY }] }]}
     >
-      <View style={styles.bar}>
+      <View style={[styles.bar, { height: TAB_HEIGHT, paddingBottom: bottomInset }]}>
         <Animated.View
           pointerEvents="none"
           style={[styles.activeBubble, { transform: [{ translateX: bubbleX }] }]}
         >
-          <Ionicons name={getActiveIcon(state.index)} size={28} color={colors.primaryContainer} />
+          <View style={styles.activeDisc}>
+                <MaterialCommunityIcons name={getActiveIcon(state.index)} size={28} color="#FFFFFF" />
+          </View>
         </Animated.View>
 
         <View style={styles.row}>
           <TabButton
-            icon={state.index === 0 ? "home" : "home-outline"}
+                icon="home-outline"
             focused={state.index === 0}
             onLayout={(event) => handleLayout(event, 0, setLayouts)}
             onPress={() => navigateTo(navigation, state.routes[0].name, state.routes[0].key, state.index === 0)}
           />
 
           <TabButton
-            icon={state.index === 1 ? "calendar" : "calendar-outline"}
+                icon="calendar-month-outline"
             focused={state.index === 1}
             onLayout={(event) => handleLayout(event, 1, setLayouts)}
             onPress={() => navigateTo(navigation, state.routes[1].name, state.routes[1].key, state.index === 1)}
           />
 
           <TabButton
-            icon={state.index === 2 ? "person" : "person-outline"}
+                icon="account-outline"
             focused={state.index === 2}
             onLayout={(event) => handleLayout(event, 2, setLayouts)}
             onPress={() => navigateTo(navigation, state.routes[2].name, state.routes[2].key, state.index === 2)}
@@ -92,8 +98,8 @@ function handleLayout(
 }
 
 function getActiveIcon(index: number): IconName {
-  if (index === 1) return "calendar";
-  if (index === 2) return "person";
+  if (index === 1) return "calendar-month";
+  if (index === 2) return "account";
   return "home";
 }
 
@@ -104,7 +110,7 @@ type TabButtonProps = {
   onLayout: (event: LayoutChangeEvent) => void;
 };
 
-function TabButton({ icon, focused, onPress, onLayout }: TabButtonProps) {
+function TabButton({ icon, focused, onPress, onLayout }: Readonly<TabButtonProps>) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -113,8 +119,8 @@ function TabButton({ icon, focused, onPress, onLayout }: TabButtonProps) {
       onPress={onPress}
       style={styles.tabButton}
     >
-      <View style={styles.iconSlot}>
-        <Ionicons name={icon} size={24} color={focused ? "transparent" : "#FFFFFF"} />
+      <View style={[styles.iconSlot, focused && styles.hiddenIcon]}>
+        <MaterialCommunityIcons name={icon} size={24} color="#FFFFFF" />
       </View>
     </Pressable>
   );
@@ -147,8 +153,8 @@ const styles = StyleSheet.create({
   bar: {
     minHeight: TAB_HEIGHT,
     backgroundColor: colors.primaryContainer,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.12,
@@ -173,19 +179,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  hiddenIcon: {
+    opacity: 0,
+  },
   activeBubble: {
     position: "absolute",
-    top: -30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    top: ACTIVE_BUBBLE_TOP,
+    width: ACTIVE_BUBBLE_SIZE,
+    height: ACTIVE_BUBBLE_SIZE,
+    borderRadius: ACTIVE_BUBBLE_SIZE / 2,
     backgroundColor: colors.surfaceContainerLowest,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: colors.primaryContainer,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 14,
+  },
+  activeDisc: {
+    width: ACTIVE_DISC_SIZE,
+    height: ACTIVE_DISC_SIZE,
+    borderRadius: ACTIVE_DISC_SIZE / 2,
+    backgroundColor: colors.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

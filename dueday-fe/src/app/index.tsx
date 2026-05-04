@@ -5,20 +5,25 @@ import React from "react";
 import {
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Circle } from "react-native-svg";
 
 export default function App() {
+  const { top, bottom } = useSafeAreaInsets();
+  const bottomBarHeight = 78;
+  const fabBottom = bottomBarHeight + 12;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: top }]}>
       <StatusBar style="dark" />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
@@ -94,11 +99,7 @@ export default function App() {
             </View>
 
             <View style={styles.progressWrap}>
-              <View style={styles.progressRingOuter}>
-                <View style={styles.progressRingInner}>
-                  <Text style={styles.progressText}>50%</Text>
-                </View>
-              </View>
+                <ProgressRing progress={0.5} size={64} strokeWidth={6} />
             </View>
           </View>
         </View>
@@ -118,10 +119,10 @@ export default function App() {
         </View>
       </ScrollView>
 
-      <Pressable style={styles.fab} accessibilityRole="button" accessibilityLabel="Add new task">
+      <Pressable style={[styles.fab, { bottom: fabBottom }]} accessibilityRole="button" accessibilityLabel="Add new task">
         <Ionicons name="add" size={32} color={colors.surfaceContainerLowest} />
       </Pressable>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -133,7 +134,7 @@ type SummaryCardProps = {
   background: string;
 };
 
-function SummaryCard({ accent, icon, title, value, background }: SummaryCardProps) {
+function SummaryCard({ accent, icon, title, value, background }: Readonly<SummaryCardProps>) {
   return (
     <View style={[styles.summaryCard, { backgroundColor: background }]}>
       <View style={[styles.summaryIconWrap, { backgroundColor: accent }]}>
@@ -141,6 +142,49 @@ function SummaryCard({ accent, icon, title, value, background }: SummaryCardProp
       </View>
       <Text style={styles.summaryTitle}>{title}</Text>
       <Text style={[styles.summaryValue, { color: accent }]}>{value}</Text>
+    </View>
+  );
+}
+
+type ProgressRingProps = {
+  progress: number;
+  size: number;
+  strokeWidth: number;
+};
+
+function ProgressRing({ progress, size, strokeWidth }: Readonly<ProgressRingProps>) {
+  const clamped = Math.max(0, Math.min(1, progress));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - clamped);
+
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#E5E7EB"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#F26C1F"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={dashOffset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          fill="none"
+        />
+      </Svg>
+      <View style={styles.progressLabel}>
+        <Text style={styles.progressText}>{Math.round(clamped * 100)}%</Text>
+      </View>
     </View>
   );
 }
@@ -346,28 +390,19 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   progressWrap: {
-    width: 70,
+    width: 64,
+    height: 64,
     alignItems: "center",
     justifyContent: "center",
   },
-  progressRingOuter: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 4,
-    borderColor: "#F26C1F",
+  progressLabel: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: "center",
     justifyContent: "center",
-  },
-  progressRingInner: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 4,
-    borderColor: "#E8E8E8",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
   },
   progressText: {
     color: "#F26C1F",
