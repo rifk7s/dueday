@@ -5,20 +5,25 @@ import React from "react";
 import {
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Circle } from "react-native-svg";
 
 export default function App() {
+  const { top, bottom } = useSafeAreaInsets();
+  const bottomBarHeight = 78;
+  const fabBottom = bottomBarHeight + 12;
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: top }]}>
       <StatusBar style="dark" />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottom + 120 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
@@ -52,14 +57,14 @@ export default function App() {
             icon="time-outline"
             title="Belum Dikerjakan"
             value="10"
-            background="#FFF4E9"
+            background={colors.surfaceWarm}
           />
           <SummaryCard
             accent={colors.success}
             icon="checkmark-circle"
             title="Selesai"
             value="5"
-            background="#EBF9EF"
+            background={colors.surfaceSuccess}
           />
         </View>
 
@@ -75,7 +80,7 @@ export default function App() {
               <Ionicons name="warning-outline" size={16} color={colors.error} />
               <Text style={styles.deadlineText}>30 April 2026 | 18.00</Text>
             </View>
-            <Ionicons name="ellipsis-vertical" size={18} color="#A5A5A5" />
+            <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
           </View>
 
           <View style={styles.taskMainRow}>
@@ -94,11 +99,7 @@ export default function App() {
             </View>
 
             <View style={styles.progressWrap}>
-              <View style={styles.progressRingOuter}>
-                <View style={styles.progressRingInner}>
-                  <Text style={styles.progressText}>50%</Text>
-                </View>
-              </View>
+                <ProgressRing progress={0.5} size={64} strokeWidth={6} />
             </View>
           </View>
         </View>
@@ -114,14 +115,14 @@ export default function App() {
             </View>
             <Text style={styles.reminderText}>Pengingat Saya</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#B9B9B9" />
+          <Ionicons name="chevron-forward" size={20} color={colors.iconSubtle} />
         </View>
       </ScrollView>
 
-      <Pressable style={styles.fab} accessibilityRole="button" accessibilityLabel="Add new task">
+      <Pressable style={[styles.fab, { bottom: fabBottom }]} accessibilityRole="button" accessibilityLabel="Add new task">
         <Ionicons name="add" size={32} color={colors.surfaceContainerLowest} />
       </Pressable>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -133,14 +134,57 @@ type SummaryCardProps = {
   background: string;
 };
 
-function SummaryCard({ accent, icon, title, value, background }: SummaryCardProps) {
+function SummaryCard({ accent, icon, title, value, background }: Readonly<SummaryCardProps>) {
   return (
     <View style={[styles.summaryCard, { backgroundColor: background }]}>
       <View style={[styles.summaryIconWrap, { backgroundColor: accent }]}>
-        <Ionicons name={icon} size={16} color="#FFFFFF" />
+        <Ionicons name={icon} size={16} color={colors.onPrimary} />
       </View>
       <Text style={styles.summaryTitle}>{title}</Text>
       <Text style={[styles.summaryValue, { color: accent }]}>{value}</Text>
+    </View>
+  );
+}
+
+type ProgressRingProps = {
+  progress: number;
+  size: number;
+  strokeWidth: number;
+};
+
+function ProgressRing({ progress, size, strokeWidth }: Readonly<ProgressRingProps>) {
+  const clamped = Math.max(0, Math.min(1, progress));
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - clamped);
+
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.progressTrack}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.primaryContainer}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={dashOffset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          fill="none"
+        />
+      </Svg>
+      <View style={styles.progressLabel}>
+        <Text style={styles.progressText}>{Math.round(clamped * 100)}%</Text>
+      </View>
     </View>
   );
 }
@@ -181,7 +225,7 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     overflow: "hidden",
-    backgroundColor: "#DDE9F2",
+    backgroundColor: colors.surfaceContainerHigh,
   },
   avatarImage: {
     width: "100%",
@@ -306,14 +350,14 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 20,
     lineHeight: 24,
-    color: "#222222",
+    color: colors.onSurface,
     fontWeight: "900",
   },
   taskDescription: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 20,
-    color: "#6D6D6D",
+    color: colors.tertiary,
     fontWeight: "500",
   },
   tagRow: {
@@ -329,74 +373,65 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   priorityTag: {
-    backgroundColor: "#FFF1F1",
+    backgroundColor: colors.errorSoft,
   },
   categoryTag: {
-    backgroundColor: "#F26C1F",
+    backgroundColor: colors.primaryContainer,
   },
   priorityTagText: {
-    color: "#FF4D4D",
+    color: colors.errorStrong,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.7,
   },
   categoryTagText: {
-    color: "#FFFFFF",
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },
   progressWrap: {
-    width: 70,
+    width: 64,
+    height: 64,
     alignItems: "center",
     justifyContent: "center",
   },
-  progressRingOuter: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    borderWidth: 4,
-    borderColor: "#F26C1F",
+  progressLabel: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     alignItems: "center",
     justifyContent: "center",
-  },
-  progressRingInner: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 4,
-    borderColor: "#E8E8E8",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
   },
   progressText: {
-    color: "#F26C1F",
+    color: colors.primaryContainer,
     fontSize: 12,
     fontWeight: "800",
   },
   actionButton: {
     height: 46,
     borderWidth: 1.5,
-    borderColor: "#F26C1F",
+    borderColor: colors.primaryContainer,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
   },
   actionButtonText: {
-    color: "#F26C1F",
+    color: colors.primaryContainer,
     fontSize: 15,
     fontWeight: "800",
   },
   reminderCard: {
     height: 58,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surfaceContainerLowest,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#000",
+    shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -411,13 +446,13 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#FFF4E9",
+    backgroundColor: colors.surfaceWarm,
     alignItems: "center",
     justifyContent: "center",
   },
   reminderText: {
     fontSize: 15,
-    color: "#222222",
+    color: colors.onSurface,
     fontWeight: "700",
   },
   fab: {

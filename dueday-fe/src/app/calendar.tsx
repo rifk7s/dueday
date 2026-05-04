@@ -1,6 +1,7 @@
 import { colors, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type DayChip = {
   day: string;
@@ -133,7 +134,7 @@ export default function CalendarScreen() {
   );
 }
 
-function ScheduleCard({ item }: { item: ScheduleItem }) {
+function ScheduleCard({ item }: Readonly<{ item: ScheduleItem }>) {
   const top = (item.startHour - START_HOUR) * SLOT_HEIGHT + 24;
   const height = (item.endHour - item.startHour) * SLOT_HEIGHT + 28;
 
@@ -183,7 +184,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#000",
+    shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
   },
   dateChipInactive: {
     backgroundColor: colors.surfaceContainerLowest,
-    borderColor: "#d9c4b7",
+    borderColor: colors.outlineVariant,
   },
   dateText: {
     fontSize: typography.bodySm.fontSize,
@@ -278,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: "500",
-    color: "#5f544d",
+    color: colors.onSurfaceVariant,
   },
   dashedRow: {
     flexDirection: "row",
