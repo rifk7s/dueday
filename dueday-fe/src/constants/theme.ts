@@ -66,6 +66,13 @@ export const colors = {
   // Semantic
   success: "#12a14f",
   warning: "#f97316",
+  surfaceWarm: "#fff7ed",
+  surfaceSuccess: "#f0fdf4",
+  errorSoft: "#fef2f2",
+  errorStrong: "#ef4444",
+  iconMuted: "#a5a5a5",
+  iconSubtle: "#b9b9b9",
+  progressTrack: "#e5e7eb",
 } as const;
 
 export const typography = {

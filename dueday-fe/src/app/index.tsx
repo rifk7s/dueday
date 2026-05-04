@@ -57,14 +57,14 @@ export default function App() {
             icon="time-outline"
             title="Belum Dikerjakan"
             value="10"
-            background="#FFF4E9"
+            background={colors.surfaceWarm}
           />
           <SummaryCard
             accent={colors.success}
             icon="checkmark-circle"
             title="Selesai"
             value="5"
-            background="#EBF9EF"
+            background={colors.surfaceSuccess}
           />
         </View>
 
@@ -80,7 +80,7 @@ export default function App() {
               <Ionicons name="warning-outline" size={16} color={colors.error} />
               <Text style={styles.deadlineText}>30 April 2026 | 18.00</Text>
             </View>
-            <Ionicons name="ellipsis-vertical" size={18} color="#A5A5A5" />
+            <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
           </View>
 
           <View style={styles.taskMainRow}>
@@ -115,7 +115,7 @@ export default function App() {
             </View>
             <Text style={styles.reminderText}>Pengingat Saya</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#B9B9B9" />
+          <Ionicons name="chevron-forward" size={20} color={colors.iconSubtle} />
         </View>
       </ScrollView>
 
@@ -138,7 +138,7 @@ function SummaryCard({ accent, icon, title, value, background }: Readonly<Summar
   return (
     <View style={[styles.summaryCard, { backgroundColor: background }]}>
       <View style={[styles.summaryIconWrap, { backgroundColor: accent }]}>
-        <Ionicons name={icon} size={16} color="#FFFFFF" />
+        <Ionicons name={icon} size={16} color={colors.onPrimary} />
       </View>
       <Text style={styles.summaryTitle}>{title}</Text>
       <Text style={[styles.summaryValue, { color: accent }]}>{value}</Text>
@@ -165,7 +165,7 @@ function ProgressRing({ progress, size, strokeWidth }: Readonly<ProgressRingProp
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#E5E7EB"
+          stroke={colors.progressTrack}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -173,7 +173,7 @@ function ProgressRing({ progress, size, strokeWidth }: Readonly<ProgressRingProp
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#F26C1F"
+          stroke={colors.primaryContainer}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={`${circumference} ${circumference}`}
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     overflow: "hidden",
-    backgroundColor: "#DDE9F2",
+    backgroundColor: colors.surfaceContainerHigh,
   },
   avatarImage: {
     width: "100%",
@@ -350,14 +350,14 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 20,
     lineHeight: 24,
-    color: "#222222",
+    color: colors.onSurface,
     fontWeight: "900",
   },
   taskDescription: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 20,
-    color: "#6D6D6D",
+    color: colors.tertiary,
     fontWeight: "500",
   },
   tagRow: {
@@ -373,19 +373,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   priorityTag: {
-    backgroundColor: "#FFF1F1",
+    backgroundColor: colors.errorSoft,
   },
   categoryTag: {
-    backgroundColor: "#F26C1F",
+    backgroundColor: colors.primaryContainer,
   },
   priorityTagText: {
-    color: "#FF4D4D",
+    color: colors.errorStrong,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.7,
   },
   categoryTagText: {
-    color: "#FFFFFF",
+    color: colors.onPrimary,
     fontSize: 12,
     fontWeight: "800",
   },
@@ -405,33 +405,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   progressText: {
-    color: "#F26C1F",
+    color: colors.primaryContainer,
     fontSize: 12,
     fontWeight: "800",
   },
   actionButton: {
     height: 46,
     borderWidth: 1.5,
-    borderColor: "#F26C1F",
+    borderColor: colors.primaryContainer,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
   },
   actionButtonText: {
-    color: "#F26C1F",
+    color: colors.primaryContainer,
     fontSize: 15,
     fontWeight: "800",
   },
   reminderCard: {
     height: 58,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surfaceContainerLowest,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: "#000",
+    shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -446,13 +446,13 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#FFF4E9",
+    backgroundColor: colors.surfaceWarm,
     alignItems: "center",
     justifyContent: "center",
   },
   reminderText: {
     fontSize: 15,
-    color: "#222222",
+    color: colors.onSurface,
     fontWeight: "700",
   },
   fab: {

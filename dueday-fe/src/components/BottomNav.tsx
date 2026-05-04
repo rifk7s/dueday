@@ -53,7 +53,7 @@ export default function BottomNav({ state, navigation }: Readonly<BottomTabBarPr
           style={[styles.activeBubble, { transform: [{ translateX: bubbleX }] }]}
         >
           <View style={styles.activeDisc}>
-                <MaterialCommunityIcons name={getActiveIcon(state.index)} size={28} color="#FFFFFF" />
+            <MaterialCommunityIcons name={getActiveIcon(state.index)} size={28} color={colors.onPrimary} />
           </View>
         </Animated.View>
 
@@ -120,7 +120,7 @@ function TabButton({ icon, focused, onPress, onLayout }: Readonly<TabButtonProps
       style={styles.tabButton}
     >
       <View style={[styles.iconSlot, focused && styles.hiddenIcon]}>
-        <MaterialCommunityIcons name={icon} size={24} color="#FFFFFF" />
+        <MaterialCommunityIcons name={icon} size={24} color={colors.onPrimary} />
       </View>
     </Pressable>
   );
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryContainer,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
-    shadowColor: "#000",
+    shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
