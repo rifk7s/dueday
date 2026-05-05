@@ -21,7 +21,6 @@ return new class extends Migration
             $table->string('nim')->nullable();
             $table->enum('status', ['Subscribed', 'Unsubscribed'])->default('Unsubscribed');
             $table->enum('language', ['Indonesia', 'English'])->default('Indonesia');
-            $table->string('theme')->nullable();
             $table->text('google_access_token')->nullable();
             $table->text('google_refresh_token')->nullable();
             $table->timestamp('created_at')->nullable();
