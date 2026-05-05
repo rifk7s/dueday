@@ -1,9 +1,11 @@
 import { colors, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useState } from "react";
 import {
+  Animated,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +19,67 @@ export default function App() {
   const { top, bottom } = useSafeAreaInsets();
   const bottomBarHeight = 78;
   const fabBottom = bottomBarHeight + 12;
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const backdropOpacity = React.useRef(new Animated.Value(0)).current;
+  const actionOneProgress = React.useRef(new Animated.Value(0)).current;
+  const actionTwoProgress = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    if (overlayOpen) {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+        Animated.stagger(70, [
+          Animated.timing(actionOneProgress, {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+          Animated.timing(actionTwoProgress, {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start();
+      return;
+    }
+
+    backdropOpacity.setValue(0);
+    actionOneProgress.setValue(0);
+    actionTwoProgress.setValue(0);
+  }, [actionOneProgress, actionTwoProgress, backdropOpacity, overlayOpen]);
+
+  function toggleOverlay(): void {
+    setOverlayOpen((current) => !current);
+  }
+
+  function closeOverlay(): void {
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionOneProgress, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionTwoProgress, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) {
+        setOverlayOpen(false);
+      }
+    });
+  }
 
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
@@ -119,10 +182,71 @@ export default function App() {
         </View>
       </ScrollView>
 
-      <Pressable style={[styles.fab, { bottom: fabBottom }]} accessibilityRole="button" accessibilityLabel="Add new task">
-        <Ionicons name="add" size={32} color={colors.surfaceContainerLowest} />
+      <Modal
+        animationType="fade"
+        transparent
+        visible={overlayOpen}
+        statusBarTranslucent
+        onRequestClose={closeOverlay}
+      >
+        <View style={styles.overlayRoot}>
+          <Pressable style={styles.overlayBackdrop} onPress={closeOverlay} />
+
+          <View style={[styles.overlayActions, { bottom: fabBottom + 64 }]}>
+            <OverlayActionButton
+              progress={actionOneProgress}
+              icon="document-text-outline"
+              label="Buat Tugas"
+              onPress={closeOverlay}
+            />
+            <OverlayActionButton
+              progress={actionTwoProgress}
+              icon="flash-outline"
+              label="Buat Aktivitas"
+              onPress={closeOverlay}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <Pressable
+        style={[styles.fab, { bottom: fabBottom }]}
+        accessibilityRole="button"
+        accessibilityLabel={overlayOpen ? "Close quick actions" : "Add new task"}
+        onPress={toggleOverlay}
+      >
+        <Ionicons name={overlayOpen ? "close" : "add"} size={32} color={colors.surfaceContainerLowest} />
       </Pressable>
     </View>
+  );
+}
+
+type OverlayActionButtonProps = {
+  progress: Animated.Value;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  onPress: () => void;
+};
+
+function OverlayActionButton({ progress, icon, label, onPress }: Readonly<OverlayActionButtonProps>) {
+  const translateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [18, 0],
+  });
+
+  const opacity = progress;
+
+  return (
+    <Animated.View style={[styles.overlayActionRow, { opacity, transform: [{ translateY }] }]}>
+      <Pressable accessibilityRole="button" onPress={onPress} style={styles.overlayActionButton}>
+        <View style={styles.overlayActionLabelWrap}>
+          <Text style={styles.overlayActionLabel}>{label}</Text>
+        </View>
+        <View style={styles.overlayActionIconWrap}>
+          <Ionicons name={icon} size={18} color={colors.onPrimary} />
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -470,5 +594,64 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  overlayRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  overlayBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.inverseSurface,
+    opacity: 0.72,
+  },
+  overlayActions: {
+    position: "absolute",
+    right: 27, // align action icons above FAB center (FAB right:20, FAB width 56, action icon width 42)
+    gap: 12,
+    flexDirection: "column-reverse", // stack actions upwards from the FAB
+    bottom: 100, // raise actions so they don't overlap the FAB; adjust if needed
+  },
+  overlayActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  overlayActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  overlayActionLabelWrap: {
+    minHeight: 40,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    backgroundColor: colors.inverseSurface,
+    shadowColor: colors.onSurface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  overlayActionLabel: {
+    color: colors.onPrimary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  overlayActionIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.primaryContainer,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });
