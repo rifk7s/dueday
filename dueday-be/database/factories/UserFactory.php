@@ -33,22 +33,11 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'nim' => fake()->numerify('0806#########'),
             'status' => 'Unsubscribed',
-            'language' => 'en',
-            'theme' => null,
+            'language' => 'Indonesia',
             'google_access_token' => null,
             'google_refresh_token' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ];
-    }
-
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
-    public function unverified(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
-        ]);
     }
 }
