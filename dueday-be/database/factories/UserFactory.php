@@ -33,7 +33,7 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'nim' => fake()->numerify('0806#########'),
             'status' => 'Unsubscribed',
-            'language' => 'en',
+            'language' => 'Indonesia',
             'theme' => null,
             'google_access_token' => null,
             'google_refresh_token' => null,

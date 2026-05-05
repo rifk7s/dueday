@@ -18,7 +18,6 @@ class DatabaseSeeder extends Seeder
         // User::factory(10)->create();
 
         User::factory()->create([
-            'id' => 'b6e2e1e2-1234-4cde-9a1a-0806022410020',
             'username' => 'bglorychen',
             'nickname' => 'brit',
             'name' => 'britney',
