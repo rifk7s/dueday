@@ -1,18 +1,23 @@
 import DatePickerCalendar from "@/components/DatePickerCalendar";
 import TimePicker from "@/components/TimePicker";
 import { colors } from "@/constants/theme";
+import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
     Pressable,
-    SafeAreaView,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
     View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import Animated, {
+    Extrapolation,
+    interpolate,
+    useAnimatedStyle,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
@@ -21,6 +26,7 @@ type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tanggal Tertent
 export default function CreateActivityPage() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
+  const { height } = useGradualAnimation();
 
   const [namaaktivitas, setNamaaktivitas] = useState("");
   const [tanggal, setTanggal] = useState("");
@@ -34,54 +40,45 @@ export default function CreateActivityPage() {
   const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-  const repeatOptions: RepeatType[] = [
-    "Tidak",
-    "Harian",
-    "Mingguan",
-    "Bulanan",
-    "Tanggal Tertentu",
-  ];
+  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tanggal Tertentu"];
 
   const isTagSelected = (t: TagType): boolean => tag === t;
   const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
 
   const handleSave = () => {
-    console.log({
-      namaaktivitas,
-      tanggal,
-      jamMulai,
-      jamSelesai,
-      tag,
-      repeat,
-      deskripsi,
-    });
+    console.log({ namaaktivitas, tanggal, jamMulai, jamSelesai, tag, repeat, deskripsi });
   };
 
+  // Footer slides up with keyboard. paddingBottom shrinks to 16 when keyboard
+  // is open because e.height already includes the bottom safe area inset.
+  const footerAnimatedStyle = useAnimatedStyle(() => ({
+    bottom: height.value,
+    paddingBottom: interpolate(
+      height.value,
+      [0, 1],
+      [bottom + 16, 16],
+      Extrapolation.CLAMP
+    ),
+  }));
+
   return (
-    <SafeAreaView style={[styles.safeArea, { paddingTop: top }]}>
-      {/* Header */}
+    <View style={[styles.root, { paddingTop: top }]}>
       <View style={styles.header}>
-        <Pressable
-          style={styles.backButtonIcon}
-          onPress={() => router.back()}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={28}
-            color={colors.primaryContainer}
-          />
+        <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.headerTitle}>Buat Aktivitas</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Form Content */}
-      <ScrollView
+      {/* bottomOffset keeps the focused field above the footer */}
+      <KeyboardAwareScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingBottom: 20 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: bottom + 90 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={80}
       >
-        {/* Nama Aktivitas */}
         <View style={styles.section}>
           <Text style={styles.label}>Nama Aktivitas</Text>
           <TextInput
@@ -93,31 +90,16 @@ export default function CreateActivityPage() {
           />
         </View>
 
-        {/* Tanggal */}
         <View style={styles.section}>
           <Text style={styles.label}>Tanggal</Text>
-          <Pressable
-            style={styles.dateTimeContainer}
-            onPress={() => setShowCalendar(true)}
-          >
-            <Ionicons
-              name="calendar-outline"
-              size={20}
-              color={colors.primaryContainer}
-              style={styles.dateIcon}
-            />
-            <Text
-              style={[
-                styles.dateTimeText,
-                !tanggal && styles.dateTimePlaceholder,
-              ]}
-            >
+          <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
+            <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
+            <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
               {tanggal || "Pilih tanggal"}
             </Text>
           </Pressable>
         </View>
 
-        {/* Waktu */}
         <View style={styles.section}>
           <Text style={styles.label}>Waktu</Text>
           <View style={styles.timeRow}>
@@ -125,18 +107,8 @@ export default function CreateActivityPage() {
               style={[styles.dateTimeContainer, styles.timeContainer]}
               onPress={() => setShowTimePickerMulai(true)}
             >
-              <Ionicons
-                name="time-outline"
-                size={20}
-                color={colors.primaryContainer}
-                style={styles.dateIcon}
-              />
-              <Text
-                style={[
-                  styles.dateTimeText,
-                  !jamMulai && styles.dateTimePlaceholder,
-                ]}
-              >
+              <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
+              <Text style={[styles.dateTimeText, !jamMulai && styles.dateTimePlaceholder]}>
                 {jamMulai || "Mulai"}
               </Text>
             </Pressable>
@@ -144,25 +116,14 @@ export default function CreateActivityPage() {
               style={[styles.dateTimeContainer, styles.timeContainer]}
               onPress={() => setShowTimePickerSelesai(true)}
             >
-              <Ionicons
-                name="time-outline"
-                size={20}
-                color={colors.primaryContainer}
-                style={styles.dateIcon}
-              />
-              <Text
-                style={[
-                  styles.dateTimeText,
-                  !jamSelesai && styles.dateTimePlaceholder,
-                ]}
-              >
+              <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
+              <Text style={[styles.dateTimeText, !jamSelesai && styles.dateTimePlaceholder]}>
                 {jamSelesai || "Selesai"}
               </Text>
             </Pressable>
           </View>
         </View>
 
-        {/* Tag */}
         <View style={styles.section}>
           <Text style={styles.label}>Tag</Text>
           <View style={styles.chipsRow}>
@@ -170,25 +131,9 @@ export default function CreateActivityPage() {
               <Pressable
                 key={t}
                 onPress={() => setTag(tag === t ? null : t)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: isTagSelected(t)
-                      ? colors.primaryContainer
-                      : colors.surfaceContainerLow,
-                  },
-                ]}
+                style={[styles.chip, { backgroundColor: isTagSelected(t) ? colors.primaryContainer : colors.surfaceContainerLow }]}
               >
-                <Text
-                  style={[
-                    styles.chipText,
-                    {
-                      color: isTagSelected(t)
-                        ? colors.onPrimary
-                        : colors.onSurfaceVariant,
-                    },
-                  ]}
-                >
+                <Text style={[styles.chipText, { color: isTagSelected(t) ? colors.onPrimary : colors.onSurfaceVariant }]}>
                   {t}
                 </Text>
               </Pressable>
@@ -196,7 +141,6 @@ export default function CreateActivityPage() {
           </View>
         </View>
 
-        {/* Ulangi */}
         <View style={styles.section}>
           <Text style={styles.label}>Ulangi</Text>
           <View style={styles.chipsRow}>
@@ -204,25 +148,9 @@ export default function CreateActivityPage() {
               <Pressable
                 key={r}
                 onPress={() => setRepeat(repeat === r ? null : r)}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: isRepeatSelected(r)
-                      ? colors.primaryContainer
-                      : colors.surfaceContainerLow,
-                  },
-                ]}
+                style={[styles.chip, { backgroundColor: isRepeatSelected(r) ? colors.primaryContainer : colors.surfaceContainerLow }]}
               >
-                <Text
-                  style={[
-                    styles.chipText,
-                    {
-                      color: isRepeatSelected(r)
-                        ? colors.onPrimary
-                        : colors.onSurfaceVariant,
-                    },
-                  ]}
-                >
+                <Text style={[styles.chipText, { color: isRepeatSelected(r) ? colors.onPrimary : colors.onSurfaceVariant }]}>
                   {r}
                 </Text>
               </Pressable>
@@ -230,7 +158,6 @@ export default function CreateActivityPage() {
           </View>
         </View>
 
-        {/* Deskripsi */}
         <View style={styles.section}>
           <Text style={styles.label}>Deskripsi</Text>
           <TextInput
@@ -240,47 +167,42 @@ export default function CreateActivityPage() {
             value={deskripsi}
             onChangeText={setDeskripsi}
             multiline
-            numberOfLines={4}
+            textAlignVertical="top"
           />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
-      {/* Save Button */}
-      <View style={[styles.footer, { paddingBottom: bottom + 16 }]}>
+      {/* Absolutely positioned footer — slides up in sync with keyboard */}
+      <Animated.View style={[styles.footer, footerAnimatedStyle]}>
         <Pressable style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Simpan</Text>
         </Pressable>
-      </View>
+      </Animated.View>
 
-      {/* Date Picker Calendar */}
       <DatePickerCalendar
         visible={showCalendar}
         onClose={() => setShowCalendar(false)}
         onDateSelect={setTanggal}
         selectedDate={tanggal}
       />
-
-      {/* Time Picker Mulai */}
       <TimePicker
         visible={showTimePickerMulai}
         onClose={() => setShowTimePickerMulai(false)}
         onTimeSelect={setJamMulai}
         selectedTime={jamMulai}
       />
-
-      {/* Time Picker Selesai */}
       <TimePicker
         visible={showTimePickerSelesai}
         onClose={() => setShowTimePickerSelesai(false)}
         onTimeSelect={setJamSelesai}
         selectedTime={jamSelesai}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
     backgroundColor: colors.background,
   },
@@ -333,7 +255,6 @@ const styles = StyleSheet.create({
   },
   descriptionInput: {
     minHeight: 100,
-    textAlignVertical: "top",
     paddingTop: 12,
   },
   dateTimeContainer: {
@@ -345,7 +266,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: colors.surfaceContainerLowest,
     marginBottom: 12,
-    width: "100%",
   },
   dateIcon: {
     marginRight: 8,
@@ -383,6 +303,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
     paddingHorizontal: 16,
     paddingTop: 12,
     backgroundColor: colors.background,
@@ -401,9 +324,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: colors.onPrimary,
-  },
-  blankContent: {
-    flex: 1,
-    backgroundColor: colors.background,
   },
 });
