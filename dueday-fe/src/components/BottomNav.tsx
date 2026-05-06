@@ -44,7 +44,7 @@ export default function BottomNav({ state, navigation }: Readonly<BottomTabBarPr
     }
   }, [bubbleX, layouts, state.index]);
 
-  if (pathname?.startsWith("/list")) {
+  if (pathname?.startsWith("/list") || pathname?.startsWith("/create-task")) {
     return null;
   }
 

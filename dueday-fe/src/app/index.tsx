@@ -199,7 +199,10 @@ export default function App() {
               progress={actionOneProgress}
               icon="document-text-outline"
               label="Buat Tugas"
-              onPress={closeOverlay}
+              onPress={() => {
+                closeOverlay();
+                router.push("/create-task");
+              }}
             />
             <OverlayActionButton
               progress={actionTwoProgress}
