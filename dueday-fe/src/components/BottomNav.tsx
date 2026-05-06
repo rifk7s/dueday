@@ -1,7 +1,6 @@
 import { colors } from "@/constants/theme";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { usePathname } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, LayoutChangeEvent, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,7 +14,6 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export default function BottomNav({ state, navigation }: Readonly<BottomTabBarProps>) {
   const { bottom } = useSafeAreaInsets();
-  const pathname = usePathname();
   const bottomInset = Math.min(bottom, 12);
   const translateY = useRef(new Animated.Value(TAB_HEIGHT + bottomInset + 24)).current;
   const bubbleX = useRef(new Animated.Value(0)).current;
@@ -43,10 +41,6 @@ export default function BottomNav({ state, navigation }: Readonly<BottomTabBarPr
       }).start();
     }
   }, [bubbleX, layouts, state.index]);
-
-  if (pathname?.startsWith("/list") || pathname?.startsWith("/create-task")) {
-    return null;
-  }
 
   return (
     <Animated.View
