@@ -208,7 +208,10 @@ export default function App() {
               progress={actionTwoProgress}
               icon="flash-outline"
               label="Buat Aktivitas"
-              onPress={closeOverlay}
+              onPress={() => {
+                closeOverlay();
+                router.push("/create-activity");
+              }}
             />
           </View>
         </View>
