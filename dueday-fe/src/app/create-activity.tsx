@@ -20,40 +20,33 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type PriorityType = "Tinggi" | "Sedang" | "Rendah" | null;
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
 type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tanggal Tertentu";
 
-export default function CreateTaskPage() {
+export default function CreateActivityPage() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
 
-  const [namatugas, setNamaTugas] = useState("");
+  const [namaaktivitas, setNamaaktivitas] = useState("");
   const [tanggal, setTanggal] = useState("");
-  const [jam, setJam] = useState("");
-  const [prioritas, setPrioritas] = useState<PriorityType>(null);
+  const [jamMulai, setJamMulai] = useState("");
+  const [jamSelesai, setJamSelesai] = useState("");
   const [tag, setTag] = useState<TagType | null>(null);
   const [repeat, setRepeat] = useState<RepeatType | null>(null);
   const [deskripsi, setDeskripsi] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showTimePickerMulai, setShowTimePickerMulai] = useState(false);
+  const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
   const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tanggal Tertentu"];
 
-  const getPriorityColor = (priority: PriorityType) => {
-    if (priority === "Tinggi") return colors.error;
-    if (priority === "Sedang") return colors.primaryContainer;
-    if (priority === "Rendah") return colors.success;
-    return colors.surfaceContainerLow;
-  };
-
-  const isTagSelected = (t: TagType) => tag === t;
-  const isRepeatSelected = (r: RepeatType) => repeat === r;
+  const isTagSelected = (t: TagType): boolean => tag === t;
+  const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
 
   const handleSave = () => {
-    console.log({ namatugas, tanggal, jam, prioritas, tag, repeat, deskripsi });
+    console.log({ namaaktivitas, tanggal, jamMulai, jamSelesai, tag, repeat, deskripsi });
   };
 
   // Footer slides up with keyboard. paddingBottom shrinks to 16 when keyboard
@@ -74,7 +67,7 @@ export default function CreateTaskPage() {
         <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Buat Tugas</Text>
+        <Text style={styles.headerTitle}>Buat Aktivitas</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -87,61 +80,53 @@ export default function CreateTaskPage() {
         bottomOffset={80}
       >
         <View style={styles.section}>
-          <Text style={styles.label}>Nama Tugas</Text>
+          <Text style={styles.label}>Nama Aktivitas</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Laporan RPL Bab 3"
+            placeholder="Contoh: Olahraga pagi"
             placeholderTextColor={colors.iconMuted}
-            value={namatugas}
-            onChangeText={setNamaTugas}
+            value={namaaktivitas}
+            onChangeText={setNamaaktivitas}
           />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Tanggal Waktu</Text>
+          <Text style={styles.label}>Tanggal</Text>
           <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
             <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
               {tanggal || "Pilih tanggal"}
             </Text>
           </Pressable>
-          <Pressable style={styles.dateTimeContainer} onPress={() => setShowTimePicker(true)}>
-            <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
-            <Text style={[styles.dateTimeText, !jam && styles.dateTimePlaceholder]}>
-              {jam || "Pilih waktu"}
-            </Text>
-          </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Prioritas</Text>
-          <View style={styles.chipRow}>
-            {(["Tinggi", "Sedang", "Rendah"] as const).map((priority) => {
-              const isSelected = prioritas === priority;
-              const priorityColor = getPriorityColor(priority);
-              return (
-                <Pressable
-                  key={priority}
-                  onPress={() => setPrioritas(prioritas === priority ? null : priority)}
-                  style={[
-                    styles.chip,
-                    isSelected
-                      ? { backgroundColor: priorityColor }
-                      : { backgroundColor: "transparent", borderWidth: 2, borderColor: priorityColor },
-                  ]}
-                >
-                  <Text style={[styles.chipText, { color: isSelected ? colors.onPrimary : priorityColor }]}>
-                    {priority}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <Text style={styles.label}>Waktu</Text>
+          <View style={styles.timeRow}>
+            <Pressable
+              style={[styles.dateTimeContainer, styles.timeContainer]}
+              onPress={() => setShowTimePickerMulai(true)}
+            >
+              <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
+              <Text style={[styles.dateTimeText, !jamMulai && styles.dateTimePlaceholder]}>
+                {jamMulai || "Mulai"}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.dateTimeContainer, styles.timeContainer]}
+              onPress={() => setShowTimePickerSelesai(true)}
+            >
+              <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
+              <Text style={[styles.dateTimeText, !jamSelesai && styles.dateTimePlaceholder]}>
+                {jamSelesai || "Selesai"}
+              </Text>
+            </Pressable>
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>Tag</Text>
-          <View style={styles.chipRow}>
+          <View style={styles.chipsRow}>
             {tagOptions.map((t) => (
               <Pressable
                 key={t}
@@ -158,7 +143,7 @@ export default function CreateTaskPage() {
 
         <View style={styles.section}>
           <Text style={styles.label}>Ulangi</Text>
-          <View style={styles.chipRow}>
+          <View style={styles.chipsRow}>
             {repeatOptions.map((r) => (
               <Pressable
                 key={r}
@@ -177,7 +162,7 @@ export default function CreateTaskPage() {
           <Text style={styles.label}>Deskripsi</Text>
           <TextInput
             style={[styles.input, styles.descriptionInput]}
-            placeholder="Catatan tambahan (opsional)..."
+            placeholder="Catatan (opsional)..."
             placeholderTextColor={colors.iconMuted}
             value={deskripsi}
             onChangeText={setDeskripsi}
@@ -201,10 +186,16 @@ export default function CreateTaskPage() {
         selectedDate={tanggal}
       />
       <TimePicker
-        visible={showTimePicker}
-        onClose={() => setShowTimePicker(false)}
-        onTimeSelect={setJam}
-        selectedTime={jam}
+        visible={showTimePickerMulai}
+        onClose={() => setShowTimePickerMulai(false)}
+        onTimeSelect={setJamMulai}
+        selectedTime={jamMulai}
+      />
+      <TimePicker
+        visible={showTimePickerSelesai}
+        onClose={() => setShowTimePickerSelesai(false)}
+        onTimeSelect={setJamSelesai}
+        selectedTime={jamSelesai}
       />
     </View>
   );
@@ -288,7 +279,15 @@ const styles = StyleSheet.create({
   dateTimePlaceholder: {
     color: colors.iconMuted,
   },
-  chipRow: {
+  timeRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  timeContainer: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
