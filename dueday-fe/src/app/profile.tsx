@@ -10,13 +10,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TaskStat = {
   label: string;
   value: string;
   color: string;
-  background: string;
 };
 
 type SettingItem = {
@@ -27,29 +26,14 @@ type SettingItem = {
 };
 
 const taskStats: TaskStat[] = [
-  {
-    label: "Selesai",
-    value: "17",
-    color: colors.success,
-    background: colors.surfaceSuccess,
-  },
-  {
-    label: "Berlangsung",
-    value: "3",
-    color: colors.warning,
-    background: colors.surfaceWarm,
-  },
-  {
-    label: "Terlambat",
-    value: "1",
-    color: colors.errorStrong,
-    background: colors.errorSoft,
-  },
+  { label: "Selesai", value: "17", color: colors.success },
+  { label: "Berlangsung", value: "3", color: colors.warning },
+  { label: "Terlambat", value: "1", color: colors.errorStrong },
 ];
 
 const settings: SettingItem[] = [
   {
-    icon: "language-outline",
+    icon: "globe-outline",
     label: "Bahasa",
     value: "Indonesia",
   },
@@ -66,8 +50,9 @@ const settings: SettingItem[] = [
 ];
 
 export default function ProfileScreen(): React.JSX.Element {
+  const { top } = useSafeAreaInsets();
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: top }]}>
       <StatusBar style="dark" />
       <ScrollView
         style={styles.container}
@@ -113,8 +98,11 @@ export default function ProfileScreen(): React.JSX.Element {
           </View>
 
           <View style={styles.statRow}>
-            {taskStats.map((item) => (
-              <StatCard key={item.label} item={item} />
+            {taskStats.map((item, index) => (
+              <React.Fragment key={item.label}>
+                {index > 0 && <View style={styles.statDivider} />}
+                <StatCard item={item} />
+              </React.Fragment>
             ))}
           </View>
         </View>
@@ -133,13 +121,13 @@ export default function ProfileScreen(): React.JSX.Element {
           <Text style={styles.logoutText}>Logout</Text>
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 function StatCard({ item }: Readonly<{ item: TaskStat }>): React.JSX.Element {
   return (
-    <View style={[styles.statCard, { backgroundColor: item.background }]}>
+    <View style={styles.statCard}>
       <Text style={[styles.statValue, { color: item.color }]}>{item.value}</Text>
       <Text style={styles.statLabel}>{item.label}</Text>
     </View>
@@ -182,19 +170,10 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     minHeight: 52,
-    backgroundColor: colors.surfaceContainerLowest,
-    paddingHorizontal: 12,
+    paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: colors.onSurface,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 10,
-    marginBottom: 16,
-    borderRadius: 18,
   },
   headerIconButton: {
     width: 36,
@@ -290,15 +269,19 @@ const styles = StyleSheet.create({
   },
   statRow: {
     flexDirection: "row",
-    gap: 10,
+    alignItems: "stretch",
   },
   statCard: {
     flex: 1,
-    borderRadius: 16,
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 92,
+    minHeight: 80,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.outlineVariant,
+    marginVertical: 10,
   },
   statValue: {
     fontSize: 28,

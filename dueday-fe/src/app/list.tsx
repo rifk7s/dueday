@@ -82,7 +82,7 @@ export default function ListPage() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {shouldShowCard("Kuliah", "open") && <TaskCard progress={0.5} />}
         {shouldShowCard("Kuliah", "open") && <TaskCard accentColor={colors.success} stateText="SEDANG" progress={0.5} />}
-        {shouldShowCard("Kuliah", "open") && <TaskCard accentColor={colors.surfaceWarm} stateText="RENDah" progress={0.5} />}
+        {shouldShowCard("Kuliah", "open") && <TaskCard accentColor={colors.surfaceWarm} stateText="RENDAH" progress={0.5} />}
         {shouldShowCard("Pekerjaan", "done") && (
           <TaskCard
             accentColor={colors.success}
