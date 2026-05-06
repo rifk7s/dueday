@@ -1,7 +1,7 @@
 import { colors, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type DayChip = {
   day: string;
@@ -59,8 +59,9 @@ const SLOT_HEIGHT = 72;
 const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index);
 
 export default function CalendarScreen() {
+  const { top } = useSafeAreaInsets();
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.safeArea, { paddingTop: top }]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -130,7 +131,7 @@ export default function CalendarScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -179,17 +180,10 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     minHeight: 52,
-    backgroundColor: colors.surfaceContainerLowest,
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    shadowColor: colors.onSurface,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 10,
   },
   headerSpacer: {
     width: 22,

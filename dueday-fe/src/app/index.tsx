@@ -1,5 +1,6 @@
 import { colors, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
@@ -17,6 +18,7 @@ import Svg, { Circle } from "react-native-svg";
 
 export default function App() {
   const { top, bottom } = useSafeAreaInsets();
+  const router = useRouter();
   const bottomBarHeight = 78;
   const fabBottom = bottomBarHeight + 12;
   const [overlayOpen, setOverlayOpen] = useState(false);
@@ -167,7 +169,7 @@ export default function App() {
           </View>
         </View>
 
-        <Pressable style={styles.actionButton} accessibilityRole="button">
+        <Pressable style={styles.actionButton} accessibilityRole="button" onPress={() => router.push('/list')}>
           <Text style={styles.actionButtonText}>Lihat List Aktivitas/Tugas</Text>
         </Pressable>
 

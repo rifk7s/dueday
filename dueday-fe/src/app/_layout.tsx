@@ -1,7 +1,7 @@
 import "@/global.css";
 import { Tabs } from "expo-router";
-import BottomNav from "../components/BottomNav";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import BottomNav from "../components/BottomNav";
 
 function renderBottomNav(props: Parameters<typeof BottomNav>[0]) {
   return <BottomNav {...props} />;
