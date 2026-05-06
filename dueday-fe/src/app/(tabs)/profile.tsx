@@ -1,5 +1,6 @@
 import { colors, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
 import {
@@ -51,6 +52,7 @@ const settings: SettingItem[] = [
 
 export default function ProfileScreen(): React.JSX.Element {
   const { top } = useSafeAreaInsets();
+  const router = useRouter();
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <StatusBar style="dark" />
@@ -75,7 +77,7 @@ export default function ProfileScreen(): React.JSX.Element {
           <View style={styles.avatarWrap}>
             <View style={styles.avatarRing}>
               <Image
-                source={require("../../assets/images/react-logo.png")}
+                source={require("../../../assets/images/react-logo.png")}
                 style={styles.avatarImage}
                 resizeMode="cover"
               />
@@ -117,7 +119,7 @@ export default function ProfileScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Pressable style={styles.logoutButton} accessibilityRole="button">
+        <Pressable style={styles.logoutButton} accessibilityRole="button" onPress={() => router.replace("/login")}>
           <Text style={styles.logoutText}>Logout</Text>
         </Pressable>
       </ScrollView>
@@ -165,7 +167,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 0,
     paddingBottom: 120,
   },
   headerRow: {

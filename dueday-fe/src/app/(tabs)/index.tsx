@@ -96,7 +96,7 @@ export default function App() {
             <View style={styles.avatarRing}>
               <View style={styles.avatarInner}>
                 <Image
-                  source={require("../../assets/images/react-logo.png")}
+                  source={require("../../../assets/images/react-logo.png")}
                   style={styles.avatarImage}
                   resizeMode="cover"
                 />
