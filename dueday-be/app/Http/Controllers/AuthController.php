@@ -21,18 +21,14 @@ class AuthController extends Controller
             ->orWhere('email', $request->username)
             ->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'username' => ['The provided credentials are incorrect.'],
             ]);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         return response()->json([
             'message' => 'User has logged in',
-            'access_token' => $token,
-            'token_type' => 'Bearer',
             'user' => $user,
         ]);
     }
