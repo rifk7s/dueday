@@ -37,18 +37,26 @@ eas update --branch production    # Push OTA JS update
 
 ```
 src/
-  app/                    # Expo Router screens (file = route)
-    _layout.tsx           # App shell — imports global.css, sets up navigation
-    index.tsx             # Dashboard / home screen
-    calendar.tsx          # Calendar screen
-    profile.tsx           # Profile screen
+  app/                         # Expo Router screens (file = route)
+    _layout.tsx                # Root Stack layout — imports global.css, no tab bar
+    login.tsx                  # Auth screen — no tab bar
+    list.tsx                   # Task list detail screen — no tab bar
+    list-activity.tsx          # Activity list detail screen — no tab bar
+    (tabs)/                    # Route group — all screens here get BottomNav
+      _layout.tsx              # Tabs layout — mounts BottomNav, declares 3 tab screens
+      index.tsx                # Dashboard / home screen  (route: /)
+      calendar.tsx             # Calendar screen          (route: /calendar)
+      profile.tsx              # Profile screen           (route: /profile)
   components/
-    BottomNav.tsx         # Custom bottom tab bar (not React Navigation default)
+    BottomNav.tsx              # Custom bottom tab bar (only renders inside (tabs)/)
   constants/
-    theme.ts              # Design tokens — ALL colors, typography, spacing live here
-  global.css              # Tailwind + NativeWind entry (imported once in _layout.tsx)
-assets/                   # Images, icons, fonts
+    theme.ts                   # Design tokens — ALL colors, typography, spacing live here
+  global.css                   # Tailwind + NativeWind entry (imported once in root _layout.tsx)
+assets/                        # Images, icons, fonts
 ```
+
+### Why this structure?
+Screens **inside** `(tabs)/` automatically get the BottomNav because it lives in that group's layout. Screens **outside** (login, list, list-activity) never render it — no pathname checks or workarounds needed. The `(tabs)` folder name is excluded from URL paths by Expo Router convention.
 
 Path aliases (`tsconfig.json`):
 - `@/*` → `src/*` (e.g. `@/constants/theme`, `@/components/BottomNav`)
@@ -72,9 +80,12 @@ NativeWind compiles Tailwind CSS v4 into native `StyleSheet` objects at build ti
 
 ## Routing (Expo Router)
 
-- Screens live in `src/app/`. Filename = route path. `_layout.tsx` = layout wrapper.
+- Root `_layout.tsx` is a **Stack** — wraps everything, no tab bar.
+- `(tabs)/_layout.tsx` is a **Tabs** — only the 3 main screens get BottomNav.
+- New screens that need BottomNav → add inside `src/app/(tabs)/`.
+- New screens that should NOT have BottomNav (detail, auth, modal) → add at `src/app/` root.
 - Typed routes are on (`experiments.typedRoutes: true` in `app.json`). Use typed `href` values.
-- Navigate: `router.push('/calendar')` · `router.replace('/')` · `router.back()`
+- Navigate: `router.push('/calendar')` · `router.replace('/login')` · `router.back()`
 - Link component: `<Link href="/profile">Profile</Link>`
 - `BottomNav.tsx` is a fully custom component — not the default React Navigation tab bar.
 

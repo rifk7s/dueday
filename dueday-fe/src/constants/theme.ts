@@ -73,6 +73,7 @@ export const colors = {
   iconMuted: "#a5a5a5",
   iconSubtle: "#b9b9b9",
   progressTrack: "#e5e7eb",
+  inputBorder: "#d1d5db",
 } as const;
 
 export const typography = {
