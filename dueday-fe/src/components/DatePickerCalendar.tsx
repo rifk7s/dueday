@@ -1,0 +1,193 @@
+import { colors } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import {
+    Modal,
+    Pressable,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    View
+} from "react-native";
+
+type DatePickerCalendarProps = {
+  visible: boolean;
+  onClose: () => void;
+  onDateSelect: (date: string) => void;
+  selectedDate?: string;
+};
+
+export default function DatePickerCalendar({
+  visible,
+  onClose,
+  onDateSelect,
+  selectedDate,
+}: Readonly<DatePickerCalendarProps>) {
+  const today = new Date();
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [tempSelectedDate, setTempSelectedDate] = useState<string | undefined>(selectedDate);
+
+  useEffect(() => {
+    if (visible) {
+      setTempSelectedDate(selectedDate);
+    }
+  }, [visible, selectedDate]);
+
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (month: number, year: number) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const monthNames = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+  ];
+
+  const daysInMonth = getDaysInMonth(currentMonth, currentYear);
+  const firstDayOfMonth = getFirstDayOfMonth(currentMonth, currentYear);
+
+  const generateCalendarDays = () => {
+    const days = [];
+    for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    return days;
+  };
+
+  const calendarDays = generateCalendarDays();
+
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(currentYear - 1); }
+    else setCurrentMonth(currentMonth - 1);
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(currentYear + 1); }
+    else setCurrentMonth(currentMonth + 1);
+  };
+
+  const handleDateSelect = (day: number) => {
+    const dateStr = `${day.toString().padStart(2, "0")}/${(currentMonth + 1).toString().padStart(2, "0")}/${currentYear}`;
+    setTempSelectedDate(dateStr);
+  };
+
+  const handleConfirm = () => {
+    if (tempSelectedDate) onDateSelect(tempSelectedDate);
+    setTempSelectedDate(selectedDate);
+    onClose();
+  };
+
+  const handleCancel = () => {
+    setTempSelectedDate(selectedDate);
+    onClose();
+  };
+
+  const isToday = (day: number) =>
+    day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
+
+  const isSelectedDate = (day: number) => {
+    if (!tempSelectedDate) return false;
+    const parts = tempSelectedDate.split("/");
+    if (parts.length === 3) {
+      const [d, m, y] = parts;
+      return parseInt(d) === day && parseInt(m) === currentMonth + 1 && parseInt(y) === currentYear;
+    }
+    return false;
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.content}>
+            <View style={styles.header}>
+              <Pressable onPress={onClose}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+              <Text style={styles.headerTitle}>Pilih Tanggal</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <View style={styles.monthNav}>
+              <Pressable onPress={handlePrevMonth}>
+                <Ionicons name="chevron-back" size={24} color={colors.primaryContainer} />
+              </Pressable>
+              <Text style={styles.monthText}>{monthNames[currentMonth]} {currentYear}</Text>
+              <Pressable onPress={handleNextMonth}>
+                <Ionicons name="chevron-forward" size={24} color={colors.primaryContainer} />
+              </Pressable>
+            </View>
+
+            <View style={styles.dayHeaderRow}>
+              {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day, idx) => (
+                <Text key={idx} style={styles.dayHeaderText}>{day}</Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day, idx) => (
+                <View key={idx} style={styles.dayCell}>
+                  {day ? (
+                    <Pressable
+                      style={[
+                        styles.dayButton,
+                        isToday(day) && styles.todayButton,
+                        isSelectedDate(day) && styles.selectedButton,
+                      ]}
+                      onPress={() => handleDateSelect(day)}
+                    >
+                      <Text
+                        style={[
+                          styles.dayText,
+                          (isToday(day) || isSelectedDate(day)) && styles.dayTextActive,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.footer}>
+              <Pressable style={styles.cancelButton} onPress={handleCancel}>
+                <Text style={styles.cancelText}>Batal</Text>
+              </Pressable>
+              <Pressable style={styles.confirmButton} onPress={handleConfirm}>
+                <Text style={styles.confirmText}>OK</Text>
+              </Pressable>
+            </View>
+          </View>
+        </SafeAreaView>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
+  content: { width: "100%", maxWidth: 400, backgroundColor: colors.surfaceContainerLowest, borderRadius: 16, paddingBottom: 20 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainerLow },
+  headerTitle: { fontSize: 18, fontWeight: "600", color: colors.onSurface },
+  monthNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 },
+  monthText: { fontSize: 16, fontWeight: "600", color: colors.onSurface },
+  dayHeaderRow: { flexDirection: "row", paddingHorizontal: 16, marginBottom: 8 },
+  dayHeaderText: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: "600", color: colors.onSurfaceVariant },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, marginBottom: 16 },
+  dayCell: { width: "14.28%", aspectRatio: 1, justifyContent: "center", alignItems: "center" },
+  dayButton: { width: 40, height: 40, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  todayButton: { backgroundColor: colors.surfaceContainerLow },
+  selectedButton: { backgroundColor: colors.primaryContainer },
+  dayText: { fontSize: 14, fontWeight: "500", color: colors.onSurface },
+  dayTextActive: { color: colors.onPrimary },
+  footer: { flexDirection: "row", gap: 12, paddingHorizontal: 16, marginTop: 8 },
+  cancelButton: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.surfaceContainerLow, alignItems: "center" },
+  cancelText: { fontSize: 14, fontWeight: "600", color: colors.onSurface },
+  confirmButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: colors.primaryContainer, alignItems: "center" },
+  confirmText: { fontSize: 14, fontWeight: "600", color: colors.onPrimary },
+});

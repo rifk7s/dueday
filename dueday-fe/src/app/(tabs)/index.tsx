@@ -199,7 +199,10 @@ export default function App() {
               progress={actionOneProgress}
               icon="document-text-outline"
               label="Buat Tugas"
-              onPress={closeOverlay}
+              onPress={() => {
+                closeOverlay();
+                router.push("/create-task");
+              }}
             />
             <OverlayActionButton
               progress={actionTwoProgress}
@@ -608,10 +611,10 @@ const styles = StyleSheet.create({
   },
   overlayActions: {
     position: "absolute",
-    right: 27, // align action icons above FAB center (FAB right:20, FAB width 56, action icon width 42)
+    right: 27,
     gap: 12,
-    flexDirection: "column-reverse", // stack actions upwards from the FAB
-    bottom: 100, // raise actions so they don't overlap the FAB; adjust if needed
+    flexDirection: "column-reverse",
+    bottom: 100,
   },
   overlayActionRow: {
     flexDirection: "row",
