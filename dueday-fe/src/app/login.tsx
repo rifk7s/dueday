@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -20,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HEIGHT = SCREEN_HEIGHT * 0.47;
+const API_BASE_URL = "http://localhost:8000/api";
 
 const UC_LOGO = require("@/assets/images/logo-uc.png");
 
@@ -29,6 +31,44 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      setError("Please fill in all fields.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setError(data?.message ?? "Login failed. Please try again.");
+        return;
+      }
+
+      router.replace("/");
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -66,6 +106,12 @@ export default function LoginScreen() {
         <Text style={styles.subheading}>
           Selamat datang! Masukkan detail akunmu.
         </Text>
+
+        {error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.form}>
           {/* Username field */}
@@ -127,13 +173,19 @@ export default function LoginScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.loginBtn,
-                pressed && styles.loginBtnPressed,
+                pressed && !loading && styles.loginBtnPressed,
+                loading && styles.loginBtnDisabled,
               ]}
-              onPress={() => router.replace("/")}
+              onPress={handleLogin}
+              disabled={loading}
             >
-              <Text style={styles.loginBtnText}>Masuk</Text>
+              {loading ? (
+                <ActivityIndicator color={colors.onPrimary} />
+              ) : (
+                <Text style={styles.loginBtnText}>Masuk</Text>
+              )}
             </Pressable>
-            <Pressable style={styles.forgotBtn}>
+            <Pressable style={styles.forgotBtn} disabled={loading}>
               <Text style={styles.forgotText}>Lupa Kata Sandi?</Text>
             </Pressable>
           </View>
@@ -256,6 +308,9 @@ const styles = StyleSheet.create({
   loginBtnPressed: {
     opacity: 0.85,
   },
+  loginBtnDisabled: {
+    opacity: 0.7,
+  },
   loginBtnText: {
     fontSize: typography.button.fontSize,
     fontWeight: typography.button.fontWeight,
@@ -268,5 +323,18 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLg.fontSize,
     color: colors.primaryContainer,
     textDecorationLine: "underline",
+  },
+
+  errorBox: {
+    backgroundColor: colors.errorSoft,
+    borderRadius: rounded.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  errorText: {
+    fontSize: typography.bodySm.fontSize,
+    color: colors.errorStrong,
+    fontWeight: "600",
   },
 });
