@@ -1,4 +1,4 @@
-import { colors, typography } from "@/constants/theme";
+import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: typography.h2.fontSize,
-    fontWeight: typography.h2.fontWeight,
+    fontFamily: typography.h2.fontFamily,
     color: colors.onSurface,
   },
   profileCard: {
@@ -234,20 +234,20 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: typography.h2.fontSize,
-    fontWeight: typography.h2.fontWeight,
+    fontFamily: typography.h2.fontFamily,
     color: colors.onSurface,
   },
   profileRole: {
     marginTop: 2,
     fontSize: typography.bodyLg.fontSize,
     color: colors.onSurfaceVariant,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
   },
   profileMeta: {
     marginTop: 4,
     fontSize: typography.bodySm.fontSize,
     color: colors.onSurfaceVariant,
-    fontWeight: "500",
+    fontFamily: fonts["500"],
   },
   sectionCard: {
     borderRadius: 18,
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.h3.fontSize,
     lineHeight: 24,
-    fontWeight: typography.h3.fontWeight,
+    fontFamily: typography.h3.fontFamily,
     color: colors.onSurface,
   },
   statRow: {
@@ -288,13 +288,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 28,
     lineHeight: 30,
-    fontWeight: "900",
+    fontFamily: fonts["900"],
   },
   statLabel: {
     marginTop: 6,
     fontSize: typography.bodySm.fontSize,
     color: colors.onSurfaceVariant,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
   },
   settingsList: {
     gap: 8,
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 15,
     color: colors.onSurface,
-    fontWeight: "700",
+    fontFamily: fonts["700"],
   },
   settingRight: {
     flexDirection: "row",
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   settingValue: {
     fontSize: 13,
     color: colors.onSurfaceVariant,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
   },
   logoutButton: {
     height: 46,
@@ -351,6 +351,6 @@ const styles = StyleSheet.create({
   logoutText: {
     color: colors.errorStrong,
     fontSize: 15,
-    fontWeight: "800",
+    fontFamily: fonts["800"],
   },
 });

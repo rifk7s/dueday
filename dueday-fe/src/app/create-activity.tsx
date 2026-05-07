@@ -1,6 +1,6 @@
 import DatePickerCalendar from "@/components/DatePickerCalendar";
 import TimePicker from "@/components/TimePicker";
-import { colors } from "@/constants/theme";
+import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
     color: colors.onBackground,
     flex: 1,
     textAlign: "center",
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
     color: colors.primaryContainer,
     marginBottom: 10,
   },
@@ -250,6 +250,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 14,
+    fontFamily: fonts["400"],
     color: colors.onSurface,
     backgroundColor: colors.surfaceContainerLowest,
   },
@@ -274,6 +275,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 14,
+    fontFamily: fonts["400"],
     color: colors.onSurface,
   },
   dateTimePlaceholder: {
@@ -300,7 +302,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
-    fontWeight: "500",
+    fontFamily: fonts["500"],
   },
   footer: {
     position: "absolute",
@@ -322,7 +324,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
     color: colors.onPrimary,
   },
 });

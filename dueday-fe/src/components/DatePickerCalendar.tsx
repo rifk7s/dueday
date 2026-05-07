@@ -1,14 +1,14 @@
-import { colors } from "@/constants/theme";
+import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
     Modal,
     Pressable,
-    SafeAreaView,
     StyleSheet,
     Text,
     View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type DatePickerCalendarProps = {
   visible: boolean;
@@ -173,21 +173,21 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
   content: { width: "100%", maxWidth: 400, backgroundColor: colors.surfaceContainerLowest, borderRadius: 16, paddingBottom: 20 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainerLow },
-  headerTitle: { fontSize: 18, fontWeight: "600", color: colors.onSurface },
+  headerTitle: { fontSize: 18, fontFamily: fonts["600"], color: colors.onSurface },
   monthNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 },
-  monthText: { fontSize: 16, fontWeight: "600", color: colors.onSurface },
+  monthText: { fontSize: 16, fontFamily: fonts["600"], color: colors.onSurface },
   dayHeaderRow: { flexDirection: "row", paddingHorizontal: 16, marginBottom: 8 },
-  dayHeaderText: { flex: 1, textAlign: "center", fontSize: 12, fontWeight: "600", color: colors.onSurfaceVariant },
+  dayHeaderText: { flex: 1, textAlign: "center", fontSize: 12, fontFamily: fonts["600"], color: colors.onSurfaceVariant },
   calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, marginBottom: 16 },
   dayCell: { width: "14.28%", aspectRatio: 1, justifyContent: "center", alignItems: "center" },
   dayButton: { width: 40, height: 40, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   todayButton: { backgroundColor: colors.surfaceContainerLow },
   selectedButton: { backgroundColor: colors.primaryContainer },
-  dayText: { fontSize: 14, fontWeight: "500", color: colors.onSurface },
+  dayText: { fontSize: 14, fontFamily: fonts["500"], color: colors.onSurface },
   dayTextActive: { color: colors.onPrimary },
   footer: { flexDirection: "row", gap: 12, paddingHorizontal: 16, marginTop: 8 },
   cancelButton: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.surfaceContainerLow, alignItems: "center" },
-  cancelText: { fontSize: 14, fontWeight: "600", color: colors.onSurface },
+  cancelText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onSurface },
   confirmButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: colors.primaryContainer, alignItems: "center" },
-  confirmText: { fontSize: 14, fontWeight: "600", color: colors.onPrimary },
+  confirmText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onPrimary },
 });
