@@ -1,4 +1,4 @@
-import { colors, typography } from "@/constants/theme";
+import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -255,12 +255,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   iconButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: typography.h2.fontSize, fontWeight: "900", color: colors.onSurface },
+  title: { fontSize: typography.h2.fontSize, fontFamily: fonts["900"], color: colors.onSurface },
   tabRow: { flexDirection: "row", gap: 60, paddingHorizontal: 18, paddingTop: 12, justifyContent: "center", alignItems: "center" },
   tabButton: { paddingVertical: 10, paddingHorizontal: 20, borderBottomWidth: 2, borderBottomColor: "transparent" },
   tabButtonActive: { borderBottomColor: colors.primaryContainer },
-  tabLabel: { color: colors.iconMuted, fontWeight: "700", fontSize: 15 },
-  tabLabelActive: { color: colors.primaryContainer, fontWeight: "900" },
+  tabLabel: { color: colors.iconMuted, fontFamily: fonts["700"], fontSize: 15 },
+  tabLabelActive: { color: colors.primaryContainer, fontFamily: fonts["900"] },
   content: { padding: 16, paddingBottom: 120 },
   filterRow: { flexDirection: "row", gap: 12, paddingHorizontal: 18, paddingTop: 12, paddingBottom: 10, alignItems: "center" },
   chip: {
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   chipActive: { backgroundColor: colors.primaryContainer },
-  chipText: { color: colors.onSurfaceVariant, fontWeight: "700" },
+  chipText: { color: colors.onSurfaceVariant, fontFamily: fonts["700"] },
   chipTextActive: { color: colors.onPrimary },
   taskCard: {
     position: "relative",
@@ -283,19 +283,19 @@ const styles = StyleSheet.create({
   taskAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: 16, borderBottomLeftRadius: 16 },
   taskHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   deadlineRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  deadlineText: { color: colors.error, fontWeight: "700", fontSize: 12 },
+  deadlineText: { color: colors.error, fontFamily: fonts["700"], fontSize: 12 },
   deadlineTextDone: { color: colors.success },
   taskMainRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   taskInfo: { flex: 1 },
-  taskTitle: { fontSize: 16, lineHeight: 20, color: colors.onSurface, fontWeight: "900" },
-  taskDescription: { marginTop: 6, fontSize: 13, color: colors.tertiary },
+  taskTitle: { fontSize: 16, lineHeight: 20, color: colors.onSurface, fontFamily: fonts["900"] },
+  taskDescription: { marginTop: 6, fontSize: 13, fontFamily: fonts["400"], color: colors.tertiary },
   tagRow: { marginTop: 10, flexDirection: "row", gap: 8 },
   tag: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
   priorityTag: { backgroundColor: colors.errorSoft },
   doneTag: { backgroundColor: colors.surfaceSuccess },
   categoryTag: { backgroundColor: colors.primaryContainer },
-  priorityTagText: { color: colors.errorStrong, fontSize: 12, fontWeight: "800" },
-  categoryTagText: { color: colors.onPrimary, fontSize: 12, fontWeight: "800" },
+  priorityTagText: { color: colors.errorStrong, fontSize: 12, fontFamily: fonts["800"] },
+  categoryTagText: { color: colors.onPrimary, fontSize: 12, fontFamily: fonts["800"] },
   progressWrap: { width: 64, height: 64, alignItems: "center", justifyContent: "center" },
   progressLabel: {
     position: "absolute",
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  progressText: { color: colors.primaryContainer, fontSize: 12, fontWeight: "800" },
+  progressText: { color: colors.primaryContainer, fontSize: 12, fontFamily: fonts["800"] },
   doneCircle: {
     width: 40,
     height: 40,

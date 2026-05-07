@@ -1,4 +1,4 @@
-import { colors, rounded, spacing, typography } from "@/constants/theme";
+import { colors, fonts, rounded, spacing, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -223,12 +223,13 @@ const styles = StyleSheet.create({
   },
   appName: {
     fontSize: typography.h2.fontSize,
-    fontWeight: typography.h2.fontWeight,
+    fontFamily: typography.h2.fontFamily,
     color: colors.onPrimary,
     marginBottom: spacing.xs,
   },
   tagline: {
     fontSize: typography.bodySm.fontSize,
+    fontFamily: fonts["400"],
     color: colors.onPrimary,
     opacity: 0.9,
   },
@@ -244,13 +245,14 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: typography.h1.fontSize,
-    fontWeight: typography.h1.fontWeight,
+    fontFamily: typography.h1.fontFamily,
     color: colors.onSurface,
     letterSpacing: -0.64,
     marginBottom: spacing.xs,
   },
   subheading: {
     fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["400"],
     color: colors.onSurfaceVariant,
     marginBottom: spacing.lg,
   },
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: fonts["700"],
     color: colors.onSurface,
     letterSpacing: 0.6,
   },
@@ -282,6 +284,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["400"],
     color: colors.onSurface,
     height: "100%",
     padding: 0,
@@ -313,7 +316,7 @@ const styles = StyleSheet.create({
   },
   loginBtnText: {
     fontSize: typography.button.fontSize,
-    fontWeight: typography.button.fontWeight,
+    fontFamily: typography.button.fontFamily,
     color: colors.onPrimary,
   },
   forgotBtn: {
@@ -321,6 +324,7 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["400"],
     color: colors.primaryContainer,
     textDecorationLine: "underline",
   },
@@ -335,6 +339,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.bodySm.fontSize,
     color: colors.errorStrong,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
   },
 });

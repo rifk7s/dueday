@@ -76,50 +76,58 @@ export const colors = {
   inputBorder: "#d1d5db",
 } as const;
 
+/**
+ * Lexend variants — keyed by React Native fontWeight string.
+ * Use these instead of `fontWeight` so iOS picks the correct Google Font
+ * variant (RN custom fonts don't auto-select a weight from `fontWeight`,
+ * and combining fontWeight + a variant fontFamily makes iOS fall back).
+ */
+export const fonts = {
+  "400": "Lexend_400Regular",
+  "500": "Lexend_500Medium",
+  "600": "Lexend_600SemiBold",
+  "700": "Lexend_700Bold",
+  "800": "Lexend_800ExtraBold",
+  "900": "Lexend_900Black",
+} as const;
+
 export const typography = {
   h1: {
-    fontFamily: "Lexend",
+    fontFamily: "Lexend_700Bold",
     fontSize: 32,
-    fontWeight: "700" as const,
     lineHeight: 1.2,
     letterSpacing: -0.02,
   },
   h2: {
-    fontFamily: "Lexend",
+    fontFamily: "Lexend_700Bold",
     fontSize: 24,
-    fontWeight: "700" as const,
     lineHeight: 1.3,
     letterSpacing: -0.01,
   },
   h3: {
-    fontFamily: "Lexend",
+    fontFamily: "Lexend_600SemiBold",
     fontSize: 20,
-    fontWeight: "600" as const,
     lineHeight: 1.4,
   },
   bodyLg: {
-    fontFamily: "Lexend",
+    fontFamily: "Lexend_400Regular",
     fontSize: 16,
-    fontWeight: "400" as const,
     lineHeight: 1.6,
   },
   bodySm: {
-    fontFamily: "Lexend",
+    fontFamily: "Lexend_400Regular",
     fontSize: 14,
-    fontWeight: "400" as const,
     lineHeight: 1.5,
   },
   labelBold: {
-    fontFamily: "Lexend",
+    fontFamily: "Lexend_700Bold",
     fontSize: 12,
-    fontWeight: "700" as const,
     lineHeight: 1,
     letterSpacing: 0.05,
   },
   button: {
-    fontFamily: "Lexend",
+    fontFamily: "Lexend_600SemiBold",
     fontSize: 16,
-    fontWeight: "600" as const,
     lineHeight: 1,
   },
 } as const;

@@ -8,55 +8,34 @@
 - **Navigation** — React Navigation (bottom-tabs, native, elements) + custom `BottomNav`
 - **Animation** — Reanimated v4 + Gesture Handler v2 (New Architecture required)
 - **Language** — TypeScript strict mode, ESLint v9 (flat config)
-- **Package manager** — `npm` (bun.lock exists but use npm scripts)
+- **Package manager** — `bun` (use `bun run <script>` and `bunx`)
 
 ## Commands
 
 ```bash
 # Development
-npm run start              # Expo dev server (Metro) — use for JS-only changes
-npm run ios                # iOS simulator build + Metro
-npm run android            # Android emulator build + Metro
-npm run web                # Web dev server
-npm run lint               # ESLint
+bun run start              # Expo dev server (Metro)
+bun run ios                # iOS simulator build + Metro
+bun run android            # Android emulator build + Metro
+bun run web                # Web dev server
+bun run lint               # ESLint via expo lint
 
 # Troubleshooting
-npx expo start --clear     # Clear Metro cache — run when Tailwind classes stop updating
-npx expo prebuild --clean  # Regenerate android/ ios/ — run after any app.json plugin change
-npx expo doctor            # Diagnose SDK/dependency mismatches
-npx expo install --fix     # Auto-fix package version mismatches
-
-# EAS (cloud)
-eas build --profile development   # Build dev client (TestFlight/Play Store alpha)
-eas update --branch production    # Push OTA JS update
+bunx expo start --clear    # Clear Metro cache (run after adding fonts/assets)
+bunx expo prebuild --clean # Regenerate android/ ios/ — after app.json plugin change
+bunx expo doctor           # Diagnose SDK/dependency mismatches
+bunx expo install --fix    # Auto-fix package version mismatches
+bunx tsc --noEmit          # Type check
 ```
 
-> Use `npm run start` for daily work. Only use `npm run ios` / `npm run android` after adding a native library or changing config plugins.
+> Use `bun run start` for daily work. Only use `bun run ios` / `bun run android` after adding a native library or changing config plugins.
+> When installing new packages, prefer `bunx expo install <pkg>` over `bun add` so versions stay SDK-compatible.
 
 ## File Structure
 
-```
-src/
-  app/                         # Expo Router screens (file = route)
-    _layout.tsx                # Root Stack layout — imports global.css, no tab bar
-    login.tsx                  # Auth screen — no tab bar
-    list.tsx                   # Task list detail screen — no tab bar
-    list-activity.tsx          # Activity list detail screen — no tab bar
-    (tabs)/                    # Route group — all screens here get BottomNav
-      _layout.tsx              # Tabs layout — mounts BottomNav, declares 3 tab screens
-      index.tsx                # Dashboard / home screen  (route: /)
-      calendar.tsx             # Calendar screen          (route: /calendar)
-      profile.tsx              # Profile screen           (route: /profile)
-  components/
-    BottomNav.tsx              # Custom bottom tab bar (only renders inside (tabs)/)
-  constants/
-    theme.ts                   # Design tokens — ALL colors, typography, spacing live here
-  global.css                   # Tailwind + NativeWind entry (imported once in root _layout.tsx)
-assets/                        # Images, icons, fonts
-```
+`src/app/` is Expo Router (file = route). `src/components/`, `src/constants/`, and `src/global.css` hold shared code.
 
-### Why this structure?
-Screens **inside** `(tabs)/` automatically get the BottomNav because it lives in that group's layout. Screens **outside** (login, list, list-activity) never render it — no pathname checks or workarounds needed. The `(tabs)` folder name is excluded from URL paths by Expo Router convention.
+**Why the `(tabs)` group exists:** screens that should always show BottomNav live inside `src/app/(tabs)/` (dashboard, calendar, profile). Screens that should NOT show it (login, list, list-activity, create-task, create-activity, etc.) live at `src/app/` root. BottomNav is mounted in `(tabs)/_layout.tsx` so it only renders for routes within that group — no pathname checks needed. The `(tabs)` folder name is excluded from URL paths by Expo Router convention.
 
 Path aliases (`tsconfig.json`):
 - `@/*` → `src/*` (e.g. `@/constants/theme`, `@/components/BottomNav`)
@@ -64,58 +43,67 @@ Path aliases (`tsconfig.json`):
 
 ## Styling
 
-**Current approach: `StyleSheet.create()`** — every component (`index.tsx`, `calendar.tsx`, `profile.tsx`, `BottomNav.tsx`) uses it. This is the established pattern; follow it for new code.
+**Current approach: `StyleSheet.create()`** — every screen and component uses it. This is the established pattern; follow it for new code.
 
-**NativeWind is installed but dormant.** The infrastructure is wired up:
-- `global.css` imports `tailwindcss` + `nativewind/theme`
-- `metro.config.js` wraps with `withNativewind`
-- `nativewind-env.d.ts` provides TypeScript types
-
-NativeWind compiles Tailwind CSS v4 into native `StyleSheet` objects at build time and handles conditional styles (hover, focus, media/container queries) at runtime. It is NOT active in any component yet. If asked to use it, you can add `className` props — but check with the user before switching approach mid-feature.
-
-- **All colors, spacing, typography → `src/constants/theme.ts`**. Never hardcode hex values or magic numbers in either approach.
+- **All colors, fonts, spacing → `src/constants/theme.ts`**. Never hardcode hex values, font names, or magic numbers.
+- **NativeWind is installed but dormant.** Infrastructure (`global.css`, `metro.config.js` `withNativewind`, `nativewind-env.d.ts`) is wired but no component uses `className` yet. If asked to use it, check with the user before switching approach mid-feature.
 - Platform-specific files: `.web.tsx`, `.native.tsx`, `.ios.tsx`, `.android.tsx`
-- NEVER modify `metro.config.js` or `postcss.config.mjs` without checking NativeWind v5 docs (https://www.nativewind.dev/v5/llms.txt)
-- NativeWind v5 full docs available at: https://www.nativewind.dev/v5/llms-full.txt
+- NEVER modify `metro.config.js` or `postcss.config.mjs` without consulting NativeWind v5 docs (https://www.nativewind.dev/v5/llms.txt — full: `/llms-full.txt`)
+
+### Fonts (Lexend)
+
+Lexend is loaded via `@expo-google-fonts/lexend` in `src/app/_layout.tsx` (weights 400/500/600/700/800/900) with splash screen gating until fonts resolve.
+
+- Use the `fonts` map from `@/constants/theme` — keyed by `fontWeight` string: `fonts["400"]` → `Lexend_400Regular`, `fonts["700"]` → `Lexend_700Bold`, etc.
+- **Always set `fontFamily` on Text/TextInput styles, never just `fontWeight`.** Custom fonts in RN do NOT auto-select a variant from `fontWeight` — and on iOS, combining `fontFamily: "Lexend_700Bold"` with `fontWeight: "700"` makes iOS silently fall back to the system font.
+- `typography` tokens (h1/h2/h3/bodyLg/bodySm/labelBold/button) already point at the right variant via `fontFamily` only — pull them as `typography.h2.fontFamily`, not `typography.h2.fontWeight`.
+- Adding a new weight: add the key to `fonts`, add the variant import in `_layout.tsx` `useFonts({...})`, then run `bunx expo start --clear` (Metro caches font registrations).
+- `Text.defaultProps` / `TextInput.defaultProps` does NOT work in React 19 (function components ignore it) — explicit `fontFamily` per style is mandatory.
+
+## Linting
+
+```bash
+bun run lint    # ESLint + React Compiler rules + @typescript-eslint/no-deprecated
+```
+
+Config lives in `eslint.config.js` (flat). On top of `eslint-config-expo/flat` it adds:
+- **`eslint-plugin-react-hooks@^7.1.1`** (overridden in `package.json` → `overrides`, since `eslint-config-expo` ships v5.2). Provides the React Compiler ruleset (`react-hooks/set-state-in-effect`, `purity`, `refs`, etc.) at `recommended-latest`. **Demoted to `warn`** so violations surface but don't fail CI — fix gradually.
+- **`@typescript-eslint/no-deprecated`** at `warn`, scoped to `src/**/*.{ts,tsx}` with typed linting (`projectService: true`). Surfaces `@deprecated` JSDoc tags (e.g. `SafeAreaView` from `react-native`) at lint time, not just in VSCode.
+- **DO NOT install `eslint-plugin-react-compiler`** — it's superseded by `eslint-plugin-react-hooks@7+`. The package never reached stable; rules were merged into react-hooks per the [React Compiler 1.0 announcement](https://react.dev/blog/2025/10/07/react-compiler-1).
+- **DO NOT remove the `eslint-plugin-react-hooks` override** in `package.json` — without it, expo's nested v5.2 wins and the new rules error out with "Could not find rule".
+- VSCode shows ESLint + TypeScript diagnostics inline; the CLI (`bun run lint`) only runs ESLint. Run `bunx tsc --noEmit` separately for type errors.
 
 ## Routing (Expo Router)
 
 - Root `_layout.tsx` is a **Stack** — wraps everything, no tab bar.
 - `(tabs)/_layout.tsx` is a **Tabs** — only the 3 main screens get BottomNav.
 - New screens that need BottomNav → add inside `src/app/(tabs)/`.
-- New screens that should NOT have BottomNav (detail, auth, modal) → add at `src/app/` root.
+- New screens that should NOT have BottomNav (detail, auth, modal, create-*) → add at `src/app/` root.
 - Typed routes are on (`experiments.typedRoutes: true` in `app.json`). Use typed `href` values.
 - Navigate: `router.push('/calendar')` · `router.replace('/login')` · `router.back()`
 - Link component: `<Link href="/profile">Profile</Link>`
-- `BottomNav.tsx` is a fully custom component — not the default React Navigation tab bar.
 
 ## SDK 54 Gotchas
 
-- **`lightningcss` is pinned to `1.30.1`** in `package.json` overrides. Removing or bumping it breaks NativeWind with a `failed to deserialize` crash. Never touch this pin.
-- **New Architecture is required.** Reanimated v4 (`~4.1.1`) does not work without it. Never set `newArchEnabled: false`.
-- **React Compiler is on** (`experiments.reactCompiler: true`). All components and hooks must strictly follow Rules of Hooks.
-- **Hermes only** — no JSC. Do not use JSC-only APIs.
-- **Android edge-to-edge** is enabled by default. Always use `useSafeAreaInsets()` for layout.
-- **Reanimated v4** uses `react-native-worklets` (^0.5.1). Do not use old v3 patterns (`.value` setter syntax differs in worklets).
-- **`expo-av` is removed** in SDK 54. Use `expo-audio` or `expo-video` instead.
+- **`lightningcss` pinned to `1.30.1`** in `package.json` overrides. Removing breaks NativeWind with `failed to deserialize`. Never touch.
+- **New Architecture required.** Reanimated v4 doesn't work without it. Never set `newArchEnabled: false`.
+- **React Compiler on** (`experiments.reactCompiler: true`). All components/hooks must follow Rules of React — see `react-hooks/*` warnings from `bun run lint`.
+- **Hermes only** — no JSC.
+- **Android edge-to-edge enabled** by default. Always use `useSafeAreaInsets()` for layout.
+- **`SafeAreaView` from `react-native` is deprecated** — import from `react-native-safe-area-context` instead. Lint catches this via `@typescript-eslint/no-deprecated`.
+- **Reanimated v4** uses `react-native-worklets` (^0.5.1). Do not use old v3 patterns.
+- **`expo-av` removed** in SDK 54. Use `expo-audio` / `expo-video`.
 - **`expo-file-system` legacy API** lives at `expo-file-system/legacy`. Default import is the new API.
 
 ## Hard Constraints
 
-- NEVER hardcode colors (`"#fff"`, `"rgba(..."`) — use tokens from `src/constants/theme.ts`
+- NEVER hardcode colors, font names, or font weights — use `colors`, `fonts`, `typography` from `src/constants/theme.ts`
+- NEVER set `fontWeight` on Text styles — set `fontFamily: fonts["X"]` instead (see Fonts section)
 - NEVER disable New Architecture (`newArchEnabled: false`)
 - NEVER use `expo-av` — use `expo-audio` / `expo-video`
 - NEVER modify `metro.config.js` or `postcss.config.mjs` without consulting NativeWind v5 docs
-- NEVER bump or remove the `lightningcss` override in `package.json` (pins to `1.30.1` — removing causes NativeWind `failed to deserialize` crash)
-
-## Testing
-
-```bash
-npm test      # Jest (standard Expo config)
-```
-
-No E2E setup. Write unit tests with Jest + React Native Testing Library.
+- NEVER bump/remove the `lightningcss@1.30.1` or `eslint-plugin-react-hooks@^7.1.1` overrides in `package.json`
 
 ## Design Reference
 
-`DESIGN.md` in this folder documents the design system — colors, spacing scale, component specs. Read it before building new UI.
+`DESIGN.md` in this folder documents the design system — colors, spacing scale, component specs, Lexend typography. Read it before building new UI.

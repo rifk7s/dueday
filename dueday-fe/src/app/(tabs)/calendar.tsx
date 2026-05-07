@@ -1,4 +1,4 @@
-import { colors, typography } from "@/constants/theme";
+import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: typography.h2.fontSize,
-    fontWeight: typography.h2.fontWeight,
+    fontFamily: typography.h2.fontFamily,
     color: colors.onSurface,
   },
   monthRow: {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
   monthTitle: {
     fontSize: 22,
     lineHeight: 26,
-    fontWeight: "700",
+    fontFamily: fonts["700"],
     color: colors.onSurface,
   },
   dayStrip: {
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     fontSize: typography.bodyLg.fontSize,
-    fontWeight: "500",
+    fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
   },
   dateChip: {
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: typography.bodySm.fontSize,
-    fontWeight: "700",
+    fontFamily: fonts["700"],
   },
   dateTextActive: {
     color: colors.onPrimary,
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 14,
     fontSize: typography.h2.fontSize,
-    fontWeight: typography.h2.fontWeight,
+    fontFamily: typography.h2.fontFamily,
     color: colors.primaryContainer,
   },
   scheduleContainer: {
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   hourText: {
     fontSize: 16,
     lineHeight: 20,
-    fontWeight: "500",
+    fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
   },
   dashedRow: {
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   },
   scheduleTitle: {
     fontSize: 15,
-    fontWeight: "800",
+    fontFamily: fonts["800"],
     color: colors.onSurface,
   },
   timeRow: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: typography.bodySm.fontSize,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
     color: colors.onSurfaceVariant,
   },
   avatarRow: {
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 9,
-    fontWeight: "700",
+    fontFamily: fonts["700"],
     color: colors.surfaceContainerLowest,
   },
 });

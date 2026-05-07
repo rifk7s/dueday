@@ -1,4 +1,4 @@
-import { colors, typography } from "@/constants/theme";
+import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -369,14 +369,14 @@ const styles = StyleSheet.create({
   greetingTitle: {
     fontSize: typography.h3.fontSize,
     lineHeight: 24,
-    fontWeight: typography.h3.fontWeight,
+    fontFamily: typography.h3.fontFamily,
     color: colors.onSurface,
   },
   greetingSubtitle: {
     marginTop: 2,
     fontSize: typography.bodySm.fontSize,
     color: colors.onSurfaceVariant,
-    fontWeight: "600",
+    fontFamily: fonts["600"],
   },
   bellButton: {
     width: 36,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.h2.fontSize,
     lineHeight: 28,
-    fontWeight: typography.h2.fontWeight,
+    fontFamily: typography.h2.fontFamily,
     color: colors.primaryContainer,
     marginBottom: 12,
   },
@@ -415,13 +415,13 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLg.fontSize,
     lineHeight: 18,
     color: colors.onSurfaceVariant,
-    fontWeight: typography.labelBold.fontWeight,
+    fontFamily: typography.labelBold.fontFamily,
   },
   summaryValue: {
     marginTop: 8,
     fontSize: 28,
     lineHeight: 30,
-    fontWeight: "900",
+    fontFamily: fonts["900"],
   },
   sectionHeader: {
     marginBottom: 10,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: typography.bodySm.fontSize,
     color: colors.onSurfaceVariant,
-    fontWeight: "500",
+    fontFamily: fonts["500"],
   },
   taskCard: {
     position: "relative",
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   },
   deadlineText: {
     color: colors.error,
-    fontWeight: "700",
+    fontFamily: fonts["700"],
     fontSize: 13,
   },
   taskMainRow: {
@@ -483,14 +483,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     color: colors.onSurface,
-    fontWeight: "900",
+    fontFamily: fonts["900"],
   },
   taskDescription: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 20,
     color: colors.tertiary,
-    fontWeight: "500",
+    fontFamily: fonts["500"],
   },
   tagRow: {
     marginTop: 10,
@@ -513,13 +513,13 @@ const styles = StyleSheet.create({
   priorityTagText: {
     color: colors.errorStrong,
     fontSize: 12,
-    fontWeight: "800",
+    fontFamily: fonts["800"],
     letterSpacing: 0.7,
   },
   categoryTagText: {
     color: colors.onPrimary,
     fontSize: 12,
-    fontWeight: "800",
+    fontFamily: fonts["800"],
   },
   progressWrap: {
     width: 64,
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   progressText: {
     color: colors.primaryContainer,
     fontSize: 12,
-    fontWeight: "800",
+    fontFamily: fonts["800"],
   },
   actionButton: {
     height: 46,
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: colors.primaryContainer,
     fontSize: 15,
-    fontWeight: "800",
+    fontFamily: fonts["800"],
   },
   reminderCard: {
     height: 58,
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
   reminderText: {
     fontSize: 15,
     color: colors.onSurface,
-    fontWeight: "700",
+    fontFamily: fonts["700"],
   },
   fab: {
     position: "absolute",
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   overlayActionLabel: {
     color: colors.onPrimary,
     fontSize: 13,
-    fontWeight: "800",
+    fontFamily: fonts["800"],
   },
   overlayActionIconWrap: {
     width: 42,
