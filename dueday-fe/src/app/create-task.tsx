@@ -4,7 +4,7 @@ import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
     Pressable,
     StyleSheet,
@@ -28,6 +28,10 @@ export default function CreateTaskPage() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
+  const scrollRef = useRef<React.ComponentRef<typeof KeyboardAwareScrollView>>(null);
+  const prevDescHeight = useRef(0);
+  const isDescFocused = useRef(false);
+  const [footerHeight, setFooterHeight] = useState(80);
 
   const [namatugas, setNamaTugas] = useState("");
   const [tanggal, setTanggal] = useState("");
@@ -78,13 +82,14 @@ export default function CreateTaskPage() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* bottomOffset keeps the focused field above the footer */}
+      {/* bottomOffset is measured from the footer at runtime so it adapts to screen size and style changes */}
       <KeyboardAwareScrollView
+        ref={scrollRef}
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingBottom: bottom + 90 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        bottomOffset={80}
+        bottomOffset={footerHeight + 16}
       >
         <View style={styles.section}>
           <Text style={styles.label}>Nama Tugas</Text>
@@ -183,12 +188,28 @@ export default function CreateTaskPage() {
             onChangeText={setDeskripsi}
             multiline
             textAlignVertical="top"
+            onFocus={() => {
+              isDescFocused.current = true;
+            }}
+            onBlur={() => {
+              isDescFocused.current = false;
+            }}
+            onContentSizeChange={(e) => {
+              const newHeight = e.nativeEvent.contentSize.height;
+              if (isDescFocused.current && newHeight > prevDescHeight.current) {
+                scrollRef.current?.scrollToEnd?.({ animated: true });
+              }
+              prevDescHeight.current = newHeight;
+            }}
           />
         </View>
       </KeyboardAwareScrollView>
 
       {/* Absolutely positioned footer — slides up in sync with keyboard */}
-      <Animated.View style={[styles.footer, footerAnimatedStyle]}>
+      <Animated.View
+        style={[styles.footer, footerAnimatedStyle]}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
+      >
         <Pressable style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Simpan</Text>
         </Pressable>
