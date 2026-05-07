@@ -34,8 +34,6 @@ class UserFactory extends Factory
             'nim' => fake()->numerify('0806#########'),
             'status' => 'Unsubscribed',
             'language' => 'Indonesia',
-            'google_access_token' => null,
-            'google_refresh_token' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ];

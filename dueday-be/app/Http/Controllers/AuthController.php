@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Services\AuthService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly AuthService $authService,
+    ) {}
+
     public function login(Request $request)
     {
         $request->validate([
@@ -16,20 +18,13 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // Try to find user by username or email
-        $user = User::where('username', $request->username)
-            ->orWhere('email', $request->username)
-            ->first();
-
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'username' => ['The provided credentials are incorrect.'],
-            ]);
-        }
+        $user = $this->authService->login(
+            $request->input('username'),
+            $request->input('password'),
+        );
 
         return response()->json([
             'message' => 'User has logged in',
-            'user' => $user,
         ]);
     }
 }

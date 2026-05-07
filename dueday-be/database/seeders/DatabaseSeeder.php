@@ -26,8 +26,6 @@ class DatabaseSeeder extends Seeder
             'nim' => '0806022410020',
             'status' => 'Unsubscribed',
             'language' => 'Indonesia',
-            'google_access_token' => null,
-            'google_refresh_token' => null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
