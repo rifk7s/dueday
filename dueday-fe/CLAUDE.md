@@ -83,6 +83,15 @@ Config lives in `eslint.config.js` (flat). On top of `eslint-config-expo/flat` i
 - Navigate: `router.push('/calendar')` · `router.replace('/login')` · `router.back()`
 - Link component: `<Link href="/profile">Profile</Link>`
 
+## Keyboard handling
+
+Forms with a sticky footer above the keyboard (e.g. Simpan button on `create-task.tsx`, `create-activity.tsx`) follow this pattern — replicate it for new form screens:
+
+- Wrap fields in `KeyboardAwareScrollView` from `react-native-keyboard-controller`. Don't use the built-in `KeyboardAvoidingView` — it doesn't handle the sticky-footer + multiline case cleanly.
+- Footer is `<Animated.View position: absolute>` driven by `useGradualAnimation()` (custom hook in `src/hooks/`). It reads keyboard height as a Reanimated shared value and slides the footer up in sync with the keyboard, while `paddingBottom` interpolates from `bottom + 16` (closed) to `16` (open) so the safe-area inset only applies when the keyboard is hidden.
+- **Measure the footer with `onLayout`** and pass `bottomOffset={footerHeight + 16}` to `KeyboardAwareScrollView`. Don't hard-code a number — it desyncs across screen sizes (iPhone SE vs Pro Max) and silently breaks if footer styling changes.
+- For multiline `TextInput` (description-style fields) the focused field's bottom doesn't move as the user types, so cursor can drift below the visible area. Fix: take a `scrollRef` on `KeyboardAwareScrollView`, track focus via `useRef<boolean>` (`onFocus`/`onBlur`), and call `scrollRef.current?.scrollToEnd({ animated: true })` from `onContentSizeChange` ONLY when focus ref is true AND `newHeight > prevHeightRef.current`. The focus guard stops the page from jumping on initial mount (`onContentSizeChange` fires on first measure); the height comparison stops jumpiness when deleting text.
+
 ## SDK 54 Gotchas
 
 - **`lightningcss` pinned to `1.30.1`** in `package.json` overrides. Removing breaks NativeWind with `failed to deserialize`. Never touch.
@@ -103,6 +112,7 @@ Config lives in `eslint.config.js` (flat). On top of `eslint-config-expo/flat` i
 - NEVER use `expo-av` — use `expo-audio` / `expo-video`
 - NEVER modify `metro.config.js` or `postcss.config.mjs` without consulting NativeWind v5 docs
 - NEVER bump/remove the `lightningcss@1.30.1` or `eslint-plugin-react-hooks@^7.1.1` overrides in `package.json`
+- NEVER hard-code `bottomOffset` on `KeyboardAwareScrollView` — measure the sticky footer with `onLayout` (see Keyboard handling section)
 
 ## Design Reference
 
