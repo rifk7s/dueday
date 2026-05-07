@@ -7,12 +7,129 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
+type Tab = "tugas" | "aktivitas";
+type Filter = "Semua" | "Selesai" | "Pekerjaan" | "Rapat";
+
+type ListItem = {
+  id: string;
+  accentColor?: string;
+  stateText?: string;
+  deadline?: string;
+  title?: string;
+  description?: string;
+  category: string;
+  status: "open" | "done";
+  progress?: number;
+};
+
+const tugasItems: ListItem[] = [
+  { id: "t1", category: "Kuliah", status: "open", progress: 0.5 },
+  { id: "t2", accentColor: colors.success, stateText: "SEDANG", category: "Kuliah", status: "open", progress: 0.5 },
+  { id: "t3", accentColor: colors.surfaceWarm, stateText: "RENDAH", category: "Kuliah", status: "open", progress: 0.5 },
+  {
+    id: "t4",
+    accentColor: colors.success,
+    stateText: "SELESAI",
+    deadline: "31 Desember 2025 | 13.30 - 14.30",
+    title: "Briefing Tim",
+    description: "Diskusi dengan tim developer.",
+    category: "Pekerjaan",
+    status: "done",
+  },
+  {
+    id: "t5",
+    accentColor: colors.success,
+    stateText: "SELESAI",
+    deadline: "20 Desember 2025 | 08.00 - 09.00",
+    title: "Riset Kompetitor",
+    description: "Menganalisis fitur aplikasi sejenis.",
+    category: "Pekerjaan",
+    status: "done",
+  },
+  {
+    id: "t6",
+    accentColor: colors.success,
+    stateText: "SELESAI",
+    deadline: "18 Desember 2025 | 08.00 - 09.00",
+    title: "Laporan Mingguan",
+    description: "Menyusun laporan progress mingguan",
+    category: "Rapat",
+    status: "done",
+  },
+];
+
+const aktivitasItems: ListItem[] = [
+  {
+    id: "a1",
+    progress: 0,
+    deadline: "30 April 2026 | 08.00 - 09.00",
+    title: "Olahraga Pagi",
+    description: "Lari pagi keliling taman kota untuk menjaga kesehatan...",
+    category: "Rumah",
+    status: "open",
+  },
+  {
+    id: "a2",
+    accentColor: colors.primaryContainer,
+    stateText: "RAPAT",
+    progress: 0.5,
+    deadline: "24 April 2026 | 13.00-14.30",
+    title: "Rapat REM",
+    description: "Final review untuk project Dueday App",
+    category: "Rapat",
+    status: "open",
+  },
+  {
+    id: "a3",
+    accentColor: colors.surfaceWarm,
+    stateText: "PEKERJAN",
+    progress: 0.5,
+    deadline: "30 April 2026 | 13.00-14.30",
+    title: "Evaluasi Bulanan",
+    description: "Penilaian kinerja selama satu bulan serto identifikasi...",
+    category: "Pekerjaan",
+    status: "open",
+  },
+  {
+    id: "a4",
+    accentColor: colors.success,
+    stateText: "SELESAI",
+    deadline: "31 Desember 2025 | 13.30 - 14.30",
+    title: "Briefing Tim",
+    description: "Diskusi dengan tim developer.",
+    category: "Pekerjaan",
+    status: "done",
+  },
+  {
+    id: "a5",
+    accentColor: colors.success,
+    stateText: "SELESAI",
+    deadline: "20 Desember 2025 | 08.00 - 09.00",
+    title: "Melakukan Riset",
+    description: "Menganalisis fitur aplikasi sejenis.",
+    category: "Pekerjaan",
+    status: "done",
+  },
+  {
+    id: "a6",
+    accentColor: colors.success,
+    stateText: "SELESAI",
+    deadline: "18 Desember 2025 | 08.00 - 09.00",
+    title: "Rapat Mingguan",
+    description: "Rapat untuk melihat hasil mingguan",
+    category: "Pekerjaan",
+    status: "done",
+  },
+];
+
+const filterOptions: Filter[] = ["Semua", "Selesai", "Pekerjaan", "Rapat"];
+
 export default function ListPage() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
 
-  const [active, setActive] = useState<"tugas" | "aktivitas">("tugas");
-  const [activeFilter, setActiveFilter] = useState<"Semua" | "Selesai" | "Pekerjaan" | "Rapat">("Semua");
+  const [active, setActive] = useState<Tab>("tugas");
+  const [activeFilter, setActiveFilter] = useState<Filter>("Semua");
 
   useFocusEffect(
     React.useCallback(() => {
@@ -21,11 +138,12 @@ export default function ListPage() {
     }, [])
   );
 
-  const shouldShowCard = (category: string, status: string) => {
+  const items = active === "tugas" ? tugasItems : aktivitasItems;
+  const visibleItems = items.filter((item) => {
     if (activeFilter === "Semua") return true;
-    if (activeFilter === "Selesai") return status === "done";
-    return category === activeFilter;
-  };
+    if (activeFilter === "Selesai") return item.status === "done";
+    return item.category === activeFilter;
+  });
 
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
@@ -50,27 +168,18 @@ export default function ListPage() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => {
-            setActive("aktivitas");
-            router.push("/list-activity");
-          }}
+          onPress={() => setActive("aktivitas")}
           style={[styles.tabButton, active === "aktivitas" && styles.tabButtonActive]}
         >
           <Text style={[styles.tabLabel, active === "aktivitas" && styles.tabLabelActive]}>Aktivitas</Text>
         </Pressable>
       </View>
 
-      {/* Filter chips below tabs */}
       <View style={styles.filterRow}>
-        {[
-          "Semua",
-          "Selesai",
-          "Pekerjaan",
-          "Rapat",
-        ].map((f) => (
+        {filterOptions.map((f) => (
           <Pressable
             key={f}
-            onPress={() => setActiveFilter(f as typeof activeFilter)}
+            onPress={() => setActiveFilter(f)}
             style={[styles.chip, f === activeFilter ? styles.chipActive : null]}
             accessibilityRole="button"
           >
@@ -80,57 +189,13 @@ export default function ListPage() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {shouldShowCard("Kuliah", "open") && <TaskCard progress={0.5} />}
-        {shouldShowCard("Kuliah", "open") && <TaskCard accentColor={colors.success} stateText="SEDANG" progress={0.5} />}
-        {shouldShowCard("Kuliah", "open") && <TaskCard accentColor={colors.surfaceWarm} stateText="RENDAH" progress={0.5} />}
-        {shouldShowCard("Pekerjaan", "done") && (
-          <TaskCard
-            accentColor={colors.success}
-            stateText="SELESAI"
-            deadline="31 Desember 2025 | 13.30 - 14.30"
-            title="Briefing Tim"
-            description="Diskusi dengan tim developer."
-            category="Pekerjaan"
-            status="done"
-          />
-        )}
-        {shouldShowCard("Pekerjaan", "done") && (
-          <TaskCard
-            accentColor={colors.success}
-            stateText="SELESAI"
-            deadline="20 Desember 2025 | 08.00 - 09.00"
-            title="Riset Kompetitor"
-            description="Menganalisis fitur aplikasi sejenis."
-            category="Pekerjaan"
-            status="done"
-          />
-        )}
-        {shouldShowCard("Rapat", "done") && (
-          <TaskCard
-            accentColor={colors.success}
-            stateText="SELESAI"
-            deadline="18 Desember 2025 | 08.00 - 09.00"
-            title="Laporan Mingguan"
-            description="Menyusun laporan progress mingguan"
-            category="Rapat"
-            status="done"
-          />
-        )}
+        {visibleItems.map((item) => (
+          <TaskCard key={item.id} {...item} />
+        ))}
       </ScrollView>
     </View>
   );
 }
-
-type TaskCardProps = {
-  accentColor?: string;
-  stateText?: string;
-  deadline?: string;
-  title?: string;
-  description?: string;
-  category?: string;
-  status?: "open" | "done";
-  progress?: number;
-};
 
 function TaskCard({
   accentColor = colors.error,
@@ -141,13 +206,17 @@ function TaskCard({
   category = "Kuliah",
   status = "open",
   progress = 0.5,
-}: TaskCardProps) {
+}: Readonly<Omit<ListItem, "id">>) {
   return (
     <View style={styles.taskCard}>
       <View style={[styles.taskAccent, { backgroundColor: accentColor }]} />
       <View style={styles.taskHeaderRow}>
         <View style={styles.deadlineRow}>
-          <Ionicons name={status === "done" ? "checkmark-circle-outline" : "warning-outline"} size={14} color={status === "done" ? colors.success : colors.error} />
+          <Ionicons
+            name={status === "done" ? "checkmark-circle-outline" : "warning-outline"}
+            size={14}
+            color={status === "done" ? colors.success : colors.error}
+          />
           <Text style={[styles.deadlineText, status === "done" && styles.deadlineTextDone]}>{deadline}</Text>
         </View>
         <Ionicons name="ellipsis-vertical" size={16} color={colors.iconMuted} />
@@ -174,7 +243,7 @@ function TaskCard({
               <Ionicons name="checkmark" size={18} color={colors.success} />
             </View>
           ) : (
-             <ProgressRing progress={progress} size={56} strokeWidth={5} />
+            <ProgressRing progress={progress} size={56} strokeWidth={5} />
           )}
         </View>
       </View>
@@ -182,7 +251,7 @@ function TaskCard({
   );
 }
 
-function ProgressRing({ progress, size, strokeWidth }: { progress: number; size: number; strokeWidth: number }) {
+function ProgressRing({ progress, size, strokeWidth }: Readonly<{ progress: number; size: number; strokeWidth: number }>) {
   const clamped = Math.max(0, Math.min(1, progress));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;

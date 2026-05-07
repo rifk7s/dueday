@@ -32,7 +32,7 @@ const scheduleItems: ScheduleItem[] = [
     startHour: 8,
     endHour: 9,
     title: "Olahraga Pagi",
-    color: "#efe2b8",
+    color: "#FEF3C7",
     accent: "#e0a400",
   },
   {
@@ -40,15 +40,15 @@ const scheduleItems: ScheduleItem[] = [
     startHour: 12,
     endHour: 13,
     title: "Bahasa Inggris",
-    color: "#b4e4de",
-    accent: "#23b5a6",
+    color: "#CCFBF1",
+    accent: "#23b56a",
   },
   {
     id: "history",
     startHour: 14,
     endHour: 15,
     title: "Sejarah",
-    color: "#d0cce8",
+    color: "#EDE9FE",
     accent: "#8f54dd",
   },
 ];
@@ -57,6 +57,7 @@ const START_HOUR = 8;
 const END_HOUR = 15;
 const SLOT_HEIGHT = 72;
 const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index);
+const dashKeys = Array.from({ length: 40 }, (_, i) => `dash-${i}`);
 
 export default function CalendarScreen() {
   const { top } = useSafeAreaInsets();
@@ -102,7 +103,11 @@ export default function CalendarScreen() {
                 top: (11 - START_HOUR) * SLOT_HEIGHT + SLOT_HEIGHT / 2,
               },
             ]}
-          />
+          >
+            {dashKeys.map((key) => (
+              <View key={key} style={styles.dash} />
+            ))}
+          </View>
 
           <View style={styles.hoursColumn}>
             {timelineHours.map((hour) => {
@@ -281,9 +286,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dashedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: colors.primaryContainer,
   },
   cardsColumn: {
@@ -299,9 +304,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 0,
-    borderTopWidth: 1,
-    borderTopColor: colors.primaryContainer,
-    borderStyle: "dashed",
+    height: 1.5,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  dash: {
+    flex: 1,
+    height: 1.5,
+    marginRight: 4,
+    backgroundColor: colors.primaryContainer,
   },
   scheduleCard: {
     position: "absolute",
@@ -316,10 +328,9 @@ const styles = StyleSheet.create({
   scheduleAccent: {
     position: "absolute",
     left: 0,
-    top: 12,
-    bottom: 12,
-    width: 4,
-    borderRadius: 2,
+    top: 0,
+    bottom: 0,
+    width: 6,
   },
   scheduleTitle: {
     fontSize: 15,
