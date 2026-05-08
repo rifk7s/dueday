@@ -1,6 +1,6 @@
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export type ScheduleCardItem = {
   startHour: number;
@@ -14,21 +14,26 @@ type ScheduleCardProps = {
   item: ScheduleCardItem;
   startHour: number;
   slotHeight: number;
+  onPress?: () => void;
 };
 
-export function ScheduleCard({ item, startHour, slotHeight }: Readonly<ScheduleCardProps>) {
+export function ScheduleCard({ item, startHour, slotHeight, onPress }: Readonly<ScheduleCardProps>) {
   const top = (item.startHour - startHour) * slotHeight + 24;
   const height = (item.endHour - item.startHour) * slotHeight + 28;
 
   return (
-    <View style={[styles.scheduleCard, { backgroundColor: item.color, top, height }]}>
+    <Pressable
+      style={[styles.scheduleCard, { backgroundColor: item.color, top, height }]}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
       <View style={[styles.scheduleAccent, { backgroundColor: item.accent }]} />
       <Text style={styles.scheduleTitle}>{item.title}</Text>
       <View style={styles.timeRow}>
         <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
         <Text style={styles.timeText}>{`${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
