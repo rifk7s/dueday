@@ -2,6 +2,7 @@ import DatePickerCalendar from "@/components/DatePickerCalendar";
 import { ScheduleCard } from "@/components/ScheduleCard";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { Link } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -167,7 +168,23 @@ export default function CalendarScreen() {
               <View style={styles.cardsColumn}>
                 <View style={styles.cardsLayer}>
                   {selectedScheduleItems.map((item) => (
-                    <ScheduleCard key={item.id} item={item} startHour={START_HOUR} slotHeight={SLOT_HEIGHT} />
+                    <Link
+                      key={item.id}
+                      href={{
+                        pathname: "/activityprogress",
+                        params: {
+                          title: item.title,
+                          date: item.date,
+                          startHour: item.startHour.toString(),
+                          endHour: item.endHour.toString(),
+                          color: item.color,
+                          accent: item.accent,
+                        },
+                      }}
+                      asChild
+                    >
+                      <ScheduleCard item={item} startHour={START_HOUR} slotHeight={SLOT_HEIGHT} />
+                    </Link>
                   ))}
                 </View>
               </View>
