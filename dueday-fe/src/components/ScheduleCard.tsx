@@ -1,0 +1,81 @@
+import { colors, fonts, typography } from "@/constants/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { StyleSheet, Text, View } from "react-native";
+
+export type ScheduleCardItem = {
+  startHour: number;
+  endHour: number;
+  title: string;
+  color: string;
+  accent: string;
+};
+
+type ScheduleCardProps = {
+  item: ScheduleCardItem;
+  startHour: number;
+  slotHeight: number;
+};
+
+export function ScheduleCard({ item, startHour, slotHeight }: Readonly<ScheduleCardProps>) {
+  const top = (item.startHour - startHour) * slotHeight + 24;
+  const height = (item.endHour - item.startHour) * slotHeight + 28;
+
+  return (
+    <View style={[styles.scheduleCard, { backgroundColor: item.color, top, height }]}>
+      <View style={[styles.scheduleAccent, { backgroundColor: item.accent }]} />
+      <Text style={styles.scheduleTitle}>{item.title}</Text>
+      <View style={styles.timeRow}>
+        <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
+        <Text style={styles.timeText}>{`${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}</Text>
+      </View>
+    </View>
+  );
+}
+
+function formatHour(hour: number): string {
+  return `${hour.toString().padStart(2, "0")}.00`;
+}
+
+const styles = StyleSheet.create({
+  scheduleCard: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    borderRadius: 28,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    overflow: "hidden",
+    shadowColor: colors.onSurface,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  scheduleAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 6,
+  },
+  scheduleTitle: {
+    fontSize: 15,
+    fontFamily: fonts["800"],
+    color: colors.onSurface,
+  },
+  timeRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  timeText: {
+    fontSize: typography.bodySm.fontSize,
+    fontFamily: fonts["600"],
+    color: colors.onSurfaceVariant,
+  },
+});
