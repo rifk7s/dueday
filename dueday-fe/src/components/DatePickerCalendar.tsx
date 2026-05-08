@@ -2,11 +2,11 @@ import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
-    Modal,
-    Pressable,
-    StyleSheet,
-    Text,
-    View
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,6 +15,8 @@ type DatePickerCalendarProps = {
   onClose: () => void;
   onDateSelect: (date: string) => void;
   selectedDate?: string;
+  inline?: boolean;
+  markedDays?: string[];
 };
 
 export default function DatePickerCalendar({
@@ -22,6 +24,8 @@ export default function DatePickerCalendar({
   onClose,
   onDateSelect,
   selectedDate,
+  inline = false,
+  markedDays = [],
 }: Readonly<DatePickerCalendarProps>) {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -72,6 +76,9 @@ export default function DatePickerCalendar({
   const handleDateSelect = (day: number) => {
     const dateStr = `${day.toString().padStart(2, "0")}/${(currentMonth + 1).toString().padStart(2, "0")}/${currentYear}`;
     setTempSelectedDate(dateStr);
+    if (inline) {
+      onDateSelect(dateStr);
+    }
   };
 
   const handleConfirm = () => {
@@ -98,71 +105,84 @@ export default function DatePickerCalendar({
     return false;
   };
 
+  const hasMarker = (day: number) => markedDays.includes(day.toString().padStart(2, "0"));
+
+  const calendarContent = (
+    <View style={[styles.content, inline && styles.inlineContent]}>
+      {!inline ? (
+        <View style={styles.header}>
+          <Pressable onPress={onClose}>
+            <Ionicons name="close" size={24} color={colors.onSurface} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Pilih Tanggal</Text>
+          <View style={{ width: 24 }} />
+        </View>
+      ) : null}
+
+      <View style={styles.monthNav}>
+        <Pressable onPress={handlePrevMonth}>
+          <Ionicons name="chevron-back" size={24} color={colors.primaryContainer} />
+        </Pressable>
+        <Text style={styles.monthText}>{monthNames[currentMonth]} {currentYear}</Text>
+        <Pressable onPress={handleNextMonth}>
+          <Ionicons name="chevron-forward" size={24} color={colors.primaryContainer} />
+        </Pressable>
+      </View>
+
+      <View style={styles.dayHeaderRow}>
+        {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day, idx) => (
+          <Text key={idx} style={styles.dayHeaderText}>{day}</Text>
+        ))}
+      </View>
+
+      <View style={styles.calendarGrid}>
+        {calendarDays.map((day, idx) => (
+          <View key={idx} style={styles.dayCell}>
+            {day ? (
+              <Pressable
+                style={[
+                  styles.dayButton,
+                  isToday(day) && styles.todayButton,
+                  isSelectedDate(day) && styles.selectedButton,
+                ]}
+                onPress={() => handleDateSelect(day)}
+              >
+                <Text
+                  style={[
+                    styles.dayText,
+                    (isToday(day) || isSelectedDate(day)) && styles.dayTextActive,
+                  ]}
+                >
+                  {day}
+                </Text>
+                {hasMarker(day) ? <View style={[styles.markerDot, isSelectedDate(day) && styles.markerDotActive]} /> : null}
+              </Pressable>
+            ) : null}
+          </View>
+        ))}
+      </View>
+
+      {!inline ? (
+        <View style={styles.footer}>
+          <Pressable style={styles.cancelButton} onPress={handleCancel}>
+            <Text style={styles.cancelText}>Batal</Text>
+          </Pressable>
+          <Pressable style={styles.confirmButton} onPress={handleConfirm}>
+            <Text style={styles.confirmText}>OK</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  if (inline) {
+    return calendarContent;
+  }
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <SafeAreaView style={styles.container}>
-          <View style={styles.content}>
-            <View style={styles.header}>
-              <Pressable onPress={onClose}>
-                <Ionicons name="close" size={24} color={colors.onSurface} />
-              </Pressable>
-              <Text style={styles.headerTitle}>Pilih Tanggal</Text>
-              <View style={{ width: 24 }} />
-            </View>
-
-            <View style={styles.monthNav}>
-              <Pressable onPress={handlePrevMonth}>
-                <Ionicons name="chevron-back" size={24} color={colors.primaryContainer} />
-              </Pressable>
-              <Text style={styles.monthText}>{monthNames[currentMonth]} {currentYear}</Text>
-              <Pressable onPress={handleNextMonth}>
-                <Ionicons name="chevron-forward" size={24} color={colors.primaryContainer} />
-              </Pressable>
-            </View>
-
-            <View style={styles.dayHeaderRow}>
-              {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day, idx) => (
-                <Text key={idx} style={styles.dayHeaderText}>{day}</Text>
-              ))}
-            </View>
-
-            <View style={styles.calendarGrid}>
-              {calendarDays.map((day, idx) => (
-                <View key={idx} style={styles.dayCell}>
-                  {day ? (
-                    <Pressable
-                      style={[
-                        styles.dayButton,
-                        isToday(day) && styles.todayButton,
-                        isSelectedDate(day) && styles.selectedButton,
-                      ]}
-                      onPress={() => handleDateSelect(day)}
-                    >
-                      <Text
-                        style={[
-                          styles.dayText,
-                          (isToday(day) || isSelectedDate(day)) && styles.dayTextActive,
-                        ]}
-                      >
-                        {day}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.footer}>
-              <Pressable style={styles.cancelButton} onPress={handleCancel}>
-                <Text style={styles.cancelText}>Batal</Text>
-              </Pressable>
-              <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-                <Text style={styles.confirmText}>OK</Text>
-              </Pressable>
-            </View>
-          </View>
-        </SafeAreaView>
+        <SafeAreaView style={styles.container}>{calendarContent}</SafeAreaView>
       </View>
     </Modal>
   );
@@ -172,6 +192,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" },
   container: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
   content: { width: "100%", maxWidth: 400, backgroundColor: colors.surfaceContainerLowest, borderRadius: 16, paddingBottom: 20 },
+  inlineContent: { maxWidth: "100%", width: "100%", borderRadius: 24, paddingBottom: 18 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainerLow },
   headerTitle: { fontSize: 18, fontFamily: fonts["600"], color: colors.onSurface },
   monthNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 },
@@ -181,6 +202,8 @@ const styles = StyleSheet.create({
   calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, marginBottom: 16 },
   dayCell: { width: "14.28%", aspectRatio: 1, justifyContent: "center", alignItems: "center" },
   dayButton: { width: 40, height: 40, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  markerDot: { marginTop: 3, width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primaryContainer },
+  markerDotActive: { backgroundColor: colors.onPrimary },
   todayButton: { backgroundColor: colors.surfaceContainerLow },
   selectedButton: { backgroundColor: colors.primaryContainer },
   dayText: { fontSize: 14, fontFamily: fonts["500"], color: colors.onSurface },

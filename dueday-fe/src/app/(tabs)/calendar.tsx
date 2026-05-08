@@ -1,16 +1,14 @@
+import DatePickerCalendar from "@/components/DatePickerCalendar";
+import { ScheduleCard } from "@/components/ScheduleCard";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type DayChip = {
-  day: string;
-  date: string;
-  active?: boolean;
-};
-
 type ScheduleItem = {
   id: string;
+  date: string;
   startHour: number;
   endHour: number;
   title: string;
@@ -18,17 +16,10 @@ type ScheduleItem = {
   accent: string;
 };
 
-const dayChips: DayChip[] = [
-  { day: "Min", date: "28" },
-  { day: "Sen", date: "29" },
-  { day: "Sel", date: "30", active: true },
-  { day: "Rab", date: "1" },
-  { day: "Kam", date: "2" },
-];
-
 const scheduleItems: ScheduleItem[] = [
   {
     id: "morning-workout",
+    date: "08",
     startHour: 8,
     endHour: 9,
     title: "Olahraga Pagi",
@@ -37,6 +28,7 @@ const scheduleItems: ScheduleItem[] = [
   },
   {
     id: "english",
+    date: "08",
     startHour: 12,
     endHour: 13,
     title: "Bahasa Inggris",
@@ -45,22 +37,86 @@ const scheduleItems: ScheduleItem[] = [
   },
   {
     id: "history",
+    date: "08",
     startHour: 14,
     endHour: 15,
     title: "Sejarah",
     color: "#EDE9FE",
     accent: "#8f54dd",
   },
+  {
+    id: "design-review",
+    date: "09",
+    startHour: 9,
+    endHour: 10,
+    title: "Design Review",
+    color: "#FFE4E6",
+    accent: "#fb7185",
+  },
+  {
+    id: "math-09",
+    date: "09",
+    startHour: 13,
+    endHour: 14,
+    title: "Matematika",
+    color: "#DDD6FE",
+    accent: "#6366f1",
+  },
+  {
+    id: "meeting-10",
+    date: "10",
+    startHour: 10,
+    endHour: 11,
+    title: "Meeting Tim",
+    color: "#DBEAFE",
+    accent: "#3b82f6",
+  },
+  {
+    id: "task-10",
+    date: "10",
+    startHour: 15,
+    endHour: 16,
+    title: "Tugas Kampus",
+    color: "#DCFCE7",
+    accent: "#22c55e",
+  },
+  {
+    id: "gym-11",
+    date: "11",
+    startHour: 7,
+    endHour: 8,
+    title: "Gym",
+    color: "#FEF3C7",
+    accent: "#f59e0b",
+  },
+  {
+    id: "call-12",
+    date: "12",
+    startHour: 11,
+    endHour: 12,
+    title: "Call Client",
+    color: "#E0F2FE",
+    accent: "#0ea5e9",
+  },
 ];
 
-const START_HOUR = 8;
-const END_HOUR = 15;
+const START_HOUR = 7;
+const END_HOUR = 16;
 const SLOT_HEIGHT = 72;
 const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index);
-const dashKeys = Array.from({ length: 40 }, (_, i) => `dash-${i}`);
 
 export default function CalendarScreen() {
   const { top } = useSafeAreaInsets();
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    const day = today.getDate().toString().padStart(2, "0");
+    const month = (today.getMonth() + 1).toString().padStart(2, "0");
+    return `${day}/${month}/${today.getFullYear()}`;
+  });
+  const selectedDay = selectedDate.split("/")[0];
+  const markedDays = Array.from(new Set(scheduleItems.map((item) => item.date)));
+  const selectedScheduleItems = scheduleItems.filter((item) => item.date === selectedDay);
+  const hasSelectedScheduleItems = selectedScheduleItems.length > 0;
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <ScrollView
@@ -74,95 +130,55 @@ export default function CalendarScreen() {
           <Ionicons name="search-outline" size={22} color={colors.primaryContainer} />
         </View>
 
-        <View style={styles.monthRow}>
-          <Ionicons name="chevron-back" size={10} color={colors.onSurface} />
-          <Text style={styles.monthTitle}>April</Text>
-          <Ionicons name="chevron-forward" size={10} color={colors.onSurface} />
+        <View style={styles.calendarSection}>
+          <DatePickerCalendar
+            visible
+            inline
+            selectedDate={selectedDate}
+            onClose={() => undefined}
+            onDateSelect={setSelectedDate}
+            markedDays={markedDays}
+          />
         </View>
 
-        <View style={styles.dayStrip}>
-          {dayChips.map((chip) => (
-            <View key={`${chip.day}-${chip.date}`} style={styles.dayItem}>
-              <Text style={styles.dayLabel}>{chip.day}</Text>
-              <View style={[styles.dateChip, chip.active ? styles.dateChipActive : styles.dateChipInactive]}>
-                <Text style={[styles.dateText, chip.active ? styles.dateTextActive : styles.dateTextInactive]}>
-                  {chip.date}
-                </Text>
-              </View>
+        <View style={styles.schedulePanel}>
+          <View style={styles.schedulePanelHeader}>
+            <View>
+              <Text style={styles.schedulePanelTitle}>Jadwal Hari Ini</Text>
+              <Text style={styles.schedulePanelSubtitle}>
+                {hasSelectedScheduleItems ? `${selectedScheduleItems.length} kegiatan ditemukan` : "Tidak ada kegiatan pada tanggal ini"}
+              </Text>
             </View>
-          ))}
-        </View>
-
-        <Text style={styles.sectionTitle}>Jadwal Hari Ini</Text>
-
-        <View style={styles.scheduleContainer}>
-          <View
-            style={[
-              styles.dashedLine,
-              {
-                top: (11 - START_HOUR) * SLOT_HEIGHT + SLOT_HEIGHT / 2,
-              },
-            ]}
-          >
-            {dashKeys.map((key) => (
-              <View key={key} style={styles.dash} />
-            ))}
           </View>
 
-          <View style={styles.hoursColumn}>
-            {timelineHours.map((hour) => {
-              const dashed = hour === 11;
-              return (
-                <View key={hour} style={styles.hourRow}>
-                  {dashed ? (
-                    <View style={styles.dashedRow}>
-                      <View style={styles.dashedDot} />
+          {hasSelectedScheduleItems ? (
+            <View style={styles.scheduleContainer}>
+              <View style={styles.hoursColumn}>
+                <View style={styles.hoursRail} />
+                {timelineHours.map((hour) => (
+                  <View key={hour} style={styles.hourRow}>
+                    <View style={styles.hourPill}>
                       <Text style={styles.hourText}>{formatHour(hour)}</Text>
                     </View>
-                  ) : (
-                    <Text style={styles.hourText}>{formatHour(hour)}</Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
+                  </View>
+                ))}
+              </View>
 
-          <View style={styles.cardsColumn}>
-            <View style={styles.cardsLayer}>
-              {scheduleItems.map((item) => (
-                <ScheduleCard key={item.id} item={item} />
-              ))}
+              <View style={styles.cardsColumn}>
+                <View style={styles.cardsLayer}>
+                  {selectedScheduleItems.map((item) => (
+                    <ScheduleCard key={item.id} item={item} startHour={START_HOUR} slotHeight={SLOT_HEIGHT} />
+                  ))}
+                </View>
+              </View>
             </View>
-          </View>
+          ) : (
+            <View style={styles.emptyOnlyState}>
+              <Text style={styles.emptyStateText}>Tidak ada kegiatan</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
-    </View>
-  );
-}
-
-function ScheduleCard({ item }: Readonly<{ item: ScheduleItem }>) {
-  const top = (item.startHour - START_HOUR) * SLOT_HEIGHT + 24;
-  const height = (item.endHour - item.startHour) * SLOT_HEIGHT + 28;
-
-  return (
-    <View style={[styles.scheduleCard, { backgroundColor: item.color, top, height }]}>
-      <View style={[styles.scheduleAccent, { backgroundColor: item.accent }]} />
-      <Text style={styles.scheduleTitle}>{item.title}</Text>
-      <View style={styles.timeRow}>
-        <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
-        <Text style={styles.timeText}>{`${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}</Text>
-      </View>
-      <View style={styles.avatarRow}>
-        <View style={styles.avatarMini}>
-          <Text style={styles.avatarText}>A</Text>
-        </View>
-        <View style={[styles.avatarMini, styles.avatarOffset]}>
-          <Text style={styles.avatarText}>R</Text>
-        </View>
-        <View style={[styles.avatarMini, styles.avatarOffset]}>
-          <Text style={styles.avatarText}>I</Text>
-        </View>
-      </View>
     </View>
   );
 }
@@ -212,163 +228,92 @@ const styles = StyleSheet.create({
     fontFamily: fonts["700"],
     color: colors.onSurface,
   },
-  dayStrip: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  calendarSection: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  schedulePanel: {
+    marginHorizontal: 12,
+    borderRadius: 28,
+    backgroundColor: colors.surfaceContainerLow,
     paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 14,
+    paddingBottom: 16,
   },
-  dayItem: {
-    alignItems: "center",
-    gap: 8,
+  schedulePanelHeader: {
+    marginBottom: 14,
   },
-  dayLabel: {
-    fontSize: typography.bodyLg.fontSize,
-    fontFamily: fonts["500"],
-    color: colors.onSurfaceVariant,
-  },
-  dateChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-  },
-  dateChipActive: {
-    backgroundColor: colors.primaryContainer,
-    borderColor: colors.primaryContainer,
-  },
-  dateChipInactive: {
-    backgroundColor: colors.surfaceContainerLowest,
-    borderColor: colors.outlineVariant,
-  },
-  dateText: {
-    fontSize: typography.bodySm.fontSize,
-    fontFamily: fonts["700"],
-  },
-  dateTextActive: {
-    color: colors.onPrimary,
-  },
-  dateTextInactive: {
-    color: colors.onSurface,
-  },
-  sectionTitle: {
-    marginTop: 6,
-    marginBottom: 12,
-    paddingHorizontal: 14,
+  schedulePanelTitle: {
     fontSize: typography.h2.fontSize,
     fontFamily: typography.h2.fontFamily,
     color: colors.primaryContainer,
   },
+  schedulePanelSubtitle: {
+    marginTop: 4,
+    fontSize: typography.bodySm.fontSize,
+    fontFamily: fonts["500"],
+    color: colors.onSurfaceVariant,
+  },
   scheduleContainer: {
     position: "relative",
     flexDirection: "row",
-    paddingHorizontal: 14,
+    paddingTop: 2,
   },
   hoursColumn: {
-    width: 56,
+    width: 74,
+    paddingRight: 10,
+    position: "relative",
+  },
+  hoursRail: {
+    position: "absolute",
+    left: 33,
+    top: 10,
+    bottom: 10,
+    width: 1,
+    backgroundColor: colors.outlineVariant,
+    opacity: 0.7,
   },
   hourRow: {
     height: SLOT_HEIGHT,
     justifyContent: "center",
+    alignItems: "flex-start",
+    zIndex: 1,
+  },
+  hourPill: {
+    minWidth: 58,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    alignItems: "center",
+    justifyContent: "center",
   },
   hourText: {
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 16,
     fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
   },
-  dashedRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  dashedDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primaryContainer,
-  },
   cardsColumn: {
     flex: 1,
-    paddingLeft: 6,
+    paddingLeft: 8,
   },
   cardsLayer: {
     position: "relative",
     height: timelineHours.length * SLOT_HEIGHT,
   },
-  dashedLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    zIndex: 0,
-    height: 1.5,
-    flexDirection: "row",
-    alignItems: "center",
-    overflow: "hidden",
-  },
-  dash: {
-    flex: 1,
-    height: 1.5,
-    marginRight: 4,
-    backgroundColor: colors.primaryContainer,
-  },
-  scheduleCard: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    borderRadius: 28,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-    overflow: "hidden",
-  },
-  scheduleAccent: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 6,
-  },
-  scheduleTitle: {
-    fontSize: 15,
-    fontFamily: fonts["800"],
-    color: colors.onSurface,
-  },
-  timeRow: {
+  emptyOnlyState: {
     marginTop: 4,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  timeText: {
-    fontSize: typography.bodySm.fontSize,
-    fontFamily: fonts["600"],
-    color: colors.onSurfaceVariant,
-  },
-  avatarRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  avatarMini: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#4ea5c0",
+    paddingVertical: 18,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerLowest,
   },
-  avatarOffset: {
-    marginLeft: -4,
-  },
-  avatarText: {
-    fontSize: 9,
-    fontFamily: fonts["700"],
-    color: colors.surfaceContainerLowest,
+  emptyStateText: {
+    fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["600"],
+    color: colors.onSurfaceVariant,
   },
 });
