@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('photo_url')->default('https://static.vecteezy.com/system/resources/thumbnails/048/334/475/small/a-person-icon-on-a-transparent-background-png.png');
             $table->string('username')->unique();
             $table->string('nickname')->nullable();
             $table->string('name')->nullable();
@@ -21,8 +22,6 @@ return new class extends Migration
             $table->string('nim')->nullable();
             $table->enum('status', ['Subscribed', 'Unsubscribed'])->default('Unsubscribed');
             $table->enum('language', ['Indonesia', 'English'])->default('Indonesia');
-            $table->text('google_access_token')->nullable();
-            $table->text('google_refresh_token')->nullable();
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();
         });
