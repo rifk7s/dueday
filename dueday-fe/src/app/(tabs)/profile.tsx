@@ -1,8 +1,8 @@
+import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useState } from "react";
 import {
   Image,
   Pressable,
@@ -52,7 +52,21 @@ const settings: SettingItem[] = [
 
 export default function ProfileScreen(): React.JSX.Element {
   const { top } = useSafeAreaInsets();
-  const router = useRouter();
+  const { user, signOut } = useSession();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (signingOut) {
+      return;
+    }
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <StatusBar style="dark" />
@@ -88,10 +102,10 @@ export default function ProfileScreen(): React.JSX.Element {
             </View>
           </View>
 
-          <Text style={styles.profileName}>Alex</Text>
-          <Text style={styles.profileRole}>Alex Morgan</Text>
-          <Text style={styles.profileMeta}>NIM: 2024000123</Text>
-          <Text style={styles.profileMeta}>alex.morgan@student.ciputra.ac.id</Text>
+          <Text style={styles.profileName}>{user?.nickname ?? user?.name ?? user?.username ?? "—"}</Text>
+          <Text style={styles.profileRole}>{user?.name ?? "—"}</Text>
+          {user?.nim ? <Text style={styles.profileMeta}>NIM: {user.nim}</Text> : null}
+          <Text style={styles.profileMeta}>{user?.email ?? "—"}</Text>
         </View>
 
         <View style={styles.sectionCard}>
@@ -119,8 +133,15 @@ export default function ProfileScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Pressable style={styles.logoutButton} accessibilityRole="button" onPress={() => router.replace("/login")}>
-          <Text style={styles.logoutText}>Logout</Text>
+        <Pressable
+          style={styles.logoutButton}
+          accessibilityRole="button"
+          onPress={handleLogout}
+          disabled={signingOut}
+        >
+          <Text style={styles.logoutText}>
+            {signingOut ? "Logging out…" : "Logout"}
+          </Text>
         </Pressable>
       </ScrollView>
     </View>

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\LoginRequest;
 use App\Services\AuthService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
@@ -11,20 +13,27 @@ class AuthController extends Controller
         private readonly AuthService $authService,
     ) {}
 
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string',
-        ]);
-
-        $user = $this->authService->login(
-            $request->input('username'),
-            $request->input('password'),
+        $result = $this->authService->login(
+            $request->validated('username'),
+            $request->validated('password'),
         );
 
         return response()->json([
             'message' => 'User has logged in',
+            'token' => $result['token'],
+            'token_type' => 'Bearer',
+            'user' => $result['user'],
+        ]);
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        $this->authService->logout($request->user());
+
+        return response()->json([
+            'message' => 'User has logged out',
         ]);
     }
 }

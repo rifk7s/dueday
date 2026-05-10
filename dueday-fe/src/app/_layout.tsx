@@ -1,4 +1,6 @@
 import "@/global.css";
+import { SessionProvider, useSession } from "@/auth/ctx";
+import { SplashScreenController } from "@/auth/splash";
 import {
   Lexend_400Regular,
   Lexend_500Medium,
@@ -10,7 +12,6 @@ import {
 } from "@expo-google-fonts/lexend";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -26,12 +27,6 @@ export default function RootLayout() {
     Lexend_900Black,
   });
 
-  useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
-
   if (!loaded && !error) {
     return null;
   }
@@ -39,8 +34,30 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <KeyboardProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <SessionProvider>
+          <SplashScreenController />
+          <RootNavigator />
+        </SessionProvider>
       </KeyboardProvider>
     </SafeAreaProvider>
+  );
+}
+
+function RootNavigator() {
+  const { token } = useSession();
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!!token}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="create-task" />
+        <Stack.Screen name="create-activity" />
+        <Stack.Screen name="activityprogress" />
+        <Stack.Screen name="list" />
+      </Stack.Protected>
+      <Stack.Protected guard={!token}>
+        <Stack.Screen name="login" />
+      </Stack.Protected>
+    </Stack>
   );
 }

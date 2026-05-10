@@ -13,9 +13,14 @@ class AuthService
         private readonly UserRepository $userRepository,
     ) {}
 
-    public function login(string $username, string $password): User
+    /**
+     * @return array{user: User, token: string}
+     *
+     * @throws ValidationException
+     */
+    public function login(string $identifier, string $password): array
     {
-        $user = $this->userRepository->findByUsernameOrEmail($username);
+        $user = $this->userRepository->findByUsernameOrEmail($identifier);
 
         if (! $user || ! Hash::check($password, $user->password)) {
             throw ValidationException::withMessages([
@@ -23,6 +28,14 @@ class AuthService
             ]);
         }
 
-        return $user;
+        return [
+            'user' => $user,
+            'token' => $user->createToken('auth_token')->plainTextToken,
+        ];
+    }
+
+    public function logout(User $user): void
+    {
+        $user->currentAccessToken()->delete();
     }
 }
