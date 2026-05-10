@@ -1,38 +1,87 @@
+import { useSession } from "@/auth/ctx";
 import { colors, fonts, rounded, spacing, typography } from "@/constants/theme";
+import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-const HEADER_HEIGHT = SCREEN_HEIGHT * 0.47;
-const API_BASE_URL = "http://localhost:8000/api";
+const HEADER_HEIGHT_OPEN = SCREEN_HEIGHT * 0.47;
+const HEADER_HEIGHT_CLOSED = SCREEN_HEIGHT * 0.22;
+const LOGO_SIZE_OPEN = 80;
+const LOGO_SIZE_CLOSED = 56;
 
 const UC_LOGO = require("@/assets/images/logo-uc.png");
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const { signIn } = useSession();
+  const { height: kbHeight } = useGradualAnimation();
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const headerStyle = useAnimatedStyle(() => ({
+    height: interpolate(
+      kbHeight.value,
+      [0, 200],
+      [HEADER_HEIGHT_OPEN, HEADER_HEIGHT_CLOSED],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  const logoStyle = useAnimatedStyle(() => {
+    const size = interpolate(
+      kbHeight.value,
+      [0, 200],
+      [LOGO_SIZE_OPEN, LOGO_SIZE_CLOSED],
+      Extrapolation.CLAMP,
+    );
+    return { width: size, height: size };
+  });
+
+  const taglineStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      kbHeight.value,
+      [0, 80],
+      [0.9, 0],
+      Extrapolation.CLAMP,
+    ),
+    height: interpolate(
+      kbHeight.value,
+      [0, 80],
+      [typography.bodySm.fontSize * 1.4, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  const topSpacerStyle = useAnimatedStyle(() => ({
+    height: interpolate(
+      kbHeight.value,
+      [0, 200],
+      [spacing.xl, spacing.sm],
+      Extrapolation.CLAMP,
+    ),
+  }));
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -44,56 +93,45 @@ export default function LoginScreen() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username.trim(),
-          password,
-        }),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        setError(data?.message ?? "Login failed. Please try again.");
-        return;
-      }
-
-      router.replace("/");
-    } catch {
-      setError("Network error. Please check your connection.");
+      await signIn(username.trim(), password);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Login failed. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
+    <View style={styles.root}>
       <StatusBar style="light" />
 
-      {/* Orange gradient header */}
-      <LinearGradient
-        colors={[colors.primaryContainer, colors.secondaryContainer]}
-        style={[
-          styles.header,
-          { height: HEADER_HEIGHT, paddingTop: insets.top + spacing.md },
-        ]}
-      >
-        <View style={styles.logoWrapper}>
-          <Image source={UC_LOGO} style={styles.logo} />
-        </View>
-        <Text style={styles.appName}>Dueday</Text>
-        <Text style={styles.tagline}>Reminder Tugas Kampusmu</Text>
-      </LinearGradient>
+      {/* Orange gradient header (animated, shrinks when keyboard opens) */}
+      <Animated.View style={[styles.headerWrapper, headerStyle]}>
+        <LinearGradient
+          colors={[colors.primaryContainer, colors.secondaryContainer]}
+          style={[
+            StyleSheet.absoluteFillObject,
+            styles.headerContent,
+            { paddingTop: insets.top + spacing.md },
+          ]}
+        >
+          <View style={styles.logoWrapper}>
+            <Animated.Image
+              source={UC_LOGO}
+              style={[styles.logo, logoStyle]}
+            />
+          </View>
+          <Text style={styles.appName}>Dueday</Text>
+          <Animated.Text style={[styles.tagline, taglineStyle]}>
+            Reminder Tugas Kampusmu
+          </Animated.Text>
+        </LinearGradient>
+      </Animated.View>
 
-      {/* White form section */}
-      <ScrollView
+      {/* White form section — KeyboardAwareScrollView ensures focused field stays visible */}
+      <KeyboardAwareScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
@@ -101,7 +139,9 @@ export default function LoginScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        bottomOffset={spacing.lg}
       >
+        <Animated.View style={topSpacerStyle} />
         <Text style={styles.heading}>Masuk</Text>
         <Text style={styles.subheading}>
           Selamat datang! Masukkan detail akunmu.
@@ -190,8 +230,8 @@ export default function LoginScreen() {
             </Pressable>
           </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 
@@ -202,7 +242,10 @@ const styles = StyleSheet.create({
   },
 
   /* Header */
-  header: {
+  headerWrapper: {
+    overflow: "hidden",
+  },
+  headerContent: {
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing.containerPadding,
@@ -217,8 +260,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   logo: {
-    width: 80,
-    height: 80,
     borderRadius: rounded.full,
   },
   appName: {
@@ -231,7 +272,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySm.fontSize,
     fontFamily: fonts["400"],
     color: colors.onPrimary,
-    opacity: 0.9,
+    overflow: "hidden",
   },
 
   /* Scroll / form */
@@ -241,7 +282,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.containerPadding,
-    paddingTop: spacing.xl,
   },
   heading: {
     fontSize: typography.h1.fontSize,
