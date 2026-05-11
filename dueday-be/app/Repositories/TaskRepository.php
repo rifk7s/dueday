@@ -26,8 +26,9 @@ class TaskRepository
             'status' => $data['status'] ?? 'ongoing',
             'source' => $data['source'] ?? null,
             'deskripsi' => $data['deskripsi'] ?? null,
+            'goals' => $data['goals'] ?? null,
+            'goal_points' => $data['goal_points'] ?? null,
             'progress' => $data['progress'] ?? 0,
-            'ulangi' => $data['ulangi'] ?? null,
         ]);
     }
 

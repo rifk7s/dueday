@@ -19,7 +19,18 @@ class TaskFactory extends Factory
      */
     public function definition(): array
     {
-        return [
+           $goalTexts = [
+               "- [+] Item 1\n- [ ] Item 2",
+               "- [+] Task A\n- [+] Task B\n- [ ] Task C",
+               "- [ ] Incomplete task",
+               "- [+] Done\n- [+] Also done",
+           ];
+       
+           $goalsText = fake()->randomElement($goalTexts);
+           $goalPoints = \App\Services\TaskGoalService::parseGoals($goalsText);
+           $progress = \App\Services\TaskGoalService::calculateProgress($goalPoints);
+       
+           return [
             'id' => (string) Str::uuid(),
             'user_id' => User::factory(),
             'id_tag' => null,
@@ -30,8 +41,9 @@ class TaskFactory extends Factory
             'status' => 'ongoing',
             'source' => fake()->randomElement(['manual', 'imported', 'api']),
             'deskripsi' => fake()->paragraph(),
-            'progress' => fake()->numberBetween(0, 100),
-            'ulangi' => fake()->randomElement(['setiap_hari', 'satu_minggu', 'satu_bulan', 'satu_tahun', null]),
+               'goals' => $goalsText,
+               'goal_points' => $goalPoints,
+               'progress' => $progress,
             'created_at' => now(),
             'updated_at' => now(),
         ];

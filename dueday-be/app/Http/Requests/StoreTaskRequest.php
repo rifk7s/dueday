@@ -29,8 +29,12 @@ class StoreTaskRequest extends FormRequest
             'id_tag' => 'nullable|integer|exists:tags,id_tag',
             'source' => 'nullable|string',
             'deskripsi' => 'nullable|string',
+            'goals' => 'nullable|string',
+            'goal_points' => 'nullable|array',
+            'goal_points.*.id' => 'required|integer',
+            'goal_points.*.text' => 'required|string',
+            'goal_points.*.completed' => 'required|boolean',
             'progress' => 'nullable|integer|min:0|max:100',
-            'ulangi' => 'nullable|in:setiap_hari,satu_minggu,satu_bulan,satu_tahun',
             'status' => 'nullable|in:ongoing,completed',
         ];
     }
