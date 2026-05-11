@@ -17,8 +17,7 @@ test('authenticated user can create a task', function () {
             'id_tag' => $tag->id_tag,
             'source' => 'mobile',
             'deskripsi' => 'Buy milk, bread, and eggs',
-            'progress' => 0,
-            'ulangi' => 'satu_minggu',
+               'goals' => "- [+] Buy milk\n- [+] Buy bread\n- [ ] Buy eggs",
             'status' => 'ongoing',
         ]);
 
@@ -34,7 +33,8 @@ test('authenticated user can create a task', function () {
         'source',
         'deskripsi',
         'progress',
-        'ulangi',
+               'goals',
+               'goal_points',
         'id_tag',
     ]);
     
