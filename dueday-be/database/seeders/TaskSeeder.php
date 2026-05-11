@@ -28,7 +28,7 @@ class TaskSeeder extends Seeder
                 'user_id' => $user->id,
                 'id_tag' => fake()->randomElement([1, 2, 3, 4, null]),
                 'task_name' => fake()->sentence(3),
-                'date' => fake()->dateTimeBetween('now', '+30 days'),
+                'date' => fake()->date(),
                 'time' => fake()->time(),
                 'priority' => fake()->randomElement(['low', 'medium', 'high']),
                 'status' => 'ongoing',

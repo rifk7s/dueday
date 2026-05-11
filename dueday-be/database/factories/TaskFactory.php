@@ -22,9 +22,9 @@ class TaskFactory extends Factory
         return [
             'id' => (string) Str::uuid(),
             'user_id' => User::factory(),
-            'id_tag' => fake()->randomElement([1, 2, 3, 4, null]),
+            'id_tag' => null,
             'task_name' => fake()->sentence(3),
-            'date' => fake()->dateTimeBetween('now', '+30 days'),
+            'date' => fake()->date(),
             'time' => fake()->time(),
             'priority' => fake()->randomElement(['low', 'medium', 'high']),
             'status' => 'ongoing',
