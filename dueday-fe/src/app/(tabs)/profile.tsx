@@ -1,6 +1,7 @@
 import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
@@ -24,6 +25,7 @@ type SettingItem = {
   label: string;
   value?: string;
   accent?: string;
+  onPress?: () => void;
 };
 
 const taskStats: TaskStat[] = [
@@ -54,6 +56,7 @@ export default function ProfileScreen(): React.JSX.Element {
   const { top } = useSafeAreaInsets();
   const { user, signOut } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  const router = useRouter();
 
   const handleLogout = async () => {
     if (signingOut) {
@@ -66,6 +69,12 @@ export default function ProfileScreen(): React.JSX.Element {
       setSigningOut(false);
     }
   };
+
+  const settingsWithActions = settings.map((item) =>
+    item.label === "Upgrade to Premium"
+      ? { ...item, onPress: () => router.push("/premium-plan") }
+      : item
+  );
 
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
@@ -127,7 +136,7 @@ export default function ProfileScreen(): React.JSX.Element {
           <Text style={styles.sectionTitle}>Pengaturan</Text>
 
           <View style={styles.settingsList}>
-            {settings.map((item) => (
+            {settingsWithActions.map((item) => (
               <SettingRow key={item.label} item={item} />
             ))}
           </View>
@@ -161,7 +170,11 @@ function SettingRow({ item }: Readonly<{ item: SettingItem }>): React.JSX.Elemen
   const iconColor = item.accent ?? colors.onSurfaceVariant;
 
   return (
-    <Pressable style={styles.settingRow} accessibilityRole="button">
+    <Pressable
+      style={styles.settingRow}
+      accessibilityRole="button"
+      onPress={item.onPress}
+    >
       <View style={styles.settingLeft}>
         <View style={styles.settingIconWrap}>
           <Ionicons name={item.icon} size={18} color={iconColor} />
