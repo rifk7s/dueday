@@ -13,11 +13,11 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Tasks
     Route::get('/tasks', [TaskController::class, 'index']);
-    Route::get('/tasks/{id}', [TaskController::class, 'show']);
+    Route::get('/tasks/{task}', [TaskController::class, 'show']);
     Route::post('/tasks', [TaskController::class, 'store']);
-    Route::put('/tasks/{id}', [TaskController::class, 'update']);
-    Route::patch('/tasks/{id}', [TaskController::class, 'update']);
-    Route::delete('/tasks/{id}', [TaskController::class, 'destroy']);
+    Route::put('/tasks/{task}', [TaskController::class, 'update']);
+    Route::patch('/tasks/{task}', [TaskController::class, 'update']);
+    Route::delete('/tasks/{task}', [TaskController::class, 'destroy']);
 
     // Tags
     Route::get('/tags', [TagController::class, 'index']);
@@ -29,9 +29,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Activities
     Route::get('/activities', [ActivityController::class, 'index']);
-    Route::get('/activities/{id}', [ActivityController::class, 'show']);
+    Route::get('/activities/{activity}', [ActivityController::class, 'show']);
     Route::post('/activities', [ActivityController::class, 'store']);
-    Route::put('/activities/{id}', [ActivityController::class, 'update']);
-    Route::patch('/activities/{id}', [ActivityController::class, 'update']);
-    Route::delete('/activities/{id}', [ActivityController::class, 'destroy']);
+    Route::put('/activities/{activity}', [ActivityController::class, 'update']);
+    Route::patch('/activities/{activity}', [ActivityController::class, 'update']);
+    Route::delete('/activities/{activity}', [ActivityController::class, 'destroy']);
 });
