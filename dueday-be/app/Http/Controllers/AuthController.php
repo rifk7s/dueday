@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class AuthController extends Controller
             'message' => 'User has logged in',
             'token' => $result['token'],
             'token_type' => 'Bearer',
-            'user' => $result['user'],
+            'user' => new UserResource($result['user']),
         ]);
     }
 
