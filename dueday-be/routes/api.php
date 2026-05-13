@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TagController;
+use App\Http\Controllers\ActivityController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -25,4 +26,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/tags/{tag}', [TagController::class, 'update']);
     Route::patch('/tags/{tag}', [TagController::class, 'update']);
     Route::delete('/tags/{tag}', [TagController::class, 'destroy']);
+
+    // Activities
+    Route::get('/activities', [ActivityController::class, 'index']);
+    Route::get('/activities/{id}', [ActivityController::class, 'show']);
+    Route::post('/activities', [ActivityController::class, 'store']);
+    Route::put('/activities/{id}', [ActivityController::class, 'update']);
+    Route::patch('/activities/{id}', [ActivityController::class, 'update']);
+    Route::delete('/activities/{id}', [ActivityController::class, 'destroy']);
 });
