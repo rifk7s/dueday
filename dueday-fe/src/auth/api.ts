@@ -32,10 +32,35 @@ export class AuthError extends Error {
   }
 }
 
+const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
+
+const MOCK_USER: AuthUser = {
+  id: "1",
+  username: "cheryl",
+  email: "cheryl@dueday.dev",
+  name: "Cherryl Callista",
+  nickname: "Cheryl",
+  nim: "123456789",
+  photo_url: null,
+  status: "Unsubscribed",
+  language: "Indonesia",
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
+
 export async function loginRequest(
   username: string,
   password: string,
 ): Promise<LoginResponse> {
+  if (MOCK_AUTH) {
+    return {
+      message: "Mock login successful",
+      token: "mock-token-dev",
+      token_type: "Bearer",
+      user: MOCK_USER,
+    };
+  }
+
   const response = await fetch(`${API_BASE_URL}/login`, {
     method: "POST",
     headers: {
@@ -58,6 +83,8 @@ export async function loginRequest(
 }
 
 export async function logoutRequest(token: string): Promise<void> {
+  if (MOCK_AUTH) return;
+
   await fetch(`${API_BASE_URL}/logout`, {
     method: "POST",
     headers: {
