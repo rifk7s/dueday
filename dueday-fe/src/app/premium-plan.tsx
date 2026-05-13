@@ -67,7 +67,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           style={styles.backButton}
           accessibilityRole="button"
           accessibilityLabel="Kembali"
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(tabs)/profile")}
         >
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
@@ -142,7 +142,16 @@ export default function PremiumPlanScreen(): React.JSX.Element {
         <Pressable
           style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
           accessibilityRole="button"
-          onPress={() => router.replace("/profile")}
+          onPress={() =>
+            router.push({
+              pathname: "/payment",
+              params: {
+                planName: selectedPlan.label,
+                planPrice: selectedPlan.price,
+                planDuration: selectedPlan.duration,
+              },
+            })
+          }
         >
           <Text style={styles.ctaText}>Mulai Premium Sekarang</Text>
         </Pressable>
