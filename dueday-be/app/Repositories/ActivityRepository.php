@@ -11,17 +11,19 @@ class ActivityRepository
     {
         $data['id'] = $data['id'] ?? (string) Str::uuid();
 
-        return Activity::create($data);
+        $activity = Activity::create($data);
+
+        return $activity->load('tag');
     }
 
     public function findById(string $id): ?Activity
     {
-        return Activity::find($id);
+        return Activity::with('tag')->find($id);
     }
 
     public function getByUserId(string $userId)
     {
-        return Activity::where('user_id', $userId)->get();
+        return Activity::with('tag')->where('user_id', $userId)->get();
     }
 
     public function update(string $id, array $data): ?Activity
@@ -35,7 +37,7 @@ class ActivityRepository
         $activity->fill($data);
         $activity->save();
 
-        return $activity;
+        return $activity->load('tag');
     }
 
     public function delete(string $id): bool

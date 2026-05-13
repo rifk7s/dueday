@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\TagService;
+use App\Http\Resources\TagResource;
 use App\Models\Tag;
+use App\Services\TagService;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 
 class TagController extends Controller
 {
@@ -13,12 +13,12 @@ class TagController extends Controller
 
     public function index()
     {
-        return response()->json($this->tagService->listTags());
+        return TagResource::collection($this->tagService->listTags());
     }
 
     public function show(Tag $tag)
     {
-        return response()->json($tag);
+        return new TagResource($tag);
     }
 
     public function store(Request $request)
@@ -29,7 +29,7 @@ class TagController extends Controller
 
         $tag = $this->tagService->createTag($data);
 
-        return response()->json($tag, 201);
+        return (new TagResource($tag))->response()->setStatusCode(201);
     }
 
     public function update(Request $request, Tag $tag)
@@ -44,7 +44,7 @@ class TagController extends Controller
             return response()->json(['message' => 'Not found'], 404);
         }
 
-        return response()->json($updated);
+        return new TagResource($updated);
     }
 
     public function destroy(Tag $tag)

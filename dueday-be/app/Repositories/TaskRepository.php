@@ -3,19 +3,17 @@
 namespace App\Repositories;
 
 use App\Models\Task;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
 class TaskRepository
 {
     /**
      * Create a new task.
-     *
-     * @param array $data
-     * @return Task
      */
     public function create(array $data): Task
     {
-        return Task::create([
+        $task = Task::create([
             'id' => $data['id'] ?? Str::uuid(),
             'user_id' => $data['user_id'],
             'id_tag' => $data['id_tag'] ?? null,
@@ -30,36 +28,30 @@ class TaskRepository
             'goal_points' => $data['goal_points'] ?? null,
             'progress' => $data['progress'] ?? 0,
         ]);
+
+        return $task->load('tag');
     }
 
     /**
      * Find a task by ID.
-     *
-     * @param string $id
-     * @return Task|null
      */
     public function findById(string $id): ?Task
     {
-        return Task::find($id);
+        return Task::with('tag')->find($id);
     }
 
     /**
      * Get all tasks for a user.
      *
-     * @param string $userId
-     * @return \Illuminate\Database\Eloquent\Collection
+     * @return Collection
      */
     public function getByUserId(string $userId)
     {
-        return Task::where('user_id', $userId)->get();
+        return Task::with('tag')->where('user_id', $userId)->get();
     }
 
     /**
      * Update a task by id.
-     *
-     * @param string $id
-     * @param array $data
-     * @return Task|null
      */
     public function update(string $id, array $data): ?Task
     {
@@ -72,14 +64,11 @@ class TaskRepository
         $task->fill($data);
         $task->save();
 
-        return $task;
+        return $task->load('tag');
     }
 
     /**
      * Delete a task by id.
-     *
-     * @param string $id
-     * @return bool
      */
     public function delete(string $id): bool
     {
