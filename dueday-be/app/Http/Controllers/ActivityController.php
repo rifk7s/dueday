@@ -12,7 +12,6 @@ class ActivityController extends Controller
 {
     public function __construct(private ActivityService $activityService)
     {
-        $this->authorizeResource(Activity::class, 'activity');
     }
 
     public function index()

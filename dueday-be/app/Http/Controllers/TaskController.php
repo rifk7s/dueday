@@ -13,7 +13,6 @@ class TaskController extends Controller
     public function __construct(
         private TaskService $taskService
     ) {
-        $this->authorizeResource(Task::class, 'task');
     }
 
     /**
