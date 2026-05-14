@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Tag;
+use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -18,7 +19,25 @@ class TagSeeder extends Seeder
         $tags = ['Kuliah', 'Pekerjaan', 'Rapat', 'Rumah'];
 
         foreach ($tags as $tagName) {
-            Tag::create(['nama_tag' => $tagName]);
+            Tag::firstOrCreate(['nama_tag' => $tagName, 'user_id' => null]);
+        }
+
+        // Add some example local tags for each existing user (skip if already exists)
+        $localTags = ['Pribadi', 'Proyek', 'Darurat'];
+
+        foreach (User::all() as $user) {
+            foreach ($localTags as $localName) {
+                $exists = Tag::where('user_id', $user->id)
+                    ->where('nama_tag', $localName)
+                    ->exists();
+
+                if (! $exists) {
+                    Tag::create([
+                        'nama_tag' => $localName,
+                        'user_id' => $user->id,
+                    ]);
+                }
+            }
         }
     }
 }
