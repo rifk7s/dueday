@@ -25,8 +25,6 @@ class Activity extends Model
     {
         return [
             'tanggal' => 'date',
-            'time_start' => 'datetime:H:i:s',
-            'time_end' => 'datetime:H:i:s',
             'progress' => 'integer',
             'user_id' => 'string',
             'id_tag' => 'integer',

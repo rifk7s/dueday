@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useMemo, type PropsWithChildren } from "react";
 import {
   loginRequest,
@@ -25,7 +26,8 @@ export function useSession(): SessionContextValue {
   return value;
 }
 
-export function SessionProvider({ children }: PropsWithChildren) {
+export function SessionProvider({ children }: Readonly<PropsWithChildren>) {
+  const qc = useQueryClient();
   const [[tokenLoading, token], setToken] = useStorageState("auth_token");
   const [[userLoading, userJson], setUserJson] = useStorageState("auth_user");
 
@@ -50,9 +52,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
         setToken(null);
         setUserJson(null);
+        qc.clear();
       },
     };
-  }, [token, userJson, tokenLoading, userLoading, setToken, setUserJson]);
+  }, [token, userJson, tokenLoading, userLoading, setToken, setUserJson, qc]);
 
   return (
     <SessionContext.Provider value={value}>{children}</SessionContext.Provider>

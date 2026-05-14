@@ -1,19 +1,34 @@
+import { fromApiDate, fromApiTime } from "@/api/format";
+import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
+import { ULANGI_DISPLAY, type Activity } from "@/api/activities";
 import { colors, fonts, typography } from "@/constants/theme";
+import { useActivitiesQuery } from "@/hooks/useActivities";
+import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
 type Tab = "tugas" | "aktivitas";
 type Filter = "Semua" | "Selesai" | "Pekerjaan" | "Rapat";
 
+type StateColor = { bg: string; text: string };
+
 type ListItem = {
   id: string;
   accentColor?: string;
   stateText?: string;
+  stateColor?: StateColor;
   deadline?: string;
   title?: string;
   description?: string;
@@ -22,107 +37,125 @@ type ListItem = {
   progress?: number;
 };
 
-const tugasItems: ListItem[] = [
-  { id: "t1", category: "Kuliah", status: "open", progress: 0.5 },
-  { id: "t2", accentColor: colors.success, stateText: "SEDANG", category: "Kuliah", status: "open", progress: 0.5 },
-  { id: "t3", accentColor: colors.surfaceWarm, stateText: "RENDAH", category: "Kuliah", status: "open", progress: 0.5 },
-  {
-    id: "t4",
-    accentColor: colors.success,
-    stateText: "SELESAI",
-    deadline: "31 Desember 2025 | 13.30 - 14.30",
-    title: "Briefing Tim",
-    description: "Diskusi dengan tim developer.",
-    category: "Pekerjaan",
-    status: "done",
-  },
-  {
-    id: "t5",
-    accentColor: colors.success,
-    stateText: "SELESAI",
-    deadline: "20 Desember 2025 | 08.00 - 09.00",
-    title: "Riset Kompetitor",
-    description: "Menganalisis fitur aplikasi sejenis.",
-    category: "Pekerjaan",
-    status: "done",
-  },
-  {
-    id: "t6",
-    accentColor: colors.success,
-    stateText: "SELESAI",
-    deadline: "18 Desember 2025 | 08.00 - 09.00",
-    title: "Laporan Mingguan",
-    description: "Menyusun laporan progress mingguan",
-    category: "Rapat",
-    status: "done",
-  },
-];
+const PRIORITY_COLOR: Record<string, StateColor> = {
+  high: { bg: colors.errorSoft, text: colors.errorStrong },
+  medium: { bg: colors.surfaceWarm, text: colors.warning },
+  low: { bg: colors.surfaceSuccess, text: colors.success },
+};
 
-const aktivitasItems: ListItem[] = [
-  {
-    id: "a1",
-    progress: 0,
-    deadline: "30 April 2026 | 08.00 - 09.00",
-    title: "Olahraga Pagi",
-    description: "Lari pagi keliling taman kota untuk menjaga kesehatan...",
-    category: "Rumah",
-    status: "open",
-  },
-  {
-    id: "a2",
-    accentColor: colors.primaryContainer,
-    stateText: "RAPAT",
-    progress: 0.5,
-    deadline: "24 April 2026 | 13.00-14.30",
-    title: "Rapat REM",
-    description: "Final review untuk project Dueday App",
-    category: "Rapat",
-    status: "open",
-  },
-  {
-    id: "a3",
-    accentColor: colors.surfaceWarm,
-    stateText: "PEKERJAN",
-    progress: 0.5,
-    deadline: "30 April 2026 | 13.00-14.30",
-    title: "Evaluasi Bulanan",
-    description: "Penilaian kinerja selama satu bulan serto identifikasi...",
-    category: "Pekerjaan",
-    status: "open",
-  },
-  {
-    id: "a4",
-    accentColor: colors.success,
-    stateText: "SELESAI",
-    deadline: "31 Desember 2025 | 13.30 - 14.30",
-    title: "Briefing Tim",
-    description: "Diskusi dengan tim developer.",
-    category: "Pekerjaan",
-    status: "done",
-  },
-  {
-    id: "a5",
-    accentColor: colors.success,
-    stateText: "SELESAI",
-    deadline: "20 Desember 2025 | 08.00 - 09.00",
-    title: "Melakukan Riset",
-    description: "Menganalisis fitur aplikasi sejenis.",
-    category: "Pekerjaan",
-    status: "done",
-  },
-  {
-    id: "a6",
-    accentColor: colors.success,
-    stateText: "SELESAI",
-    deadline: "18 Desember 2025 | 08.00 - 09.00",
-    title: "Rapat Mingguan",
-    description: "Rapat untuk melihat hasil mingguan",
-    category: "Pekerjaan",
-    status: "done",
-  },
-];
+const DONE_COLOR: StateColor = { bg: colors.surfaceSuccess, text: colors.success };
 
 const filterOptions: Filter[] = ["Semua", "Selesai", "Pekerjaan", "Rapat"];
+
+function taskToListItem(task: Task): ListItem {
+  const datePart = fromApiDate(task.date);
+  const timePart = task.time ? fromApiTime(task.time) : "";
+  const deadline = [datePart, timePart].filter(Boolean).join(" | ");
+
+  const isDone = task.status === "completed";
+  const stateText = isDone ? "SELESAI" : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
+
+  let accentColor: string = colors.surfaceContainerLow;
+  if (isDone) accentColor = colors.success;
+  else if (task.priority === "high") accentColor = colors.error;
+  else if (task.priority === "medium") accentColor = colors.primaryContainer;
+  else if (task.priority === "low") accentColor = colors.success;
+
+  const stateColor = isDone
+    ? DONE_COLOR
+    : (PRIORITY_COLOR[task.priority ?? ""] ?? { bg: colors.errorSoft, text: colors.errorStrong });
+
+  return {
+    id: task.id,
+    accentColor,
+    stateText,
+    stateColor,
+    deadline: deadline || "—",
+    title: task.task_name,
+    description: task.deskripsi ?? "",
+    category: task.tag?.nama_tag ?? "—",
+    status: isDone ? "done" : "open",
+    progress: task.progress / 100,
+  };
+}
+
+function activityToListItem(activity: Activity): ListItem {
+  const datePart = fromApiDate(activity.tanggal);
+  const timeParts = [activity.time_start, activity.time_end]
+    .filter(Boolean)
+    .map((t) => fromApiTime(t));
+  const deadline = [datePart, timeParts.join("-")].filter(Boolean).join(" | ");
+
+  const isDone = activity.status === "completed";
+
+  let stateText: string;
+  if (isDone) stateText = "SELESAI";
+  else if (activity.ulangi) stateText = ULANGI_DISPLAY[activity.ulangi];
+  else stateText = activity.tag?.nama_tag?.toUpperCase() ?? "AKTIF";
+
+  let accentColor: string;
+  if (isDone) accentColor = colors.success;
+  else if (activity.id_tag) accentColor = colors.primaryContainer;
+  else accentColor = colors.surfaceWarm;
+
+  const stateColor: StateColor = isDone
+    ? DONE_COLOR
+    : { bg: colors.surfaceWarm, text: colors.warning };
+
+  return {
+    id: activity.id,
+    accentColor,
+    stateText,
+    stateColor,
+    deadline: deadline || "—",
+    title: activity.activity_name,
+    description: activity.deskripsi ?? "",
+    category: activity.tag?.nama_tag ?? "—",
+    status: isDone ? "done" : "open",
+    progress: activity.progress / 100,
+  };
+}
+
+function renderListContent(
+  isLoading: boolean,
+  isError: boolean,
+  active: Tab,
+  visibleItems: ListItem[],
+) {
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.primaryContainer} />
+      </View>
+    );
+  }
+  if (isError) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyText}>Gagal memuat data. Coba lagi.</Text>
+      </View>
+    );
+  }
+  if (visibleItems.length === 0) {
+    const msg =
+      active === "tugas" ? "Belum ada tugas." : "Belum ada aktivitas.";
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyText}>{msg}</Text>
+      </View>
+    );
+  }
+  return (
+    <ScrollView
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      {visibleItems.map((item) => (
+        <TaskCard key={item.id} {...item} />
+      ))}
+    </ScrollView>
+  );
+}
 
 export default function ListPage() {
   const { top } = useSafeAreaInsets();
@@ -131,14 +164,44 @@ export default function ListPage() {
   const [active, setActive] = useState<Tab>("tugas");
   const [activeFilter, setActiveFilter] = useState<Filter>("Semua");
 
+  const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } =
+    useTasksQuery();
+  const { data: activities = [], isLoading: activitiesLoading, isError: activitiesError } =
+    useActivitiesQuery();
+
   useFocusEffect(
     React.useCallback(() => {
       setActive("tugas");
       setActiveFilter("Semua");
-    }, [])
+    }, []),
   );
 
-  const items = active === "tugas" ? tugasItems : aktivitasItems;
+  const isLoading = active === "tugas" ? tasksLoading : activitiesLoading;
+  const isError = active === "tugas" ? tasksError : activitiesError;
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aDone = a.status === "completed" ? 1 : 0;
+    const bDone = b.status === "completed" ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    const aKey = `${a.date ?? "9999-12-31"}T${a.time ?? "23:59:59"}`;
+    const bKey = `${b.date ?? "9999-12-31"}T${b.time ?? "23:59:59"}`;
+    return aKey.localeCompare(bKey);
+  });
+
+  const sortedActivities = [...activities].sort((a, b) => {
+    const aDone = a.status === "completed" ? 1 : 0;
+    const bDone = b.status === "completed" ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+    const aKey = `${a.tanggal ?? "9999-12-31"}T${a.time_start ?? "23:59:59"}`;
+    const bKey = `${b.tanggal ?? "9999-12-31"}T${b.time_start ?? "23:59:59"}`;
+    return aKey.localeCompare(bKey);
+  });
+
+  const items =
+    active === "tugas"
+      ? sortedTasks.map(taskToListItem)
+      : sortedActivities.map(activityToListItem);
+
   const visibleItems = items.filter((item) => {
     if (activeFilter === "Semua") return true;
     if (activeFilter === "Selesai") return item.status === "done";
@@ -163,15 +226,18 @@ export default function ListPage() {
           onPress={() => setActive("tugas")}
           style={[styles.tabButton, active === "tugas" && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, active === "tugas" && styles.tabLabelActive]}>Tugas</Text>
+          <Text style={[styles.tabLabel, active === "tugas" && styles.tabLabelActive]}>
+            Tugas
+          </Text>
         </Pressable>
-
         <Pressable
           accessibilityRole="button"
           onPress={() => setActive("aktivitas")}
           style={[styles.tabButton, active === "aktivitas" && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, active === "aktivitas" && styles.tabLabelActive]}>Aktivitas</Text>
+          <Text style={[styles.tabLabel, active === "aktivitas" && styles.tabLabelActive]}>
+            Aktivitas
+          </Text>
         </Pressable>
       </View>
 
@@ -183,16 +249,14 @@ export default function ListPage() {
             style={[styles.chip, f === activeFilter ? styles.chipActive : null]}
             accessibilityRole="button"
           >
-            <Text style={[styles.chipText, f === activeFilter ? styles.chipTextActive : null]}>{f}</Text>
+            <Text style={[styles.chipText, f === activeFilter ? styles.chipTextActive : null]}>
+              {f}
+            </Text>
           </Pressable>
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {visibleItems.map((item) => (
-          <TaskCard key={item.id} {...item} />
-        ))}
-      </ScrollView>
+      {renderListContent(isLoading, isError, active, visibleItems)}
     </View>
   );
 }
@@ -200,12 +264,13 @@ export default function ListPage() {
 function TaskCard({
   accentColor = colors.error,
   stateText = "TINGGI",
+  stateColor = { bg: colors.errorSoft, text: colors.errorStrong },
   deadline = "30 April 2026 | 18.00",
-  title = "Wireframe MAD",
-  description = "Final review untuk project Dueday App",
-  category = "Kuliah",
+  title = "—",
+  description = "",
+  category = "—",
   status = "open",
-  progress = 0.5,
+  progress = 0,
 }: Readonly<Omit<ListItem, "id">>) {
   return (
     <View style={styles.taskCard}>
@@ -217,7 +282,9 @@ function TaskCard({
             size={14}
             color={status === "done" ? colors.success : colors.error}
           />
-          <Text style={[styles.deadlineText, status === "done" && styles.deadlineTextDone]}>{deadline}</Text>
+          <Text style={[styles.deadlineText, status === "done" && styles.deadlineTextDone]}>
+            {deadline}
+          </Text>
         </View>
         <Ionicons name="ellipsis-vertical" size={16} color={colors.iconMuted} />
       </View>
@@ -225,11 +292,13 @@ function TaskCard({
       <View style={styles.taskMainRow}>
         <View style={styles.taskInfo}>
           <Text style={styles.taskTitle}>{title}</Text>
-          <Text style={styles.taskDescription}>{description}</Text>
+          {description ? (
+            <Text style={styles.taskDescription}>{description}</Text>
+          ) : null}
 
           <View style={styles.tagRow}>
-            <View style={[styles.tag, status === "done" ? styles.doneTag : styles.priorityTag]}>
-              <Text style={styles.priorityTagText}>{stateText}</Text>
+            <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
+              <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
             </View>
             <View style={[styles.tag, styles.categoryTag]}>
               <Text style={styles.categoryTagText}>{category}</Text>
@@ -251,7 +320,11 @@ function TaskCard({
   );
 }
 
-function ProgressRing({ progress, size, strokeWidth }: Readonly<{ progress: number; size: number; strokeWidth: number }>) {
+function ProgressRing({
+  progress,
+  size,
+  strokeWidth,
+}: Readonly<{ progress: number; size: number; strokeWidth: number }>) {
   const clamped = Math.max(0, Math.min(1, progress));
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -296,27 +369,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomWidth: 0,
   },
   iconButton: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   title: { fontSize: typography.h2.fontSize, fontFamily: fonts["900"], color: colors.onSurface },
-  tabRow: { flexDirection: "row", gap: 60, paddingHorizontal: 18, paddingTop: 12, justifyContent: "center", alignItems: "center" },
+  tabRow: {
+    flexDirection: "row",
+    gap: 60,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   tabButton: { paddingVertical: 10, paddingHorizontal: 20, borderBottomWidth: 2, borderBottomColor: "transparent" },
   tabButtonActive: { borderBottomColor: colors.primaryContainer },
   tabLabel: { color: colors.iconMuted, fontFamily: fonts["700"], fontSize: 15 },
   tabLabelActive: { color: colors.primaryContainer, fontFamily: fonts["900"] },
-  content: { padding: 16, paddingBottom: 120 },
-  filterRow: { flexDirection: "row", gap: 12, paddingHorizontal: 18, paddingTop: 12, paddingBottom: 10, alignItems: "center" },
+  filterRow: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 10,
+    alignItems: "center",
+  },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: colors.surfaceContainerLow,
-    borderWidth: 0,
   },
   chipActive: { backgroundColor: colors.primaryContainer },
   chipText: { color: colors.onSurfaceVariant, fontFamily: fonts["700"] },
   chipTextActive: { color: colors.onPrimary },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
+  emptyText: { fontSize: 14, fontFamily: fonts["500"], color: colors.iconMuted, textAlign: "center" },
+  content: { padding: 16, paddingBottom: 120 },
   taskCard: {
     position: "relative",
     borderRadius: 16,
@@ -324,7 +411,15 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 14,
   },
-  taskAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: 16, borderBottomLeftRadius: 16 },
+  taskAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
   taskHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   deadlineRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   deadlineText: { color: colors.error, fontFamily: fonts["700"], fontSize: 12 },
@@ -343,10 +438,7 @@ const styles = StyleSheet.create({
   progressWrap: { width: 64, height: 64, alignItems: "center", justifyContent: "center" },
   progressLabel: {
     position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
+    top: 0, right: 0, bottom: 0, left: 0,
     alignItems: "center",
     justifyContent: "center",
   },

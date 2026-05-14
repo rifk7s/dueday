@@ -2,33 +2,40 @@ import DatePickerCalendar from "@/components/DatePickerCalendar";
 import TimePicker from "@/components/TimePicker";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
+import { useCreateTaskMutation } from "@/hooks/useTasks";
+import { useTagIdByName } from "@/hooks/useTags";
+import { toApiDate, toApiTime } from "@/api/format";
+import { PRIORITY_API_MAP } from "@/api/tasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard-controller";
 import Animated, {
-    Extrapolation,
-    interpolate,
-    useAnimatedStyle,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type PriorityType = "Tinggi" | "Sedang" | "Rendah" | null;
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
-type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tanggal Tertentu";
 
 export default function CreateTaskPage() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
   const scrollRef = useRef<React.ComponentRef<typeof KeyboardAwareScrollView>>(null);
+  const prevGoalsHeight = useRef(0);
+  const isGoalsFocused = useRef(false);
   const prevDescHeight = useRef(0);
   const isDescFocused = useRef(false);
   const [footerHeight, setFooterHeight] = useState(80);
@@ -38,13 +45,17 @@ export default function CreateTaskPage() {
   const [jam, setJam] = useState("");
   const [prioritas, setPrioritas] = useState<PriorityType>(null);
   const [tag, setTag] = useState<TagType | null>(null);
-  const [repeat, setRepeat] = useState<RepeatType | null>(null);
+  const [goals, setGoals] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [validationError, setValidationError] = useState("");
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tanggal Tertentu"];
+
+  const mutation = useCreateTaskMutation();
+  const tagId = useTagIdByName(tag);
+  const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
 
   const getPriorityColor = (priority: PriorityType) => {
     if (priority === "Tinggi") return colors.error;
@@ -53,22 +64,48 @@ export default function CreateTaskPage() {
     return colors.surfaceContainerLow;
   };
 
-  const isTagSelected = (t: TagType) => tag === t;
-  const isRepeatSelected = (r: RepeatType) => repeat === r;
-
   const handleSave = () => {
-    console.log({ namatugas, tanggal, jam, prioritas, tag, repeat, deskripsi });
+    // Two-stage save: first tap dismisses keyboard so the user can see the full
+    // form and verify required pickers (tenggat) before committing.
+    if (isKeyboardVisible) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    if (!namatugas.trim()) {
+      setValidationError("Nama tugas wajib diisi.");
+      return;
+    }
+    if (!tanggal) {
+      setValidationError("Tenggat waktu wajib dipilih.");
+      return;
+    }
+    setValidationError("");
+
+    mutation.mutate(
+      {
+        task_name: namatugas.trim(),
+        date: toApiDate(tanggal),
+        ...(jam ? { time: toApiTime(jam) } : {}),
+        ...(prioritas ? { priority: PRIORITY_API_MAP[prioritas] } : {}),
+        ...(tagId !== undefined ? { id_tag: tagId } : {}),
+        ...(goals.trim() ? { goals: goals.trim() } : {}),
+        ...(deskripsi.trim() ? { deskripsi: deskripsi.trim() } : {}),
+        status: "ongoing",
+      },
+      {
+        onSuccess: () => router.back(),
+      },
+    );
   };
 
-  // Footer slides up with keyboard. paddingBottom shrinks to 16 when keyboard
-  // is open because e.height already includes the bottom safe area inset.
   const footerAnimatedStyle = useAnimatedStyle(() => ({
     bottom: height.value,
     paddingBottom: interpolate(
       height.value,
       [0, 1],
       [bottom + 16, 16],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     ),
   }));
 
@@ -91,6 +128,15 @@ export default function CreateTaskPage() {
         keyboardShouldPersistTaps="handled"
         bottomOffset={footerHeight + 16}
       >
+        {validationError ? (
+          <Text style={styles.errorText}>{validationError}</Text>
+        ) : null}
+        {mutation.isError ? (
+          <Text style={styles.errorText}>
+            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan tugas."}
+          </Text>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={styles.label}>Nama Tugas</Text>
           <TextInput
@@ -103,7 +149,7 @@ export default function CreateTaskPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Tanggal Waktu</Text>
+          <Text style={styles.label}>Tenggat Waktu</Text>
           <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
             <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
@@ -151,9 +197,12 @@ export default function CreateTaskPage() {
               <Pressable
                 key={t}
                 onPress={() => setTag(tag === t ? null : t)}
-                style={[styles.chip, { backgroundColor: isTagSelected(t) ? colors.primaryContainer : colors.surfaceContainerLow }]}
+                style={[
+                  styles.chip,
+                  { backgroundColor: tag === t ? colors.primaryContainer : colors.surfaceContainerLow },
+                ]}
               >
-                <Text style={[styles.chipText, { color: isTagSelected(t) ? colors.onPrimary : colors.onSurfaceVariant }]}>
+                <Text style={[styles.chipText, { color: tag === t ? colors.onPrimary : colors.onSurfaceVariant }]}>
                   {t}
                 </Text>
               </Pressable>
@@ -162,20 +211,29 @@ export default function CreateTaskPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Ulangi</Text>
-          <View style={styles.chipRow}>
-            {repeatOptions.map((r) => (
-              <Pressable
-                key={r}
-                onPress={() => setRepeat(repeat === r ? null : r)}
-                style={[styles.chip, { backgroundColor: isRepeatSelected(r) ? colors.primaryContainer : colors.surfaceContainerLow }]}
-              >
-                <Text style={[styles.chipText, { color: isRepeatSelected(r) ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                  {r}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <Text style={styles.label}>Goals</Text>
+          <TextInput
+            style={[styles.input, styles.goalsInput]}
+            placeholder="Isi dalam bentuk poin"
+            placeholderTextColor={colors.iconMuted}
+            value={goals}
+            onChangeText={setGoals}
+            multiline
+            textAlignVertical="top"
+            onFocus={() => {
+              isGoalsFocused.current = true;
+            }}
+            onBlur={() => {
+              isGoalsFocused.current = false;
+            }}
+            onContentSizeChange={(e) => {
+              const newHeight = e.nativeEvent.contentSize.height;
+              if (isGoalsFocused.current && newHeight > prevGoalsHeight.current) {
+                scrollRef.current?.scrollToEnd?.({ animated: true });
+              }
+              prevGoalsHeight.current = newHeight;
+            }}
+          />
         </View>
 
         <View style={styles.section}>
@@ -210,8 +268,16 @@ export default function CreateTaskPage() {
         style={[styles.footer, footerAnimatedStyle]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
-        <Pressable style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Simpan</Text>
+        <Pressable
+          style={[styles.saveButton, mutation.isPending && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.saveButtonText}>Simpan</Text>
+          )}
         </Pressable>
       </Animated.View>
 
@@ -264,6 +330,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 20,
   },
+  errorText: {
+    fontSize: 13,
+    fontFamily: fonts["500"],
+    color: colors.error,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
   section: {
     marginBottom: 24,
   },
@@ -283,6 +356,10 @@ const styles = StyleSheet.create({
     fontFamily: fonts["400"],
     color: colors.onSurface,
     backgroundColor: colors.surfaceContainerLowest,
+  },
+  goalsInput: {
+    minHeight: 120,
+    paddingTop: 12,
   },
   descriptionInput: {
     minHeight: 100,
@@ -343,6 +420,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     fontSize: 16,
