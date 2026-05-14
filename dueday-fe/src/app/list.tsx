@@ -121,6 +121,7 @@ function renderListContent(
   isError: boolean,
   active: Tab,
   visibleItems: ListItem[],
+  onPressItem: (item: ListItem) => void,
 ) {
   if (isLoading) {
     return (
@@ -151,7 +152,9 @@ function renderListContent(
       showsVerticalScrollIndicator={false}
     >
       {visibleItems.map((item) => (
-        <TaskCard key={item.id} {...item} />
+        <Pressable key={item.id} onPress={() => onPressItem(item)}>
+          <TaskCard {...item} />
+        </Pressable>
       ))}
     </ScrollView>
   );
@@ -256,7 +259,11 @@ export default function ListPage() {
         ))}
       </View>
 
-      {renderListContent(isLoading, isError, active, visibleItems)}
+      {renderListContent(isLoading, isError, active, visibleItems, (item) => {
+        if (active === "tugas") {
+          router.push({ pathname: "/taskprogress", params: { id: item.id } });
+        }
+      })}
     </View>
   );
 }
