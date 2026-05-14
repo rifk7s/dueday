@@ -13,6 +13,7 @@ class Task extends Model
     use HasFactory;
 
     protected $keyType = 'string';
+
     public $incrementing = false;
 
     /**
@@ -24,7 +25,6 @@ class Task extends Model
     {
         return [
             'date' => 'date',
-            'time' => 'datetime:H:i:s',
             'progress' => 'integer',
             'user_id' => 'string',
             'id_tag' => 'integer',

@@ -2,21 +2,27 @@ import DatePickerCalendar from "@/components/DatePickerCalendar";
 import TimePicker from "@/components/TimePicker";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
+import { useCreateActivityMutation } from "@/hooks/useActivities";
+import { useTagIdByName } from "@/hooks/useTags";
+import { toApiDate, toApiTime } from "@/api/format";
+import { ULANGI_API_MAP } from "@/api/activities";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard-controller";
 import Animated, {
-    Extrapolation,
-    interpolate,
-    useAnimatedStyle,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -46,11 +52,49 @@ export default function CreateActivityPage() {
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
   const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tanggal Tertentu"];
 
+  const mutation = useCreateActivityMutation();
+  const tagId = useTagIdByName(tag);
+  const [validationError, setValidationError] = useState("");
+  const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
+
   const isTagSelected = (t: TagType): boolean => tag === t;
   const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
 
   const handleSave = () => {
-    console.log({ namaaktivitas, tanggal, jamMulai, jamSelesai, tag, repeat, deskripsi });
+    // Two-stage save: first tap dismisses keyboard so the user can see the full
+    // form and verify required pickers (tanggal/waktu) before committing.
+    if (isKeyboardVisible) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    if (!namaaktivitas.trim()) {
+      setValidationError("Nama aktivitas wajib diisi.");
+      return;
+    }
+    if (!tanggal) {
+      setValidationError("Tanggal wajib dipilih.");
+      return;
+    }
+    if (!jamMulai || !jamSelesai) {
+      setValidationError("Waktu mulai dan selesai wajib diisi.");
+      return;
+    }
+    setValidationError("");
+
+    const payload: Parameters<typeof mutation.mutate>[0] = {
+      activity_name: namaaktivitas.trim(),
+      status: "ongoing",
+    };
+    if (tanggal) payload.tanggal = toApiDate(tanggal);
+    if (jamMulai) payload.time_start = toApiTime(jamMulai);
+    if (jamSelesai) payload.time_end = toApiTime(jamSelesai);
+    if (tagId != null) payload.id_tag = tagId;
+    const ulangi = repeat ? ULANGI_API_MAP[repeat] : undefined;
+    if (ulangi) payload.ulangi = ulangi;
+    if (deskripsi.trim()) payload.deskripsi = deskripsi.trim();
+
+    mutation.mutate(payload, { onSuccess: () => router.back() });
   };
 
   // Footer slides up with keyboard. paddingBottom shrinks to 16 when keyboard
@@ -84,6 +128,15 @@ export default function CreateActivityPage() {
         keyboardShouldPersistTaps="handled"
         bottomOffset={footerHeight + 16}
       >
+        {validationError ? (
+          <Text style={styles.errorText}>{validationError}</Text>
+        ) : null}
+        {mutation.isError ? (
+          <Text style={styles.errorText}>
+            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan aktivitas."}
+          </Text>
+        ) : null}
+
         <View style={styles.section}>
           <Text style={styles.label}>Nama Aktivitas</Text>
           <TextInput
@@ -195,8 +248,16 @@ export default function CreateActivityPage() {
         style={[styles.footer, footerAnimatedStyle]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
-        <Pressable style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Simpan</Text>
+        <Pressable
+          style={[styles.saveButton, mutation.isPending && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.saveButtonText}>Simpan</Text>
+          )}
         </Pressable>
       </Animated.View>
 
@@ -335,6 +396,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.surfaceContainerLow,
   },
+  errorText: {
+    fontSize: 13,
+    fontFamily: fonts["500"],
+    color: colors.error,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
   saveButton: {
     backgroundColor: colors.primaryContainer,
     paddingVertical: 14,
@@ -342,6 +410,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     fontSize: 16,
