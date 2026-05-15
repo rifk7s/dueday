@@ -33,6 +33,7 @@ type ListItem = {
   title?: string;
   description?: string;
   category: string;
+  showCategoryTag: boolean;
   status: "open" | "done";
   progress?: number;
 };
@@ -74,6 +75,7 @@ function taskToListItem(task: Task): ListItem {
     title: task.task_name,
     description: task.deskripsi ?? "",
     category: task.tag?.nama_tag ?? "—",
+    showCategoryTag: task.id_tag !== null,
     status: isDone ? "done" : "open",
     progress: task.progress / 100,
   };
@@ -111,6 +113,7 @@ function activityToListItem(activity: Activity): ListItem {
     title: activity.activity_name,
     description: activity.deskripsi ?? "",
     category: activity.tag?.nama_tag ?? "—",
+    showCategoryTag: activity.id_tag !== null,
     status: isDone ? "done" : "open",
     progress: activity.progress / 100,
   };
@@ -276,6 +279,7 @@ function TaskCard({
   title = "—",
   description = "",
   category = "—",
+  showCategoryTag = false,
   status = "open",
   progress = 0,
 }: Readonly<Omit<ListItem, "id">>) {
@@ -307,9 +311,11 @@ function TaskCard({
             <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
               <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
             </View>
-            <View style={[styles.tag, styles.categoryTag]}>
-              <Text style={styles.categoryTagText}>{category}</Text>
-            </View>
+            {showCategoryTag ? (
+              <View style={[styles.tag, styles.categoryTag]}>
+                <Text style={styles.categoryTagText}>{category}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 

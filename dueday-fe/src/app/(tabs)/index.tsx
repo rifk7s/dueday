@@ -1,3 +1,8 @@
+import { fromApiDate, fromApiTime } from "@/api/format";
+import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
+import { useSession } from "@/auth/ctx";
+import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
+import { useTasksQuery } from "@/hooks/useTasks";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -19,12 +24,31 @@ import Svg, { Circle } from "react-native-svg";
 export default function App() {
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
+  const { user: sessionUser } = useSession();
+  const { data: currentUser } = useCurrentUserQuery();
+  const { data: tasks = [] } = useTasksQuery();
   const bottomBarHeight = 78;
   const fabBottom = bottomBarHeight + 12;
   const [overlayOpen, setOverlayOpen] = useState(false);
   const backdropOpacity = React.useRef(new Animated.Value(0)).current;
   const actionOneProgress = React.useRef(new Animated.Value(0)).current;
   const actionTwoProgress = React.useRef(new Animated.Value(0)).current;
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aDone = a.status === "completed" ? 1 : 0;
+    const bDone = b.status === "completed" ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;
+
+    const aKey = `${a.date ?? "9999-12-31"}T${a.time ?? "23:59:59"}`;
+    const bKey = `${b.date ?? "9999-12-31"}T${b.time ?? "23:59:59"}`;
+    return aKey.localeCompare(bKey);
+  });
+
+  const pendingTasks = tasks.filter((task) => task.status !== "completed").length;
+  const completedTasks = tasks.filter((task) => task.status === "completed").length;
+  const activeTask = sortedTasks[0] ?? null;
+  const greetingName =
+    currentUser?.nickname ?? sessionUser?.nickname ?? currentUser?.name ?? sessionUser?.name ?? currentUser?.username ?? sessionUser?.username ?? "Mahasiswa";
 
   React.useEffect(() => {
     if (overlayOpen) {
@@ -95,16 +119,24 @@ export default function App() {
           <View style={styles.profileRow}>
             <View style={styles.avatarRing}>
               <View style={styles.avatarInner}>
-                <Image
-                  source={require("../../../assets/images/react-logo.png")}
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
+                {(currentUser?.photo_url ?? sessionUser?.photo_url) ? (
+                  <Image
+                    source={{ uri: currentUser?.photo_url ?? sessionUser?.photo_url ?? undefined }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image
+                    source={require("../../../assets/images/react-logo.png")}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                )}
               </View>
             </View>
 
             <View style={styles.greetingBlock}>
-              <Text style={styles.greetingTitle}>Halo, Mahasiswa</Text>
+              <Text style={styles.greetingTitle}>Halo, {greetingName}</Text>
               <Text style={styles.greetingSubtitle}>Semangat mengerjakan tugasmu!</Text>
             </View>
 
@@ -121,14 +153,14 @@ export default function App() {
             accent={colors.primaryContainer}
             icon="time-outline"
             title="Belum Dikerjakan"
-            value="10"
+            value={String(pendingTasks)}
             background={colors.surfaceWarm}
           />
           <SummaryCard
             accent={colors.success}
             icon="checkmark-circle"
             title="Selesai"
-            value="5"
+            value={String(completedTasks)}
             background={colors.surfaceSuccess}
           />
         </View>
@@ -138,36 +170,7 @@ export default function App() {
           <Text style={styles.sectionCaption}>Diurutkan berdasarkan tenggat waktu</Text>
         </View>
 
-        <View style={styles.taskCard}>
-          <View style={styles.taskAccent} />
-          <View style={styles.taskHeaderRow}>
-            <View style={styles.deadlineRow}>
-              <Ionicons name="warning-outline" size={16} color={colors.error} />
-              <Text style={styles.deadlineText}>30 April 2026 | 18.00</Text>
-            </View>
-            <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
-          </View>
-
-          <View style={styles.taskMainRow}>
-            <View style={styles.taskInfo}>
-              <Text style={styles.taskTitle}>Wireframe MAD</Text>
-              <Text style={styles.taskDescription}>Final review untuk project Dueday App</Text>
-
-              <View style={styles.tagRow}>
-                <View style={[styles.tag, styles.priorityTag]}>
-                  <Text style={styles.priorityTagText}>TINGGI</Text>
-                </View>
-                <View style={[styles.tag, styles.categoryTag]}>
-                  <Text style={styles.categoryTagText}>Kuliah</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.progressWrap}>
-                <ProgressRing progress={0.5} size={64} strokeWidth={6} />
-            </View>
-          </View>
-        </View>
+        {activeTask ? <DashboardTaskCard task={activeTask} /> : <EmptyTaskCard />}
 
         <Pressable style={styles.actionButton} accessibilityRole="button" onPress={() => router.push('/list')}>
           <Text style={styles.actionButtonText}>Lihat List Aktivitas/Tugas</Text>
@@ -274,6 +277,78 @@ function SummaryCard({ accent, icon, title, value, background }: Readonly<Summar
       </View>
       <Text style={styles.summaryTitle}>{title}</Text>
       <Text style={[styles.summaryValue, { color: accent }]}>{value}</Text>
+    </View>
+  );
+}
+
+function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
+  const isDone = task.status === "completed";
+  const datePart = fromApiDate(task.date);
+  const timePart = fromApiTime(task.time);
+  const deadline = [datePart, timePart].filter(Boolean).join(" | ") || "—";
+  const stateText = isDone ? "SELESAI" : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
+  const stateColor = isDone
+    ? { bg: colors.surfaceSuccess, text: colors.success }
+    : { bg: colors.errorSoft, text: colors.errorStrong };
+
+  let accentColor: string = colors.surfaceContainerLow;
+  if (isDone) accentColor = colors.success;
+  else if (task.priority === "high") accentColor = colors.error;
+  else if (task.priority === "medium") accentColor = colors.primaryContainer;
+  else if (task.priority === "low") accentColor = colors.success;
+
+  return (
+    <View style={styles.taskCard}>
+      <View style={[styles.taskAccent, { backgroundColor: accentColor }]} />
+      <View style={styles.taskHeaderRow}>
+        <View style={styles.deadlineRow}>
+          <Ionicons
+            name={isDone ? "checkmark-circle-outline" : "warning-outline"}
+            size={16}
+            color={isDone ? colors.success : colors.error}
+          />
+          <Text style={[styles.deadlineText, isDone && styles.deadlineTextDone]}>{deadline}</Text>
+        </View>
+        <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
+      </View>
+
+      <View style={styles.taskMainRow}>
+        <View style={styles.taskInfo}>
+          <Text style={styles.taskTitle}>{task.task_name}</Text>
+          {task.deskripsi ? <Text style={styles.taskDescription}>{task.deskripsi}</Text> : null}
+
+          <View style={styles.tagRow}>
+            <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
+              <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
+            </View>
+            {task.id_tag !== null ? (
+              <View style={[styles.tag, styles.categoryTag]}>
+                <Text style={styles.categoryTagText}>{task.tag?.nama_tag ?? "—"}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.progressWrap}>
+          {isDone ? (
+            <View style={[styles.doneCircle, { borderColor: colors.success }]}>
+              <Ionicons name="checkmark" size={18} color={colors.success} />
+            </View>
+          ) : (
+            <ProgressRing progress={task.progress / 100} size={64} strokeWidth={6} />
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function EmptyTaskCard() {
+  return (
+    <View style={styles.taskCard}>
+      <View style={[styles.taskAccent, { backgroundColor: colors.surfaceContainerLow }]} />
+      <Text style={styles.emptyTaskTitle}>Belum ada tugas aktif.</Text>
+      <Text style={styles.emptyTaskDescription}>Tugas berikutnya akan tampil di sini.</Text>
     </View>
   );
 }
@@ -445,6 +520,19 @@ const styles = StyleSheet.create({
     elevation: 4,
     marginBottom: 14,
   },
+  emptyTaskTitle: {
+    fontSize: 18,
+    lineHeight: 22,
+    color: colors.onSurface,
+    fontFamily: fonts["900"],
+  },
+  emptyTaskDescription: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.onSurfaceVariant,
+    fontFamily: fonts["500"],
+  },
   taskAccent: {
     position: "absolute",
     left: 0,
@@ -470,6 +558,9 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontFamily: fonts["700"],
     fontSize: 13,
+  },
+  deadlineTextDone: {
+    color: colors.success,
   },
   taskMainRow: {
     flexDirection: "row",
@@ -526,6 +617,15 @@ const styles = StyleSheet.create({
     height: 64,
     alignItems: "center",
     justifyContent: "center",
+  },
+  doneCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceContainerLowest,
   },
   progressLabel: {
     position: "absolute",
