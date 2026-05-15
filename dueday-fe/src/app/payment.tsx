@@ -31,10 +31,20 @@ export default function PaymentScreen(): React.JSX.Element {
 
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
 
+  const selectedMethodData = paymentMethods.find((item) => item.id === selectedMethod);
+
   const handleProceed = () => {
-    if (selectedMethod) {
-      // Proceed with payment based on selected method
-      console.log(`Processing payment with ${selectedMethod}`);
+    if (selectedMethodData) {
+      router.push({
+        pathname: "/detail-transfer",
+        params: {
+          methodId: selectedMethodData.id,
+          methodName: selectedMethodData.name,
+          planName,
+          planPrice,
+          planDuration,
+        },
+      });
     }
   };
 
