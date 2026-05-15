@@ -141,7 +141,16 @@ export default function DetailTransferScreen(): React.JSX.Element {
           <Pressable
             style={styles.confirmButton}
             accessibilityRole="button"
-            onPress={() => router.replace("/(tabs)/profile")}
+            onPress={() =>
+              router.replace({
+                pathname: "/payment-success",
+                params: {
+                  planName,
+                  planPrice,
+                  methodName: methodMeta.name,
+                },
+              })
+            }
           >
             <Text style={styles.confirmButtonText}>Konfirmasi Pembayaran</Text>
           </Pressable>
