@@ -44,7 +44,7 @@ const PRIORITY_COLOR: Record<string, StateColor> = {
   low: { bg: colors.surfaceSuccess, text: colors.success },
 };
 
-const DONE_COLOR: StateColor = { bg: colors.surfaceSuccess, text: colors.success };
+const DONE_COLOR: StateColor = { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant };
 
 const filterOptions: Filter[] = ["Semua", "Selesai", "Pekerjaan", "Rapat"];
 
@@ -56,11 +56,8 @@ function taskToListItem(task: Task): ListItem {
   const isDone = task.status === "completed";
   const stateText = isDone ? "SELESAI" : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
 
-  let accentColor: string = colors.surfaceContainerLow;
+  let accentColor: string = colors.primaryContainer;
   if (isDone) accentColor = colors.success;
-  else if (task.priority === "high") accentColor = colors.error;
-  else if (task.priority === "medium") accentColor = colors.primaryContainer;
-  else if (task.priority === "low") accentColor = colors.success;
 
   const stateColor = isDone
     ? DONE_COLOR
@@ -95,10 +92,8 @@ function activityToListItem(activity: Activity): ListItem {
   else if (activity.ulangi) stateText = ULANGI_DISPLAY[activity.ulangi];
   else stateText = activity.tag?.nama_tag?.toUpperCase() ?? "AKTIF";
 
-  let accentColor: string;
+  let accentColor: string = colors.primaryContainer;
   if (isDone) accentColor = colors.success;
-  else if (activity.id_tag) accentColor = colors.primaryContainer;
-  else accentColor = colors.surfaceWarm;
 
   const stateColor: StateColor = isDone
     ? DONE_COLOR
@@ -284,7 +279,7 @@ function TaskCard({
   progress = 0,
 }: Readonly<Omit<ListItem, "id">>) {
   return (
-    <View style={styles.taskCard}>
+    <View style={[styles.taskCard, status === "done" && styles.taskCardDone]}>
       <View style={[styles.taskAccent, { backgroundColor: accentColor }]} />
       <View style={styles.taskHeaderRow}>
         <View style={styles.deadlineRow}>
@@ -302,15 +297,19 @@ function TaskCard({
 
       <View style={styles.taskMainRow}>
         <View style={styles.taskInfo}>
-          <Text style={styles.taskTitle}>{title}</Text>
+          <Text style={[styles.taskTitle, status === "done" && styles.taskTitleDone]}>{title}</Text>
           {description ? (
-            <Text style={styles.taskDescription}>{description}</Text>
+            <Text style={[styles.taskDescription, status === "done" && styles.taskDescriptionDone]}>
+              {description}
+            </Text>
           ) : null}
 
           <View style={styles.tagRow}>
-            <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
-              <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
-            </View>
+            {status !== "done" ? (
+              <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
+                <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
+              </View>
+            ) : null}
             {showCategoryTag ? (
               <View style={[styles.tag, styles.categoryTag]}>
                 <Text style={styles.categoryTagText}>{category}</Text>
@@ -320,13 +319,14 @@ function TaskCard({
         </View>
 
         <View style={styles.progressWrap}>
-          {status === "done" ? (
-            <View style={[styles.doneCircle, { borderColor: colors.success }]}>
-              <Ionicons name="checkmark" size={18} color={colors.success} />
-            </View>
-          ) : (
-            <ProgressRing progress={progress} size={56} strokeWidth={5} />
-          )}
+            {status === "done" ? (
+              // Completed: show same-size ring with success color and subtle bg
+              <View style={[styles.doneCircle, { borderColor: colors.success, backgroundColor: colors.surfaceSuccess }]}>
+                <Ionicons name="checkmark" size={18} color={colors.success} />
+              </View>
+            ) : (
+              <ProgressRing progress={progress} size={56} strokeWidth={5} />
+            )}
         </View>
       </View>
     </View>
@@ -367,6 +367,7 @@ function ProgressRing({
           fill="none"
         />
       </Svg>
+      {/** default: show label; can be hidden when used for completed-state ring */}
       <View style={styles.progressLabel}>
         <Text style={styles.progressText}>{Math.round(clamped * 100)}%</Text>
       </View>
@@ -423,6 +424,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLowest,
     padding: 14,
     marginBottom: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  taskCardDone: {
+    opacity: 0.86,
+    shadowOpacity: 0.04,
+    shadowRadius: 7,
+    elevation: 1,
   },
   taskAccent: {
     position: "absolute",
@@ -436,11 +448,13 @@ const styles = StyleSheet.create({
   taskHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   deadlineRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   deadlineText: { color: colors.error, fontFamily: fonts["700"], fontSize: 12 },
-  deadlineTextDone: { color: colors.success },
+  deadlineTextDone: { color: colors.onSurfaceVariant },
   taskMainRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   taskInfo: { flex: 1 },
   taskTitle: { fontSize: 16, lineHeight: 20, color: colors.onSurface, fontFamily: fonts["900"] },
+  taskTitleDone: { color: colors.onSurfaceVariant },
   taskDescription: { marginTop: 6, fontSize: 13, fontFamily: fonts["400"], color: colors.tertiary },
+  taskDescriptionDone: { color: colors.iconMuted },
   tagRow: { marginTop: 10, flexDirection: "row", gap: 8 },
   tag: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
   priorityTag: { backgroundColor: colors.errorSoft },
@@ -457,10 +471,10 @@ const styles = StyleSheet.create({
   },
   progressText: { color: colors.primaryContainer, fontSize: 12, fontFamily: fonts["800"] },
   doneCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2.5,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 5,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surfaceContainerLowest,
