@@ -14,7 +14,8 @@ class ActivityService
     {
         $data['user_id'] = $userId;
         $data['status'] = $data['status'] ?? 'not_started';
-        $data = $this->applyStatusTransition($data['status'], $data, null);
+        // For creation treat status as explicitly provided so transitions apply
+        $data = $this->applyStatusTransition($data['status'], $data, null, true);
 
         return $this->activityRepository->create($data);
     }
@@ -44,7 +45,8 @@ class ActivityService
         }
 
         $nextStatus = $data['status'] ?? $activity->status;
-        $data = $this->applyStatusTransition($nextStatus, $data, $activity);
+        $statusProvided = array_key_exists('status', $data);
+        $data = $this->applyStatusTransition($nextStatus, $data, $activity, $statusProvided);
 
         return $this->activityRepository->update($activityId, $data);
     }
@@ -106,54 +108,58 @@ class ActivityService
         );
     }
 
-    private function applyStatusTransition(string $status, array $data, ?Activity $existingActivity): array
+    private function applyStatusTransition(string $status, array $data, ?Activity $existingActivity, bool $statusProvided = false): array
     {
-        if ($status === 'completed') {
-            $data['progress'] = 100;
-            $data['progress_started_at'] = null;
+        // Only perform status-driven transitions when a status was explicitly provided
+        if ($statusProvided) {
+            if ($status === 'completed') {
+                $data['progress'] = 100;
+                $data['progress_started_at'] = null;
 
-            return $data;
-        }
-
-        if ($status === 'not_started') {
-            $data['progress'] = 0;
-            $data['progress_started_at'] = null;
-
-            return $data;
-        }
-
-        if ($status === 'pending' && $existingActivity) {
-            $data['progress'] = $this->calculateProgress($existingActivity);
-            $data['progress_started_at'] = null;
-
-            return $data;
-        }
-
-        if ($status === 'ongoing') {
-            $existingProgress = (int) ($existingActivity?->progress ?? 0);
-
-            if ($existingActivity && $existingActivity->status === 'pending' && $existingProgress > 0) {
-                $totalSeconds = $this->getTotalDurationSeconds(
-                    $data['tanggal'] ?? $existingActivity->tanggal?->format('Y-m-d'),
-                    $data['time_start'] ?? $existingActivity->time_start,
-                    $data['time_end'] ?? $existingActivity->time_end,
-                );
-
-                if ($totalSeconds > 0) {
-                    $elapsedSeconds = (int) round(($existingProgress / 100) * $totalSeconds);
-                    $data['progress_started_at'] = Carbon::now()->subSeconds($elapsedSeconds);
-                    $data['progress'] = $existingProgress;
-
-                    return $data;
-                }
+                return $data;
             }
 
-            $data['progress_started_at'] = Carbon::now();
-            $data['progress'] = 0;
+            if ($status === 'not_started') {
+                $data['progress'] = 0;
+                $data['progress_started_at'] = null;
 
-            return $data;
+                return $data;
+            }
+
+            if ($status === 'pending' && $existingActivity) {
+                $data['progress'] = $this->calculateProgress($existingActivity);
+                $data['progress_started_at'] = null;
+
+                return $data;
+            }
+
+            if ($status === 'ongoing') {
+                $existingProgress = (int) ($existingActivity?->progress ?? 0);
+
+                if ($existingActivity && $existingActivity->status === 'pending' && $existingProgress > 0) {
+                    $totalSeconds = $this->getTotalDurationSeconds(
+                        $data['tanggal'] ?? $existingActivity->tanggal?->format('Y-m-d'),
+                        $data['time_start'] ?? $existingActivity->time_start,
+                        $data['time_end'] ?? $existingActivity->time_end,
+                    );
+
+                    if ($totalSeconds > 0) {
+                        $elapsedSeconds = (int) round(($existingProgress / 100) * $totalSeconds);
+                        $data['progress_started_at'] = Carbon::now()->subSeconds($elapsedSeconds);
+                        $data['progress'] = $existingProgress;
+
+                        return $data;
+                    }
+                }
+
+                $data['progress_started_at'] = Carbon::now();
+                $data['progress'] = 0;
+
+                return $data;
+            }
         }
 
+        // If status was not provided, preserve existing progress fields
         if ($existingActivity) {
             $data['progress'] = (int) ($existingActivity->progress ?? 0);
             $data['progress_started_at'] = $existingActivity->progress_started_at;
