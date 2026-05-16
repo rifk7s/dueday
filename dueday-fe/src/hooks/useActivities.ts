@@ -1,5 +1,5 @@
 import { useSession } from "@/auth/ctx";
-import { listActivities, createActivity, type NewActivity } from "@/api/activities";
+import { listActivities, createActivity, getActivity, type NewActivity } from "@/api/activities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useActivitiesQuery(options?: { enabled?: boolean }) {
@@ -9,6 +9,19 @@ export function useActivitiesQuery(options?: { enabled?: boolean }) {
     queryFn: () => listActivities(token),
     staleTime: 5 * 60 * 1000,
     enabled: (options?.enabled ?? true) && !!token,
+  });
+}
+
+export function useActivityQuery(id: string | undefined, options?: { enabled?: boolean }) {
+  const { token } = useSession();
+  return useQuery({
+    queryKey: ["activity", id],
+    queryFn: () => {
+      if (!id) throw new Error("Activity ID is required");
+      return getActivity(id, token);
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: (options?.enabled ?? true) && !!token && !!id,
   });
 }
 
