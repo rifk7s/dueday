@@ -19,7 +19,7 @@ class UpdateActivityRequest extends FormRequest
             'time_start' => 'sometimes|nullable|date_format:H:i:s',
             'time_end' => 'sometimes|nullable|date_format:H:i:s',
             'id_tag' => 'sometimes|nullable|integer|exists:tags,id_tag',
-            'status' => 'sometimes|nullable|in:ongoing,pending,completed',
+            'status' => 'sometimes|nullable|in:not_started,ongoing,pending,completed',
             'progress' => 'sometimes|nullable|integer|min:0|max:100',
             'deskripsi' => 'sometimes|nullable|string',
             'ulangi' => 'sometimes|nullable|in:setiap_hari,satu_minggu,satu_bulan,satu_tahun',

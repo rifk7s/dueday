@@ -32,7 +32,10 @@ export default function ActivityProgressScreen() {
     return (
       <View style={[styles.screen, styles.centerContent]}>
         <Text style={styles.errorText}>Failed to load activity</Text>
-        <Pressable style={styles.primaryButton} onPress={() => router.push({ pathname: "/list", params: { tab } })}>
+        <Pressable
+          style={styles.primaryButton}
+          onPress={() => router.replace({ pathname: "/list", params: { tab: "aktivitas" } })}
+        >
           <Text style={styles.primaryButtonText}>Go Back</Text>
         </Pressable>
       </View>
@@ -120,7 +123,7 @@ export default function ActivityProgressScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { marginTop: top + 8 }]}>
-        <Pressable onPress={() => router.push({ pathname: "/list", params: { tab } })} hitSlop={12}>
+        <Pressable onPress={() => router.replace({ pathname: "/list", params: { tab: "aktivitas" } })} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.headerTitle}>Activity Progress</Text>

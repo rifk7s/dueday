@@ -19,7 +19,7 @@ return new class extends Migration
             $table->date('tanggal')->nullable();
             $table->time('time_start')->nullable();
             $table->time('time_end')->nullable();
-            $table->enum('status', ['ongoing', 'pending', 'completed'])->default('ongoing');
+            $table->enum('status', ['not_started', 'ongoing', 'pending', 'completed'])->default('not_started');
             $table->integer('progress')->default(0);
             $table->text('deskripsi')->nullable();
             $table->enum('ulangi', ['setiap_hari', 'satu_minggu', 'satu_bulan', 'satu_tahun'])->nullable();

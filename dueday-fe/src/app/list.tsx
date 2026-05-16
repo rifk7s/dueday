@@ -260,7 +260,7 @@ export default function ListPage() {
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} style={styles.iconButton}>
+        <Pressable onPress={() => router.replace({ pathname: "/" })} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.title}>List</Text>

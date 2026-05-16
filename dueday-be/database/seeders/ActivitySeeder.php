@@ -26,7 +26,7 @@ class ActivitySeeder extends Seeder
                 'tanggal' => now()->toDateString(),
                 'time_start' => '06:00:00',
                 'time_end' => '06:30:00',
-                'status' => 'ongoing',
+                'status' => 'not_started',
                 'progress' => 40,
                 'deskripsi' => 'Sesi lari santai untuk menjaga konsistensi olahraga.',
                 'ulangi' => 'setiap_hari',
