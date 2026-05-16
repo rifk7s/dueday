@@ -288,17 +288,14 @@ function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
   const deadline = [datePart, timePart].filter(Boolean).join(" | ") || "—";
   const stateText = isDone ? "SELESAI" : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
   const stateColor = isDone
-    ? { bg: colors.surfaceSuccess, text: colors.success }
+    ? { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant }
     : { bg: colors.errorSoft, text: colors.errorStrong };
 
-  let accentColor: string = colors.surfaceContainerLow;
-  if (isDone) accentColor = colors.success;
-  else if (task.priority === "high") accentColor = colors.error;
-  else if (task.priority === "medium") accentColor = colors.primaryContainer;
-  else if (task.priority === "low") accentColor = colors.success;
+  let accentColor: string = colors.primaryContainer;
+    if (isDone) accentColor = colors.success;
 
   return (
-    <View style={styles.taskCard}>
+    <View style={[styles.taskCard, isDone && styles.taskCardDone]}>
       <View style={[styles.taskAccent, { backgroundColor: accentColor }]} />
       <View style={styles.taskHeaderRow}>
         <View style={styles.deadlineRow}>
@@ -314,13 +311,19 @@ function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
 
       <View style={styles.taskMainRow}>
         <View style={styles.taskInfo}>
-          <Text style={styles.taskTitle}>{task.task_name}</Text>
-          {task.deskripsi ? <Text style={styles.taskDescription}>{task.deskripsi}</Text> : null}
+          <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>{task.task_name}</Text>
+          {task.deskripsi ? (
+            <Text style={[styles.taskDescription, isDone && styles.taskDescriptionDone]}>
+              {task.deskripsi}
+            </Text>
+          ) : null}
 
           <View style={styles.tagRow}>
-            <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
-              <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
-            </View>
+            {!isDone ? (
+              <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
+                <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
+              </View>
+            ) : null}
             {task.id_tag !== null ? (
               <View style={[styles.tag, styles.categoryTag]}>
                 <Text style={styles.categoryTagText}>{task.tag?.nama_tag ?? "—"}</Text>
@@ -330,13 +333,13 @@ function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
         </View>
 
         <View style={styles.progressWrap}>
-          {isDone ? (
-            <View style={[styles.doneCircle, { borderColor: colors.success }]}>
-              <Ionicons name="checkmark" size={18} color={colors.success} />
-            </View>
-          ) : (
-            <ProgressRing progress={task.progress / 100} size={64} strokeWidth={6} />
-          )}
+            {isDone ? (
+              <View style={[styles.doneCircle, { borderColor: colors.success, backgroundColor: colors.surfaceSuccess }]}>
+                <Ionicons name="checkmark" size={18} color={colors.success} />
+              </View>
+            ) : (
+              <ProgressRing progress={task.progress / 100} size={56} strokeWidth={5} />
+            )}
         </View>
       </View>
     </View>
@@ -509,16 +512,22 @@ const styles = StyleSheet.create({
   },
   taskCard: {
     position: "relative",
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: colors.surfaceContainerLowest,
     padding: 14,
     paddingLeft: 16,
-    shadowColor: colors.primaryContainer,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 10,
+    elevation: 3,
     marginBottom: 14,
+  },
+  taskCardDone: {
+    opacity: 1,
+    shadowOpacity: 0.04,
+    shadowRadius: 7,
+    elevation: 1,
   },
   emptyTaskTitle: {
     fontSize: 18,
@@ -539,8 +548,8 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    borderTopLeftRadius: 18,
-    borderBottomLeftRadius: 18,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
     backgroundColor: colors.error,
   },
   taskHeaderRow: {
@@ -560,7 +569,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   deadlineTextDone: {
-    color: colors.success,
+    color: colors.iconMuted,
   },
   taskMainRow: {
     flexDirection: "row",
@@ -576,12 +585,18 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontFamily: fonts["900"],
   },
+  taskTitleDone: {
+    color: colors.onSurfaceVariant,
+  },
   taskDescription: {
     marginTop: 6,
     fontSize: 14,
     lineHeight: 20,
     color: colors.tertiary,
     fontFamily: fonts["500"],
+  },
+  taskDescriptionDone: {
+    color: colors.iconMuted,
   },
   tagRow: {
     marginTop: 10,
@@ -619,10 +634,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   doneCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 4,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 5,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surfaceContainerLowest,
