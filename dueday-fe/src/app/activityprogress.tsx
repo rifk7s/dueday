@@ -241,12 +241,15 @@ function InfoChip({
 }
 
 function formatClock(value: string): string {
-  const [hour] = value.split(":");
+  if (!value) return value;
+  const parts = value.split(":");
+  const hour = parts[0] ?? "";
+  const minute = parts[1] ?? "00";
   const hourNum = Number(hour);
-  if (Number.isNaN(hourNum)) {
-    return value;
-  }
-  return `${hourNum.toString().padStart(2, "0")}.00`;
+  if (Number.isNaN(hourNum)) return value;
+  const h = hourNum.toString().padStart(2, "0");
+  const m = minute.toString().padStart(2, "0");
+  return `${h}.${m}`;
 }
 
 function formatDateLabel(value: string): string {
