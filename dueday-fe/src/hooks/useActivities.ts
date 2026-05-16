@@ -1,5 +1,12 @@
 import { useSession } from "@/auth/ctx";
-import { listActivities, createActivity, getActivity, type NewActivity } from "@/api/activities";
+import {
+  listActivities,
+  createActivity,
+  getActivity,
+  updateActivity,
+  type NewActivity,
+  type UpdateActivity,
+} from "@/api/activities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useActivitiesQuery(options?: { enabled?: boolean }) {
@@ -21,6 +28,7 @@ export function useActivityQuery(id: string | undefined, options?: { enabled?: b
       return getActivity(id, token);
     },
     staleTime: 5 * 60 * 1000,
+    refetchInterval: (query) => (query.state.data?.status === "ongoing" ? 60_000 : false),
     enabled: (options?.enabled ?? true) && !!token && !!id,
   });
 }
@@ -32,6 +40,19 @@ export function useCreateActivityMutation() {
     mutationFn: (input: NewActivity) => createActivity(input, token),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
+    },
+  });
+}
+
+export function useUpdateActivityMutation() {
+  const { token } = useSession();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; data: UpdateActivity }) =>
+      updateActivity(input.id, input.data, token),
+    onSuccess: (activity) => {
+      qc.invalidateQueries({ queryKey: ["activities"] });
+      qc.invalidateQueries({ queryKey: ["activity", activity.id] });
     },
   });
 }

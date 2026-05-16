@@ -24,6 +24,7 @@ class ActivityResource extends JsonResource
             'time_end' => $this->time_end,
             'status' => $this->status,
             'progress' => $this->progress,
+            'progress_started_at' => $this->progress_started_at,
             'deskripsi' => $this->deskripsi,
             'ulangi' => $this->ulangi,
             'tag' => TagResource::make($this->whenLoaded('tag')),

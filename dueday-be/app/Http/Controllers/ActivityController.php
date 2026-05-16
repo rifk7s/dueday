@@ -16,6 +16,8 @@ class ActivityController extends Controller
 
     public function index()
     {
+        $this->activityService->syncOngoingProgress();
+
         $activities = $this->activityService->getUserActivities(auth()->id());
 
         return ActivityResource::collection($activities);
@@ -28,6 +30,8 @@ class ActivityController extends Controller
         if (! $activity) {
             return response(['message' => 'Activity not found'], 404);
         }
+
+        $activity = $this->activityService->syncActivityProgress($activity);
 
         return new ActivityResource($activity);
     }

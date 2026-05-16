@@ -36,6 +36,8 @@ export type NewActivity = {
   status?: "not_started" | "ongoing" | "pending" | "completed";
 };
 
+export type UpdateActivity = Partial<NewActivity>;
+
 export const ULANGI_API_MAP: Partial<Record<string, UlangiType>> = {
   Harian: "setiap_hari",
   Mingguan: "satu_minggu",
@@ -124,6 +126,36 @@ export async function createActivity(
   }
   return apiFetch<Activity>("/activities", token, {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateActivity(
+  id: string,
+  input: UpdateActivity,
+  token: string | null,
+): Promise<Activity> {
+  if (MOCK_API) {
+    const existing = mockStore.find((activity) => activity.id === id);
+    if (!existing) {
+      throw new Error(`Activity with id ${id} not found`);
+    }
+
+    const next: Activity = {
+      ...existing,
+      ...input,
+      tag: input.id_tag
+        ? (mockTags.find((tag) => tag.id_tag === input.id_tag) ?? existing.tag)
+        : existing.tag,
+      updated_at: new Date().toISOString(),
+    };
+
+    mockStore = mockStore.map((activity) => (activity.id === id ? next : activity));
+    return next;
+  }
+
+  return apiFetch<Activity>(`/activities/${id}`, token, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }
