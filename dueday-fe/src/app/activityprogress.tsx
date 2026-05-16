@@ -1,11 +1,12 @@
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useActivityQuery } from "@/hooks/useActivities";
-import type { UlangiType } from "@/api/activities";
+import { useActivityQuery, useUpdateActivityMutation } from "@/hooks/useActivities";
+import type { Activity, UlangiType } from "@/api/activities";
+import Svg, { Circle } from "react-native-svg";
 
 type ActivityProgressParams = {
   id?: string;
@@ -18,9 +19,14 @@ export default function ActivityProgressScreen() {
   const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
   
   const { data: activity, isLoading, error } = useActivityQuery(id);
-  const [activityState, setActivityState] = useState<"idle" | "running" | "paused" | "completed">(
-    "idle",
-  );
+  const updateActivityMutation = useUpdateActivityMutation();
+  const [activityState, setActivityState] = useState<Activity["status"]>("not_started");
+
+  useEffect(() => {
+    if (activity?.status) {
+      setActivityState(activity.status);
+    }
+  }, [activity?.status]);
 
   if (isLoading) {
     return (
@@ -44,9 +50,8 @@ export default function ActivityProgressScreen() {
     );
   }
 
-  const progressPercentage =
-    activityState === "idle" ? 0 : activityState === "running" ? 33 : activityState === "paused" ? 66 : 100;
-  const ringColor = colors.primaryContainer;
+  const progressPercentage = activityState === "completed" ? 100 : activity?.progress ?? 0;
+  const ringColor = progressPercentage === 0 ? colors.progressTrack : colors.primaryContainer;
   const accentColor = colors.primaryContainer;
   
   const startHour = activity.time_start ? formatClock(activity.time_start) : "08.00";
@@ -54,28 +59,38 @@ export default function ActivityProgressScreen() {
   const activityDate = activity.tanggal ? formatDateLabel(activity.tanggal) : "-";
   const repeatText = activity.ulangi ? formatRepeat(activity.ulangi) : "Tidak Ada";
 
+  const updateStatus = (nextStatus: Activity["status"]) => {
+    if (!id) return;
+
+    setActivityState(nextStatus);
+    updateActivityMutation.mutate({
+      id,
+      data: { status: nextStatus },
+    });
+  };
+
   const handleStart = () => {
-    setActivityState("running");
+    updateStatus("ongoing");
   };
 
   const handlePause = () => {
-    setActivityState("paused");
+    updateStatus("pending");
   };
 
   const handleResume = () => {
-    setActivityState("running");
+    updateStatus("ongoing");
   };
 
   const handleComplete = () => {
-    setActivityState("completed");
+    updateStatus("completed");
   };
 
   const handleCancel = () => {
-    setActivityState("idle");
+    updateStatus("not_started");
   };
 
   const renderStepActions = () => {
-    if (activityState === "idle") {
+    if (activityState === "not_started") {
       return (
         <>
           <Pressable style={styles.primaryButton} onPress={handleStart}>
@@ -93,7 +108,7 @@ export default function ActivityProgressScreen() {
       );
     }
 
-    if (activityState === "running") {
+    if (activityState === "ongoing") {
       return (
         <View style={styles.actionRow}>
           <Pressable style={styles.actionHalfButton} onPress={handlePause}>
@@ -107,15 +122,15 @@ export default function ActivityProgressScreen() {
       );
     }
 
-    if (activityState === "paused") {
+    if (activityState === "pending") {
       return (
         <>
           <Pressable style={styles.primaryButton} onPress={handleResume}>
             <Text style={styles.primaryButtonText}>Lanjutkan</Text>
           </Pressable>
 
-          <Pressable style={styles.primaryButton} onPress={handleComplete}>
-            <Text style={styles.primaryButtonText}>Selesai</Text>
+          <Pressable style={styles.secondaryButton} onPress={handleComplete}>
+            <Text style={styles.secondaryButtonText}>Selesai</Text>
           </Pressable>
 
           <Pressable style={styles.secondaryButton}>
@@ -227,13 +242,58 @@ function CardView({
     <View style={styles.card}>
       <Text style={styles.activityTitle}>{title}</Text>
 
-      <View style={[styles.progressRingOuter, { borderColor: ringColor }]}>
-        <View style={styles.progressRingInner}>
-          <Text style={[styles.progressValue, { color: accentColor }]}>{progress}%</Text>
-        </View>
-      </View>
+      <ProgressRing progress={progress} ringColor={ringColor} textColor={accentColor} />
 
       {children}
+    </View>
+  );
+}
+
+function ProgressRing({
+  progress,
+  ringColor,
+  textColor,
+}: Readonly<{
+  progress: number;
+  ringColor: string;
+  textColor: string;
+}>) {
+  const size = 116;
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, progress));
+  const dashOffset = circumference * (1 - clamped / 100);
+
+  return (
+    <View style={styles.progressRingWrap}>
+      <Svg width={size} height={size}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.progressTrack}
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        {clamped > 0 ? (
+          <Circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={ringColor}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={dashOffset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            fill="none"
+          />
+        ) : null}
+      </Svg>
+      <View style={styles.progressRingInner}>
+        <Text style={[styles.progressValue, { color: textColor }]}>{Math.round(clamped)}%</Text>
+      </View>
     </View>
   );
 }
@@ -369,18 +429,17 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     marginBottom: 12,
   },
-  progressRingOuter: {
+  progressRingWrap: {
+    position: "relative",
     width: 116,
     height: 116,
-    borderRadius: 58,
-    borderWidth: 8,
-    borderColor: colors.progressTrack,
     alignSelf: "center",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 18,
   },
   progressRingInner: {
+    position: "absolute",
     width: 88,
     height: 88,
     borderRadius: 44,

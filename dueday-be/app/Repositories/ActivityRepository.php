@@ -26,6 +26,11 @@ class ActivityRepository
         return Activity::with('tag')->where('user_id', $userId)->get();
     }
 
+    public function getOngoingActivities()
+    {
+        return Activity::with('tag')->where('status', 'ongoing')->get();
+    }
+
     public function update(string $id, array $data): ?Activity
     {
         $activity = $this->findById($id);
