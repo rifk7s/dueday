@@ -14,7 +14,9 @@ export function useActivitiesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["activities"],
     queryFn: () => listActivities(token),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
+    refetchInterval: (query) => (query.state.data?.some((a) => a.status === "ongoing") ? 5_000 : false),
+    refetchOnMount: true,
     enabled: (options?.enabled ?? true) && !!token,
   });
 }
@@ -27,8 +29,9 @@ export function useActivityQuery(id: string | undefined, options?: { enabled?: b
       if (!id) throw new Error("Activity ID is required");
       return getActivity(id, token);
     },
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: (query) => (query.state.data?.status === "ongoing" ? 60_000 : false),
+    staleTime: 0,
+    refetchInterval: (query) => (query.state.data?.status === "ongoing" ? 5_000 : false),
+    refetchOnMount: true,
     enabled: (options?.enabled ?? true) && !!token && !!id,
   });
 }
