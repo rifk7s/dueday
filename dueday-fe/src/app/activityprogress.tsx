@@ -18,7 +18,9 @@ export default function ActivityProgressScreen() {
   const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
   
   const { data: activity, isLoading, error } = useActivityQuery(id);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [activityState, setActivityState] = useState<"idle" | "running" | "paused" | "completed">(
+    "idle",
+  );
 
   if (isLoading) {
     return (
@@ -42,7 +44,8 @@ export default function ActivityProgressScreen() {
     );
   }
 
-  const progressPercentage = [0, 33, 66, 100][currentStep] || 0;
+  const progressPercentage =
+    activityState === "idle" ? 0 : activityState === "running" ? 33 : activityState === "paused" ? 66 : 100;
   const ringColor = colors.primaryContainer;
   const accentColor = colors.primaryContainer;
   
@@ -51,21 +54,31 @@ export default function ActivityProgressScreen() {
   const activityDate = activity.tanggal ? formatDateLabel(activity.tanggal) : "-";
   const repeatText = activity.ulangi ? formatRepeat(activity.ulangi) : "Tidak Ada";
 
-  const handleStepAdvance = () => {
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
-    }
+  const handleStart = () => {
+    setActivityState("running");
   };
 
-  const handleStepSelect = (step: number) => {
-    setCurrentStep(step);
+  const handlePause = () => {
+    setActivityState("paused");
+  };
+
+  const handleResume = () => {
+    setActivityState("running");
+  };
+
+  const handleComplete = () => {
+    setActivityState("completed");
+  };
+
+  const handleCancel = () => {
+    setActivityState("idle");
   };
 
   const renderStepActions = () => {
-    if (currentStep === 0) {
+    if (activityState === "idle") {
       return (
         <>
-          <Pressable style={styles.primaryButton} onPress={handleStepAdvance}>
+          <Pressable style={styles.primaryButton} onPress={handleStart}>
             <Text style={styles.primaryButtonText}>Mulai</Text>
           </Pressable>
 
@@ -73,32 +86,36 @@ export default function ActivityProgressScreen() {
             <Text style={styles.secondaryButtonText}>Ubah Jadwal</Text>
           </Pressable>
 
-          <Pressable style={styles.ghostButton}>
+          <Pressable style={styles.ghostButton} onPress={handleCancel}>
             <Text style={styles.ghostButtonText}>Batalkan</Text>
           </Pressable>
         </>
       );
     }
 
-    if (currentStep === 1) {
+    if (activityState === "running") {
       return (
-        <View style={styles.chipRow}>
-          <Pressable style={styles.toggleButton} onPress={() => handleStepSelect(2)}>
-            <Text style={styles.toggleButtonText}>Jadi</Text>
+        <View style={styles.actionRow}>
+          <Pressable style={styles.actionHalfButton} onPress={handlePause}>
+            <Text style={styles.secondaryButtonText}>Jeda</Text>
           </Pressable>
 
-          <Pressable style={styles.primaryButton} onPress={handleStepAdvance}>
+          <Pressable style={styles.actionHalfButtonPrimary} onPress={handleComplete}>
             <Text style={styles.primaryButtonText}>Selesai</Text>
           </Pressable>
         </View>
       );
     }
 
-    if (currentStep === 2) {
+    if (activityState === "paused") {
       return (
         <>
-          <Pressable style={styles.primaryButton} onPress={handleStepAdvance}>
+          <Pressable style={styles.primaryButton} onPress={handleResume}>
             <Text style={styles.primaryButtonText}>Lanjutkan</Text>
+          </Pressable>
+
+          <Pressable style={styles.primaryButton} onPress={handleComplete}>
+            <Text style={styles.primaryButtonText}>Selesai</Text>
           </Pressable>
 
           <Pressable style={styles.secondaryButton}>
@@ -144,7 +161,7 @@ export default function ActivityProgressScreen() {
           progress={progressPercentage}
           ringColor={ringColor}
           accentColor={accentColor}
-          isComplete={currentStep === 3}
+          isComplete={activityState === "completed"}
         >
           {renderStepActions()}
         </CardView>
@@ -208,7 +225,6 @@ function CardView({
 }>) {
   return (
     <View style={styles.card}>
-      <View style={[styles.cardHeaderAccent, { backgroundColor: ringColor }]} />
       <Text style={styles.activityTitle}>{title}</Text>
 
       <View style={[styles.progressRingOuter, { borderColor: ringColor }]}>
@@ -346,14 +362,6 @@ const styles = StyleSheet.create({
     borderColor: colors.surfaceContainerLow,
     overflow: "hidden",
   },
-  cardHeaderAccent: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4,
-    backgroundColor: colors.primaryContainer,
-  },
   activityTitle: {
     textAlign: "center",
     fontSize: 17,
@@ -427,6 +435,28 @@ const styles = StyleSheet.create({
     fontSize: typography.button.fontSize,
     fontFamily: typography.button.fontFamily,
   },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  actionHalfButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.primaryContainer,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  actionHalfButtonPrimary: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primaryContainer,
+  },
   sectionLabel: {
     marginTop: 18,
     marginBottom: 10,
@@ -491,17 +521,15 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   toggleButton: {
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: colors.primaryContainer,
     borderRadius: 999,
     minHeight: 48,
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: colors.primaryContainer,
+    marginBottom: 12,
   },
   toggleButtonText: {
-    color: colors.primaryContainer,
+    color: colors.onPrimary,
     fontSize: typography.button.fontSize,
     fontFamily: typography.button.fontFamily,
   },

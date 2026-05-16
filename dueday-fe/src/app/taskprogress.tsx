@@ -96,7 +96,7 @@ export default function TaskProgressScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable onPress={() => router.replace({ pathname: "/list", params: { tab: "tugas" } })} hitSlop={12}>
             <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
           </Pressable>
           <Text style={styles.headerTitle}>Progress Tugas</Text>
