@@ -19,7 +19,7 @@ class StoreActivityRequest extends FormRequest
             'time_start' => 'nullable|date_format:H:i:s',
             'time_end' => 'nullable|date_format:H:i:s',
             'id_tag' => 'nullable|integer|exists:tags,id_tag',
-            'status' => 'nullable|in:ongoing,pending,completed',
+            'status' => 'nullable|in:not_started,ongoing,pending,completed',
             'progress' => 'nullable|integer|min:0|max:100',
             'deskripsi' => 'nullable|string',
             'ulangi' => 'nullable|in:setiap_hari,satu_minggu,satu_bulan,satu_tahun',

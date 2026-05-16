@@ -12,6 +12,7 @@ class ActivityService
     public function createActivity(string $userId, array $data): Activity
     {
         $data['user_id'] = $userId;
+        $data['status'] = $data['status'] ?? 'not_started';
 
         return $this->activityRepository->create($data);
     }

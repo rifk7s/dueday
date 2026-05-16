@@ -84,7 +84,7 @@ export default function CreateActivityPage() {
 
     const payload: Parameters<typeof mutation.mutate>[0] = {
       activity_name: namaaktivitas.trim(),
-      status: "ongoing",
+      status: "not_started",
     };
     if (tanggal) payload.tanggal = toApiDate(tanggal);
     if (jamMulai) payload.time_start = toApiTime(jamMulai);

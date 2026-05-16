@@ -16,7 +16,7 @@ export type Activity = {
   tanggal: string | null;
   time_start: string | null;
   time_end: string | null;
-  status: "ongoing" | "pending" | "completed";
+  status: "not_started" | "ongoing" | "pending" | "completed";
   progress: number;
   deskripsi: string | null;
   ulangi: UlangiType | null;
@@ -33,7 +33,7 @@ export type NewActivity = {
   id_tag?: number;
   ulangi?: UlangiType;
   deskripsi?: string;
-  status?: "ongoing" | "pending" | "completed";
+  status?: "not_started" | "ongoing" | "pending" | "completed";
 };
 
 export const ULANGI_API_MAP: Partial<Record<string, UlangiType>> = {
@@ -60,7 +60,7 @@ let mockStore: Activity[] = [
     tanggal: "2026-05-14",
     time_start: "13:00:00",
     time_end: "14:00:00",
-    status: "ongoing",
+    status: "not_started",
     progress: 0,
     deskripsi: "Review progress sprint",
     ulangi: "satu_minggu",
@@ -111,7 +111,7 @@ export async function createActivity(
       tanggal: input.tanggal ?? null,
       time_start: input.time_start ?? null,
       time_end: input.time_end ?? null,
-      status: input.status ?? "ongoing",
+      status: input.status ?? "not_started",
       progress: 0,
       deskripsi: input.deskripsi ?? null,
       ulangi: input.ulangi ?? null,

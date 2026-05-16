@@ -26,6 +26,7 @@ type StateColor = { bg: string; text: string };
 
 type ListItem = {
   id: string;
+  itemType: "task" | "activity";
   accentColor?: string;
   stateText?: string;
   stateColor?: StateColor;
@@ -65,6 +66,7 @@ function taskToListItem(task: Task): ListItem {
 
   return {
     id: task.id,
+    itemType: "task",
     accentColor,
     stateText,
     stateColor,
@@ -79,7 +81,7 @@ function taskToListItem(task: Task): ListItem {
 }
 
 function activityToListItem(activity: Activity): ListItem {
-  const datePart = fromApiDate(activity.tanggal);
+  const datePart = formatActivityDate(activity.tanggal);
   const timeParts = [activity.time_start, activity.time_end]
     .filter(Boolean)
     .map((t) => fromApiTime(t));
@@ -101,6 +103,7 @@ function activityToListItem(activity: Activity): ListItem {
 
   return {
     id: activity.id,
+    itemType: "activity",
     accentColor,
     stateText,
     stateColor,
@@ -112,6 +115,46 @@ function activityToListItem(activity: Activity): ListItem {
     status: isDone ? "done" : "open",
     progress: activity.progress / 100,
   };
+}
+
+function formatActivityDate(value: string | null): string {
+  if (!value) return "";
+
+  const normalized = value.trim();
+  const dateOnly = normalized.split("T")[0] ?? normalized;
+  const isoMatch = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const slashMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  let day: string;
+  let month: string;
+  let year: string;
+
+  if (isoMatch) {
+    [, year, month, day] = isoMatch;
+  } else if (slashMatch) {
+    [, day, month, year] = slashMatch;
+  } else {
+    return normalized;
+  }
+
+  const monthNames = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
+
+  const monthIndex = Number(month) - 1;
+  const monthLabel = monthNames[monthIndex] ?? month;
+  return `${Number(day)} ${monthLabel} ${year}`;
 }
 
 function renderListContent(
@@ -217,7 +260,7 @@ export default function ListPage() {
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} style={styles.iconButton}>
+        <Pressable onPress={() => router.replace({ pathname: "/" })} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.title}>List</Text>
@@ -274,6 +317,7 @@ export default function ListPage() {
 }
 
 function TaskCard({
+  itemType = "task",
   accentColor = colors.error,
   stateText = "TINGGI",
   stateColor = { bg: colors.errorSoft, text: colors.errorStrong },
@@ -285,19 +329,30 @@ function TaskCard({
   status = "open",
   progress = 0,
 }: Readonly<Omit<ListItem, "id">>) {
+  const isActivity = itemType === "activity";
+  const deadlineIconName = isActivity
+    ? "calendar-outline"
+    : status === "done"
+      ? "checkmark-circle-outline"
+      : "warning-outline";
+  const deadlineIconColor = isActivity
+    ? colors.iconMuted
+    : status === "done"
+      ? colors.success
+      : colors.error;
+  const deadlineTextStyle = isActivity
+    ? styles.deadlineTextActivity
+    : status === "done"
+      ? styles.deadlineTextDone
+      : styles.deadlineText;
+
   return (
     <View style={[styles.taskCard, status === "done" && styles.taskCardDone]}>
       <View style={[styles.taskAccent, { backgroundColor: accentColor }]} />
       <View style={styles.taskHeaderRow}>
-        <View style={styles.deadlineRow}>
-          <Ionicons
-            name={status === "done" ? "checkmark-circle-outline" : "warning-outline"}
-            size={14}
-            color={status === "done" ? colors.success : colors.error}
-          />
-          <Text style={[styles.deadlineText, status === "done" && styles.deadlineTextDone]}>
-            {deadline}
-          </Text>
+        <View style={[styles.deadlineRow, isActivity && styles.deadlineRowActivity]}>
+          <Ionicons name={deadlineIconName} size={14} color={deadlineIconColor} />
+          <Text style={deadlineTextStyle}>{deadline}</Text>
         </View>
         <Ionicons name="ellipsis-vertical" size={16} color={colors.iconMuted} />
       </View>
@@ -456,6 +511,8 @@ const styles = StyleSheet.create({
   deadlineRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   deadlineText: { color: colors.error, fontFamily: fonts["700"], fontSize: 12 },
   deadlineTextDone: { color: colors.onSurfaceVariant },
+  deadlineRowActivity: { gap: 5 },
+  deadlineTextActivity: { color: colors.onSurfaceVariant, fontFamily: fonts["500"], fontSize: 13 },
   taskMainRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   taskInfo: { flex: 1 },
   taskTitle: { fontSize: 16, lineHeight: 20, color: colors.onSurface, fontFamily: fonts["900"] },

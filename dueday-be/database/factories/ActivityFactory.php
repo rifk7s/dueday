@@ -27,7 +27,7 @@ class ActivityFactory extends Factory
             'tanggal' => fake()->date(),
             'time_start' => fake()->time(),
             'time_end' => fake()->time(),
-            'status' => fake()->randomElement(['ongoing', 'pending', 'completed']),
+            'status' => fake()->randomElement(['not_started', 'ongoing', 'pending', 'completed']),
             'progress' => fake()->numberBetween(0, 100),
             'deskripsi' => fake()->paragraph(),
             'ulangi' => fake()->randomElement(['setiap_hari', 'satu_minggu', 'satu_bulan', 'satu_tahun', null]),
