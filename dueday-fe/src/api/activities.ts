@@ -81,6 +81,20 @@ export async function listActivities(
   return apiFetch<Activity[]>("/activities", token);
 }
 
+export async function getActivity(
+  id: string,
+  token: string | null,
+): Promise<Activity> {
+  if (MOCK_API) {
+    const activity = mockStore.find((a) => a.id === id);
+    if (!activity) {
+      throw new Error(`Activity with id ${id} not found`);
+    }
+    return activity;
+  }
+  return apiFetch<Activity>(`/activities/${id}`, token);
+}
+
 export async function createActivity(
   input: NewActivity,
   token: string | null,

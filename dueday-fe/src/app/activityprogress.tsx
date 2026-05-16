@@ -1,62 +1,68 @@
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useActivityQuery } from "@/hooks/useActivities";
+import type { UlangiType } from "@/api/activities";
 
 type ActivityProgressParams = {
-  title?: string;
-  date?: string;
-  startHour?: string;
-  endHour?: string;
-  color?: string;
-  accent?: string;
+  id?: string;
+  tab?: string;
 };
 
 export default function ActivityProgressScreen() {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
-  const { title, date, startHour, endHour, color, accent } = useLocalSearchParams<ActivityProgressParams>();
+  const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
+  
+  const { data: activity, isLoading, error } = useActivityQuery(id);
+  const [currentStep, setCurrentStep] = useState(0);
 
-  const activityTitle = typeof title === "string" ? title : "Activity";
-  const activityDate = typeof date === "string" ? formatDateLabel(date) : "-";
-  const activityStartHour = typeof startHour === "string" ? formatClock(startHour) : "08.00";
-  const activityEndHour = typeof endHour === "string" ? formatClock(endHour) : "09.00";
-  const ringColor = typeof color === "string" ? color : colors.primaryContainer;
-  const accentColor = typeof accent === "string" ? accent : colors.primaryContainer;
+  if (isLoading) {
+    return (
+      <View style={[styles.screen, styles.centerContent]}>
+        <ActivityIndicator size="large" color={colors.primaryContainer} />
+      </View>
+    );
+  }
 
-  return (
-    <View style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: top + 8 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
-          </Pressable>
-          <Text style={styles.headerTitle}>Activity Progress</Text>
-          <Pressable hitSlop={12}>
-            <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
-          </Pressable>
-        </View>
+  if (error || !activity) {
+    return (
+      <View style={[styles.screen, styles.centerContent]}>
+        <Text style={styles.errorText}>Failed to load activity</Text>
+        <Pressable style={styles.primaryButton} onPress={() => router.push({ pathname: "/list", params: { tab } })}>
+          <Text style={styles.primaryButtonText}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
-        <View style={styles.card}>
-          <View style={styles.cardHeaderAccent} />
-          <Text style={styles.activityTitle}>{activityTitle}</Text>
+  const progressPercentage = [0, 33, 66, 100][currentStep] || 0;
+  const ringColor = colors.primaryContainer;
+  const accentColor = colors.primaryContainer;
+  
+  const startHour = activity.time_start ? formatClock(activity.time_start) : "08.00";
+  const endHour = activity.time_end ? formatClock(activity.time_end) : "09.00";
+  const activityDate = activity.tanggal ? formatDateLabel(activity.tanggal) : "-";
+  const repeatText = activity.ulangi ? formatRepeat(activity.ulangi) : "Tidak Ada";
 
-          <View style={styles.cardTimeRow}>
-            <InfoChip label={`Mulai: ${activityStartHour}`} tone="warm" />
-            <InfoChip label={`Selesai: ${activityEndHour}`} tone="warm" />
-          </View>
+  const handleStepAdvance = () => {
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
 
-          <View style={[styles.progressRingOuter, { borderColor: ringColor }]}>
-            <View style={styles.progressRingInner}>
-              <Text style={[styles.progressValue, { color: accentColor }]}>0%</Text>
-            </View>
-          </View>
+  const handleStepSelect = (step: number) => {
+    setCurrentStep(step);
+  };
 
-          <Pressable style={styles.primaryButton}>
+  const renderStepActions = () => {
+    if (currentStep === 0) {
+      return (
+        <>
+          <Pressable style={styles.primaryButton} onPress={handleStepAdvance}>
             <Text style={styles.primaryButtonText}>Mulai</Text>
           </Pressable>
 
@@ -67,12 +73,83 @@ export default function ActivityProgressScreen() {
           <Pressable style={styles.ghostButton}>
             <Text style={styles.ghostButtonText}>Batalkan</Text>
           </Pressable>
+        </>
+      );
+    }
+
+    if (currentStep === 1) {
+      return (
+        <View style={styles.chipRow}>
+          <Pressable style={styles.toggleButton} onPress={() => handleStepSelect(2)}>
+            <Text style={styles.toggleButtonText}>Jadi</Text>
+          </Pressable>
+
+          <Pressable style={styles.primaryButton} onPress={handleStepAdvance}>
+            <Text style={styles.primaryButtonText}>Selesai</Text>
+          </Pressable>
         </View>
+      );
+    }
+
+    if (currentStep === 2) {
+      return (
+        <>
+          <Pressable style={styles.primaryButton} onPress={handleStepAdvance}>
+            <Text style={styles.primaryButtonText}>Lanjutkan</Text>
+          </Pressable>
+
+          <Pressable style={styles.secondaryButton}>
+            <Text style={styles.secondaryButtonText}>Ubah Jadwal</Text>
+          </Pressable>
+
+          <Pressable style={styles.ghostButton}>
+            <Text style={styles.ghostButtonText}>Batalkan</Text>
+          </Pressable>
+        </>
+      );
+    }
+
+    return (
+      <View style={styles.completeMessage}>
+        <Ionicons name="checkmark-circle" size={48} color={ringColor} />
+        <Text style={styles.completeText}>Aktivitas Selesai!</Text>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.screen}>
+      <View style={[styles.header, { marginTop: top + 8 }]}>
+        <Pressable onPress={() => router.push({ pathname: "/list", params: { tab } })} hitSlop={12}>
+          <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Activity Progress</Text>
+        <Pressable hitSlop={12}>
+          <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
+        </Pressable>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled
+      >
+        <CardView
+          title={activity.activity_name}
+          startHour={startHour}
+          endHour={endHour}
+          progress={progressPercentage}
+          ringColor={ringColor}
+          accentColor={accentColor}
+          isComplete={currentStep === 3}
+        >
+          {renderStepActions()}
+        </CardView>
 
         <SectionLabel label="WAKTU" />
         <View style={styles.chipRow}>
-          <InfoChip label={`Mulai: ${activityStartHour}`} tone="warm" />
-          <InfoChip label={`Selesai: ${activityEndHour}`} tone="warm" />
+          <InfoChip label={`Mulai: ${startHour}`} tone="warm" />
+          <InfoChip label={`Selesai: ${endHour}`} tone="warm" />
         </View>
 
         <SectionLabel label="TANGGAL" />
@@ -80,20 +157,64 @@ export default function ActivityProgressScreen() {
           <InfoChip label={activityDate} tone="cool" />
         </View>
 
-        <SectionLabel label="DESKRIPSI" />
-        <Text style={styles.description}>
-          Lari pagi keliling taman kota untuk menjaga kesehatan dan kebugaran tubuh sebelum memulai
-          aktivitas perkuliahan.
-        </Text>
+        {activity.deskripsi && (
+          <>
+            <SectionLabel label="DESKRIPSI" />
+            <Text style={styles.description}>{activity.deskripsi}</Text>
+          </>
+        )}
 
-        <SectionLabel label="TAG" />
-        <View style={styles.singleChipRow}>
-          <InfoChip label="Rumah" tone="outline" />
-        </View>
+        {activity.tag && (
+          <>
+            <SectionLabel label="TAG" />
+            <View style={styles.singleChipRow}>
+              <InfoChip label={activity.tag.nama_tag} tone="outline" />
+            </View>
+          </>
+        )}
 
-        <SectionLabel label="PENGULANGAN" />
-        <Text style={styles.repeatText}>Setiap Hari</Text>
+        {activity.ulangi && (
+          <>
+            <SectionLabel label="PENGULANGAN" />
+            <Text style={styles.repeatText}>{repeatText}</Text>
+          </>
+        )}
       </ScrollView>
+    </View>
+  );
+}
+
+function CardView({
+  title,
+  startHour,
+  endHour,
+  progress,
+  ringColor,
+  accentColor,
+  isComplete,
+  children,
+}: Readonly<{
+  title: string;
+  startHour: string;
+  endHour: string;
+  progress: number;
+  ringColor: string;
+  accentColor: string;
+  isComplete?: boolean;
+  children?: React.ReactNode;
+}>) {
+  return (
+    <View style={styles.card}>
+      <View style={[styles.cardHeaderAccent, { backgroundColor: ringColor }]} />
+      <Text style={styles.activityTitle}>{title}</Text>
+
+      <View style={[styles.progressRingOuter, { borderColor: ringColor }]}>
+        <View style={styles.progressRingInner}>
+          <Text style={[styles.progressValue, { color: accentColor }]}>{progress}%</Text>
+        </View>
+      </View>
+
+      {children}
     </View>
   );
 }
@@ -117,16 +238,29 @@ function InfoChip({
 }
 
 function formatClock(value: string): string {
-  const hour = Number(value);
-  if (Number.isNaN(hour)) {
+  const [hour] = value.split(":");
+  const hourNum = Number(hour);
+  if (Number.isNaN(hourNum)) {
     return value;
   }
-  return `${hour.toString().padStart(2, "0")}.00`;
+  return `${hourNum.toString().padStart(2, "0")}.00`;
 }
 
 function formatDateLabel(value: string): string {
-  const [day, month, year] = value.split("/");
-  if (!day || !month || !year) {
+  const normalized = value.trim();
+  const dateOnly = normalized.split("T")[0] ?? normalized;
+  const isoMatch = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const slashMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  let day: string;
+  let month: string;
+  let year: string;
+
+  if (isoMatch) {
+    [, year, month, day] = isoMatch;
+  } else if (slashMatch) {
+    [, day, month, year] = slashMatch;
+  } else {
     return value;
   }
 
@@ -150,10 +284,24 @@ function formatDateLabel(value: string): string {
   return `${Number(day)} ${monthLabel} ${year}`;
 }
 
+function formatRepeat(ulangi: UlangiType): string {
+  const repeatMap: Record<UlangiType, string> = {
+    setiap_hari: "Setiap Hari",
+    satu_minggu: "Setiap Minggu",
+    satu_bulan: "Setiap Bulan",
+    satu_tahun: "Setiap Tahun",
+  };
+  return repeatMap[ulangi] ?? "Tidak Ada";
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.surfaceContainerLowest,
+  },
+  centerContent: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     paddingHorizontal: 16,
@@ -163,12 +311,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 16,
     marginBottom: 12,
   },
   headerTitle: {
     fontSize: typography.h2.fontSize,
     fontFamily: typography.h2.fontFamily,
     color: colors.onSurface,
+  },
+  errorText: {
+    fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["500"],
+    color: colors.error,
+    marginBottom: 16,
   },
   card: {
     backgroundColor: colors.surfaceContainerLowest,
@@ -328,5 +483,31 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySm.fontSize,
     fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
+  },
+  toggleButton: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 999,
+    minHeight: 48,
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.primaryContainer,
+  },
+  toggleButtonText: {
+    color: colors.primaryContainer,
+    fontSize: typography.button.fontSize,
+    fontFamily: typography.button.fontFamily,
+  },
+  completeMessage: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+  },
+  completeText: {
+    marginTop: 12,
+    fontSize: 18,
+    fontFamily: fonts["600"],
+    color: colors.primaryContainer,
   },
 });

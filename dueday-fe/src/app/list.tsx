@@ -6,7 +6,7 @@ import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -161,6 +161,7 @@ function renderListContent(
 export default function ListPage() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
 
   const [active, setActive] = useState<Tab>("tugas");
   const [activeFilter, setActiveFilter] = useState<Filter>("Semua");
@@ -172,9 +173,13 @@ export default function ListPage() {
 
   useFocusEffect(
     React.useCallback(() => {
-      setActive("tugas");
+      if (tabParam === "aktivitas") {
+        setActive("aktivitas");
+      } else {
+        setActive("tugas");
+      }
       setActiveFilter("Semua");
-    }, []),
+    }, [tabParam]),
   );
 
   const isLoading = active === "tugas" ? tasksLoading : activitiesLoading;
@@ -259,7 +264,9 @@ export default function ListPage() {
 
       {renderListContent(isLoading, isError, active, visibleItems, (item) => {
         if (active === "tugas") {
-          router.push({ pathname: "/taskprogress", params: { id: item.id } });
+          router.push({ pathname: "/taskprogress", params: { id: item.id, tab: "tugas" } });
+        } else {
+          router.push({ pathname: "/activityprogress", params: { id: item.id, tab: "aktivitas" } });
         }
       })}
     </View>
