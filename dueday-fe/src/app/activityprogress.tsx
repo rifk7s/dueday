@@ -18,7 +18,7 @@ type ActivityProgressParams = {
 };
 
 export default function ActivityProgressScreen() {
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
   
   const { data: activity, isLoading, error } = useActivityQuery(id);
@@ -267,7 +267,7 @@ export default function ActivityProgressScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottom + 28 }]}
         showsVerticalScrollIndicator={false}
         scrollEnabled
       >

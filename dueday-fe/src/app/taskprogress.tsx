@@ -57,7 +57,7 @@ function parseGoals(task: Task): string[] {
 
 export default function TaskProgressScreen() {
   const router = useRouter();
-  const { top } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const { data: tasks = [], isLoading, isError } = useTasksQuery();
@@ -115,7 +115,7 @@ export default function TaskProgressScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: top + 8 }]}
+        contentContainerStyle={[styles.content, { paddingTop: top + 8, paddingBottom: bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>

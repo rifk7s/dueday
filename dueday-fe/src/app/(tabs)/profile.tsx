@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 
 type TaskStat = {
   label: string;
@@ -54,6 +55,7 @@ const settings: SettingItem[] = [
 
 export default function ProfileScreen(): React.JSX.Element {
   const { top } = useSafeAreaInsets();
+  const bottomBarSpace = useBottomBarSpace();
   const { user, signOut } = useSession();
   const [signingOut, setSigningOut] = useState(false);
   const router = useRouter();
@@ -81,7 +83,7 @@ export default function ProfileScreen(): React.JSX.Element {
       <StatusBar style="dark" />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomBarSpace + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
