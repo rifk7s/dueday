@@ -1,3 +1,4 @@
+import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -55,11 +56,11 @@ const plans: PlanItem[] = [
 
 export default function PremiumPlanScreen(): React.JSX.Element {
   const router = useRouter();
-  const { top, bottom } = useSafeAreaInsets();
+  const { bottom } = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<PlanItem>(plans[0]);
 
   return (
-    <View style={[styles.root, { paddingTop: top }]}>
+    <View style={styles.root}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
@@ -67,7 +68,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           style={styles.backButton}
           accessibilityRole="button"
           accessibilityLabel="Kembali"
-          onPress={() => router.replace("/(tabs)/profile")}
+          onPress={() => goBackOr("/(tabs)/profile")}
         >
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
@@ -168,6 +169,7 @@ const styles = StyleSheet.create({
   },
   header: {
     minHeight: 56,
+    paddingTop: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -196,16 +198,16 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 28,
+    paddingTop: 18,
   },
   heroIconWrap: {
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 8,
   },
   heroIconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.surfaceWarm,
     alignItems: "center",
     justifyContent: "center",
@@ -217,9 +219,9 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
   },
   price: {
-    marginTop: 8,
+    marginTop: 4,
     textAlign: "center",
-    fontSize: 30,
+    fontSize: 26,
     fontFamily: fonts["800"],
     color: colors.primaryContainer,
   },
@@ -231,7 +233,7 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   sectionLabel: {
-    marginTop: 26,
+    marginTop: 18,
     marginBottom: 12,
     fontSize: typography.labelBold.fontSize,
     fontFamily: fonts["700"],
@@ -289,7 +291,7 @@ const styles = StyleSheet.create({
   },
   socialProofPill: {
     alignSelf: "center",
-    marginTop: 26,
+    marginTop: 16,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.outlineVariant,
@@ -303,7 +305,7 @@ const styles = StyleSheet.create({
     color: colors.primaryContainer,
   },
   paymentCard: {
-    marginTop: 20,
+    marginTop: 14,
     borderRadius: 20,
     backgroundColor: colors.surfaceContainerLowest,
     borderWidth: 1,

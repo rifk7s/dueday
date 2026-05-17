@@ -5,6 +5,7 @@ import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
+import { goBackOr } from "@/constants/navigation";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -118,7 +119,7 @@ export default function TaskProgressScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.replace({ pathname: "/list", params: { tab: "tugas" } })} hitSlop={12}>
+          <Pressable onPress={() => goBackOr({ pathname: "/list", params: { tab: "tugas" } })} hitSlop={12}>
             <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
           </Pressable>
           <Text style={styles.headerTitle}>Progress Tugas</Text>

@@ -1,5 +1,6 @@
 import { SessionProvider, useSession } from "@/auth/ctx";
 import { SplashScreenController } from "@/auth/splash";
+import { modalScreenOptions, stackScreenOptions } from "@/constants/navigation";
 import "@/global.css";
 import {
     Lexend_400Regular,
@@ -59,14 +60,14 @@ function RootNavigator() {
   const { token } = useSession();
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={stackScreenOptions}>
       <Stack.Protected guard={!!token}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="premium-plan" />
-        <Stack.Screen name="payment" />
-        <Stack.Screen name="detail-transfer" />
-        <Stack.Screen name="create-task" />
-        <Stack.Screen name="create-activity" />
+        <Stack.Screen name="premium-plan" options={modalScreenOptions} />
+        <Stack.Screen name="payment" options={modalScreenOptions} />
+        <Stack.Screen name="detail-transfer" options={modalScreenOptions} />
+        <Stack.Screen name="create-task" options={modalScreenOptions} />
+        <Stack.Screen name="create-activity" options={modalScreenOptions} />
         <Stack.Screen name="activityprogress" />
         <Stack.Screen name="list" />
         <Stack.Screen name="reminder-list" />

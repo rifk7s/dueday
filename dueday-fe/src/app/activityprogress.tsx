@@ -1,6 +1,7 @@
+import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Platform, Alert, ToastAndroid } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,7 +18,6 @@ type ActivityProgressParams = {
 };
 
 export default function ActivityProgressScreen() {
-  const router = useRouter();
   const { top } = useSafeAreaInsets();
   const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
   
@@ -144,7 +144,7 @@ export default function ActivityProgressScreen() {
         <Text style={styles.errorText}>Failed to load activity</Text>
         <Pressable
           style={styles.primaryButton}
-          onPress={() => router.replace({ pathname: "/list", params: { tab: "aktivitas" } })}
+          onPress={() => goBackOr({ pathname: "/list", params: { tab: "aktivitas" } })}
         >
           <Text style={styles.primaryButtonText}>Go Back</Text>
         </Pressable>
@@ -257,7 +257,7 @@ export default function ActivityProgressScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { marginTop: top + 8 }]}>
-        <Pressable onPress={() => router.replace({ pathname: "/list", params: { tab: "aktivitas" } })} hitSlop={12}>
+        <Pressable onPress={() => goBackOr({ pathname: "/list", params: { tab: "aktivitas" } })} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.headerTitle}>Activity Progress</Text>
