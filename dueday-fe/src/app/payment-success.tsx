@@ -1,6 +1,7 @@
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { exitFlowTo } from "@/constants/navigation";
+import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
@@ -85,7 +86,6 @@ function AccentDot({ size, color, top, left, right, delay }: AccentDotProps): Re
 }
 
 export default function PaymentSuccessScreen(): React.JSX.Element {
-  const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
@@ -94,15 +94,11 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   const methodName = (params.methodName as string) || "Virtual Account";
 
   const handleDone = useCallback(() => {
-    if (router.canDismiss()) {
-      // POP_TO_TOP — unwinds the whole modal payment chain back to (tabs)
-      // and dismisses the native modal host with its dismiss animation.
-      router.dismissAll();
-    } else {
-      // Cold deep-link straight into success: nothing to pop, just reset.
-      router.replace("/(tabs)");
-    }
-  }, [router]);
+    // Single native dismiss that also switches the buried tab to the
+    // dashboard, so the sheet slides down once and reveals the dashboard
+    // (not the profile tab the flow was launched from).
+    exitFlowTo("/");
+  }, []);
 
   useEffect(() => {
     // Android hardware back must also exit the flow, not pop back into the
