@@ -6,6 +6,7 @@ import { Link } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 
 type ScheduleItem = {
   id: string;
@@ -108,6 +109,7 @@ const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, inde
 
 export default function CalendarScreen() {
   const { top } = useSafeAreaInsets();
+  const bottomBarSpace = useBottomBarSpace();
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     const day = today.getDate().toString().padStart(2, "0");
@@ -122,7 +124,7 @@ export default function CalendarScreen() {
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomBarSpace + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>

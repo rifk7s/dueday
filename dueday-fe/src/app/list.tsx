@@ -5,6 +5,7 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
+import { goBackOr } from "@/constants/navigation";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -260,7 +261,7 @@ export default function ListPage() {
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <View style={styles.headerRow}>
-        <Pressable onPress={() => router.replace({ pathname: "/" })} style={styles.iconButton}>
+        <Pressable onPress={() => goBackOr("/")} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.title}>List</Text>

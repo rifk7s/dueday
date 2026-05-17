@@ -1,3 +1,4 @@
+import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -58,7 +59,7 @@ export default function PaymentScreen(): React.JSX.Element {
           accessibilityRole="button"
           accessibilityLabel="Kembali"
           hitSlop={10}
-          onPress={() => router.replace("/premium-plan")}
+          onPress={() => goBackOr("/premium-plan")}
         >
           <Ionicons name="arrow-back" size={28} color={colors.primaryContainer} />
         </Pressable>

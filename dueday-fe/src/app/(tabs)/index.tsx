@@ -20,15 +20,16 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
+import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 
 export default function App() {
-  const { top, bottom } = useSafeAreaInsets();
+  const { top } = useSafeAreaInsets();
+  const bottomBarSpace = useBottomBarSpace();
   const router = useRouter();
   const { user: sessionUser } = useSession();
   const { data: currentUser } = useCurrentUserQuery();
   const { data: tasks = [] } = useTasksQuery();
-  const bottomBarHeight = 78;
-  const fabBottom = bottomBarHeight + 12;
+  const fabBottom = bottomBarSpace + 12;
   const [overlayOpen, setOverlayOpen] = useState(false);
   const backdropOpacity = React.useRef(new Animated.Value(0)).current;
   const actionOneProgress = React.useRef(new Animated.Value(0)).current;
@@ -112,7 +113,7 @@ export default function App() {
       <StatusBar style="dark" />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingBottom: bottom + 120 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomBarSpace + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>

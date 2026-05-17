@@ -3,18 +3,18 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, LayoutChangeEvent, Pressable, StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TAB_BAR_HEIGHT, useBottomBarInset } from "@/hooks/useBottomBarSpace";
 
-const NAV_HEIGHT = 126;
-const TAB_HEIGHT = 78;
+const TAB_HEIGHT = TAB_BAR_HEIGHT;
 const ACTIVE_BUBBLE_SIZE = 92;
 const ACTIVE_DISC_SIZE = 70;
-const ACTIVE_BUBBLE_TOP = -(NAV_HEIGHT - TAB_HEIGHT);
+// How far the active bubble pops above the bar top. Fixed (not derived from
+// bar height) so shrinking TAB_HEIGHT doesn't blow up the pop distance.
+const ACTIVE_BUBBLE_TOP = -44;
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export default function BottomNav({ state, navigation }: Readonly<BottomTabBarProps>) {
-  const { bottom } = useSafeAreaInsets();
-  const bottomInset = Math.min(bottom, 12);
+  const bottomInset = useBottomBarInset();
   const translateY = useRef(new Animated.Value(TAB_HEIGHT + bottomInset + 24)).current;
   const bubbleX = useRef(new Animated.Value(0)).current;
   const [layouts, setLayouts] = useState<({ x: number; width: number } | undefined)[]>([]);
@@ -47,7 +47,7 @@ export default function BottomNav({ state, navigation }: Readonly<BottomTabBarPr
       pointerEvents="box-none"
       style={[styles.wrapper, { transform: [{ translateY }] }]}
     >
-      <View style={[styles.bar, { height: TAB_HEIGHT, paddingBottom: bottomInset }]}>
+      <View style={[styles.bar, { height: TAB_HEIGHT + bottomInset, paddingBottom: bottomInset }]}>
         <Animated.View
           pointerEvents="none"
           style={[styles.activeBubble, { transform: [{ translateX: bubbleX }] }]}
