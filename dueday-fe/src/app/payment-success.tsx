@@ -10,6 +10,7 @@ import {
     type DimensionValue,
     Easing,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -186,7 +187,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   );
 
   return (
-    <View style={[styles.root, { paddingTop: top, paddingBottom: bottom + 16 }]}>
+    <View style={[styles.root, { paddingTop: top }]}>
       <StatusBar style="dark" />
 
       {dots.map((dot, index) => (
@@ -201,6 +202,11 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
         />
       ))}
 
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.content}>
         <Animated.View
           style={[
@@ -259,8 +265,9 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
             </View>
         </Animated.View>
       </View>
+      </ScrollView>
 
-      <View style={styles.footerActions}>
+      <View style={[styles.footerActions, { paddingBottom: bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
           accessibilityRole="button"
@@ -278,11 +285,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surfaceContainerLowest,
     paddingHorizontal: 20,
-    justifyContent: "space-between",
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     alignItems: "center",
     paddingTop: 20,
+    paddingBottom: 16,
   },
   heroWrap: {
     marginTop: 20,
@@ -408,6 +421,7 @@ const styles = StyleSheet.create({
   },
   footerActions: {
     gap: 10,
+    paddingTop: 12,
   },
   primaryButton: {
     height: 52,
