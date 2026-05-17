@@ -1,30 +1,44 @@
 import { colors, fonts } from "@/constants/theme";
+import type { GoalPoint } from "@/api/tasks";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type Props = {
   visible: boolean;
-  goals: string[];
-  initialChecked?: Record<number, boolean>;
+  goalPoints: GoalPoint[];
   onClose: () => void;
-  onSave: (checkedMap: Record<number, boolean>) => void;
+  onSave: (goalPoints: GoalPoint[]) => void;
 };
 
-export default function GoalsChecklistModal({ visible, goals, initialChecked = {}, onClose, onSave }: Props) {
-  const [checked, setChecked] = useState<Record<number, boolean>>(initialChecked);
+export default function GoalsChecklistModal({ visible, goalPoints, onClose, onSave }: Props) {
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      setChecked(initialChecked ?? {});
+      setChecked(
+        goalPoints.reduce<Record<number, boolean>>((accumulator, goalPoint) => {
+          accumulator[goalPoint.id] = goalPoint.completed;
+          return accumulator;
+        }, {}),
+      );
       Animated.timing(anim, { toValue: 1, duration: 220, useNativeDriver: true }).start();
     } else {
       Animated.timing(anim, { toValue: 0, duration: 180, useNativeDriver: true }).start();
     }
-  }, [visible, initialChecked, anim]);
+  }, [visible, goalPoints, anim]);
 
-  const toggle = (i: number) => setChecked((p) => ({ ...p, [i]: !p[i] }));
+  const toggle = (id: number) => setChecked((previous) => ({ ...previous, [id]: !previous[id] }));
+
+  const handleSave = () => {
+    onSave(
+      goalPoints.map((goalPoint) => ({
+        ...goalPoint,
+        completed: !!checked[goalPoint.id],
+      })),
+    );
+  };
 
   if (!visible) return null;
 
@@ -39,14 +53,14 @@ export default function GoalsChecklistModal({ visible, goals, initialChecked = {
         </View>
 
         <ScrollView style={styles.list}>
-          {goals.map((g, i) => {
-            const isChecked = !!(checked[i]);
+          {goalPoints.map((goalPoint) => {
+            const isChecked = !!checked[goalPoint.id];
             return (
-              <Pressable key={`${i}-${g}`} style={styles.row} onPress={() => toggle(i)}>
+              <Pressable key={goalPoint.id} style={styles.row} onPress={() => toggle(goalPoint.id)}>
                 <View style={[styles.box, isChecked && styles.boxChecked]}>
                   {isChecked ? <Text style={styles.checkMark}>✓</Text> : null}
                 </View>
-                <Text style={styles.rowText}>{g}</Text>
+                <Text style={styles.rowText}>{goalPoint.text}</Text>
               </Pressable>
             );
           })}
@@ -56,8 +70,8 @@ export default function GoalsChecklistModal({ visible, goals, initialChecked = {
           <Pressable style={styles.ghost} onPress={onClose}>
             <Text style={styles.ghostText}>Batal</Text>
           </Pressable>
-          <Pressable style={styles.save} onPress={() => onSave(checked)}>
-            <Text style={styles.saveText}>Simpan</Text>
+          <Pressable style={styles.save} onPress={handleSave}>
+            <Text style={styles.saveText}>Selesai</Text>
           </Pressable>
         </View>
       </Animated.View>

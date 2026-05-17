@@ -1,5 +1,5 @@
 import { useSession } from "@/auth/ctx";
-import { listTasks, createTask, type NewTask } from "@/api/tasks";
+import { createTask, listTasks, updateTask, type NewTask, type UpdateTask } from "@/api/tasks";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useTasksQuery(options?: { enabled?: boolean }) {
@@ -18,6 +18,24 @@ export function useCreateTaskMutation() {
   return useMutation({
     mutationFn: (input: NewTask) => createTask(input, token),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+export function useUpdateTaskMutation() {
+  const { token } = useSession();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; data: UpdateTask }) => updateTask(input.id, input.data, token),
+    onSuccess: (updatedTask) => {
+      qc.setQueryData(["tasks"], (current: unknown) => {
+        if (!Array.isArray(current)) {
+          return current;
+        }
+
+        return current.map((task) => (task && typeof task === "object" && "id" in task && task.id === updatedTask.id ? updatedTask : task));
+      });
       qc.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
