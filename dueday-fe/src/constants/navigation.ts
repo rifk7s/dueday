@@ -55,3 +55,17 @@ export const modalScreenOptions: NativeStackNavigationOptions = {
   presentation: "modal",
   animation: Platform.OS === "ios" ? "default" : "slide_from_bottom",
 };
+
+/**
+ * Terminal success screen inside the payment modal flow.
+ *
+ * Same modal host as `modalScreenOptions` so it stays inside the existing
+ * native modal (no card/slide mismatch when detail-transfer does
+ * `router.replace` into it). Gesture is DISABLED: swiping it away would reveal
+ * the half-finished payment stack still mounted underneath — the only exit is
+ * the CTA, which calls `dismissAll()` to tear down the whole modal host.
+ */
+export const successScreenOptions: NativeStackNavigationOptions = {
+  ...modalScreenOptions,
+  gestureEnabled: false,
+};

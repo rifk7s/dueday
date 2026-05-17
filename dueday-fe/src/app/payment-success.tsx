@@ -2,9 +2,11 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
     Animated,
+    BackHandler,
+    type DimensionValue,
     Easing,
     Pressable,
     StyleSheet,
@@ -17,8 +19,8 @@ type AccentDotProps = {
   size: number;
   color: string;
   top: number;
-  left?: string;
-  right?: string;
+  left?: DimensionValue;
+  right?: DimensionValue;
   delay: number;
 };
 
@@ -91,6 +93,27 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   const planPrice = (params.planPrice as string) || "Rp20.000";
   const methodName = (params.methodName as string) || "Virtual Account";
 
+  const handleDone = useCallback(() => {
+    if (router.canDismiss()) {
+      // POP_TO_TOP — unwinds the whole modal payment chain back to (tabs)
+      // and dismisses the native modal host with its dismiss animation.
+      router.dismissAll();
+    } else {
+      // Cold deep-link straight into success: nothing to pop, just reset.
+      router.replace("/(tabs)");
+    }
+  }, [router]);
+
+  useEffect(() => {
+    // Android hardware back must also exit the flow, not pop back into the
+    // (already completed) detail-transfer screen.
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleDone();
+      return true;
+    });
+    return () => sub.remove();
+  }, [handleDone]);
+
   const heroScale = useRef(new Animated.Value(0.8)).current;
   const heroOpacity = useRef(new Animated.Value(0)).current;
   const contentTranslate = useRef(new Animated.Value(16)).current;
@@ -138,7 +161,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
     ]).start();
   }, [contentOpacity, contentTranslate, heroOpacity, heroScale]);
 
-  const dots = useMemo(
+  const dots = useMemo<AccentDotProps[]>(
     () => [
       { size: 10, color: colors.secondaryContainer, top: 100, left: "14%", delay: 0 },
       { size: 14, color: colors.surfaceWarm, top: 132, right: "12%", delay: 180 },
@@ -245,7 +268,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
         <Pressable
           style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
           accessibilityRole="button"
-          onPress={() => router.replace("/(tabs)")}
+          onPress={handleDone}
         >
           <Text style={styles.primaryButtonText}>Kembali ke Dashboard</Text>
         </Pressable>
