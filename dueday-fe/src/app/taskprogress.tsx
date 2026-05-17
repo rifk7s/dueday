@@ -1,10 +1,12 @@
 import { fromApiTime } from "@/api/format";
 import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
+import GoalsChecklistModal from "@/components/GoalsChecklistModal";
 import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -89,6 +91,26 @@ export default function TaskProgressScreen() {
 
   const goals = parseGoals(task);
 
+  // Local UI state for showing the goals checklist modal and tracking progress locally
+  const [modalVisible, setModalVisible] = useState(false);
+  // savedChecks stores per-task saved checkbox state so it persists across modal opens
+  const [savedChecks, setSavedChecks] = useState<Record<string, Record<number, boolean>>>({});
+  const [localProgress, setLocalProgress] = useState<number>(task.progress ?? 0);
+  const onModalSave = (newMap: Record<number, boolean>) => {
+    const prevMap = savedChecks[task.id] ?? {};
+    const prevCheckedCount = Object.values(prevMap).filter(Boolean).length;
+    const newCheckedCount = Object.values(newMap).filter(Boolean).length;
+    const deltaChecked = Math.max(0, newCheckedCount - prevCheckedCount);
+
+    if (goals.length > 0 && deltaChecked > 0) {
+      const increment = Math.round((deltaChecked / goals.length) * 100);
+      setLocalProgress((p) => Math.min(100, p + increment));
+    }
+
+    setSavedChecks((prev) => ({ ...prev, [task.id]: { ...(prev[task.id] ?? {}), ...newMap } }));
+    setModalVisible(false);
+  };
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -105,7 +127,13 @@ export default function TaskProgressScreen() {
           </Pressable>
         </View>
 
-        <ProgressCard title={task.task_name} progress={task.progress} />
+        <ProgressCard
+          title={task.task_name}
+          progress={localProgress}
+          onUpdatePress={() => {
+            setModalVisible(true);
+          }}
+        />
 
         {priorityLabel && priorityColor ? (
           <View style={styles.priorityRow}>
@@ -160,6 +188,13 @@ export default function TaskProgressScreen() {
           </>
         ) : null}
       </ScrollView>
+      <GoalsChecklistModal
+        visible={modalVisible}
+        goals={goals}
+        initialChecked={savedChecks[task.id] ?? {}}
+        onClose={() => setModalVisible(false)}
+        onSave={onModalSave}
+      />
     </View>
   );
 }
@@ -288,5 +323,61 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts["500"],
     color: colors.tertiary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    width: "100%",
+    borderRadius: 14,
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainer,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontFamily: fonts["700"],
+    color: colors.onSurface,
+    marginBottom: 12,
+  },
+  modalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 8,
+  },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
+    backgroundColor: colors.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primaryContainer,
+  },
+  checkboxCheck: {
+    color: colors.onPrimary,
+    fontFamily: fonts["700"],
+  },
+  modalRowTitle: {
+    fontSize: 14,
+    fontFamily: fonts["500"],
+    color: colors.onSurfaceVariant,
+  },
+  modalActions: {
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
   },
 });
