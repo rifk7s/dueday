@@ -1,22 +1,22 @@
 import { fromApiDate, fromApiTime } from "@/api/format";
 import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
 import { useSession } from "@/auth/ctx";
+import { colors, fonts, typography } from "@/constants/theme";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
 import { useTasksQuery } from "@/hooks/useTasks";
-import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-  Animated,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Animated,
+    Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -140,7 +140,12 @@ export default function App() {
               <Text style={styles.greetingSubtitle}>Semangat mengerjakan tugasmu!</Text>
             </View>
 
-            <Pressable style={styles.bellButton} accessibilityRole="button">
+            <Pressable
+              style={styles.bellButton}
+              accessibilityRole="button"
+              accessibilityLabel="Buka pengingat"
+              onPress={() => router.push("/reminder-list")}
+            >
               <Ionicons name="notifications-outline" size={28} color={colors.onSurface} />
             </Pressable>
           </View>
@@ -176,7 +181,12 @@ export default function App() {
           <Text style={styles.actionButtonText}>Lihat List Aktivitas/Tugas</Text>
         </Pressable>
 
-        <View style={styles.reminderCard}>
+        <Pressable
+          style={styles.reminderCard}
+          accessibilityRole="button"
+          accessibilityLabel="Buka daftar pengingat"
+          onPress={() => router.push("/reminder-list")}
+        >
           <View style={styles.reminderLeft}>
             <View style={styles.reminderIconWrap}>
               <Ionicons name="notifications-outline" size={18} color={colors.primaryContainer} />
@@ -184,7 +194,7 @@ export default function App() {
             <Text style={styles.reminderText}>Pengingat Saya</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.iconSubtle} />
-        </View>
+        </Pressable>
       </ScrollView>
 
       <Modal

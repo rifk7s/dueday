@@ -69,6 +69,7 @@ function RootNavigator() {
         <Stack.Screen name="create-activity" />
         <Stack.Screen name="activityprogress" />
         <Stack.Screen name="list" />
+        <Stack.Screen name="reminder-list" />
       </Stack.Protected>
       <Stack.Protected guard={!token}>
         <Stack.Screen name="login" />
