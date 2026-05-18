@@ -1,6 +1,6 @@
-import { ULANGI_DISPLAY, type Activity } from "@/api/activities";
+import { type Activity } from "@/api/activities";
 import { fromApiDate, fromApiTime } from "@/api/format";
-import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
+import { type Task } from "@/api/tasks";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useTasksQuery } from "@/hooks/useTasks";
@@ -12,40 +12,78 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderCardItem = {
   id: string;
-  title: string;
-  subtitle: string;
-  dateLabel: string;
-  timeLabel: string;
-  badgeLabel: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  accentColor: string;
-  badgeBackground: string;
+  label: string;
+  count: number;
+  nearestDate: string;
+  nearestTime: string;
+  type: "task" | "activity";
 };
 
-type ReminderTab = "tasks" | "activities";
-
-export default function ReminderListScreen(): JSX.Element {
+export default function ReminderListScreen() {
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const { data: tasks = [] } = useTasksQuery();
   const { data: activities = [] } = useActivitiesQuery();
-  const [activeTab, setActiveTab] = React.useState<ReminderTab>("tasks");
 
-  const taskReminders = React.useMemo<ReminderCardItem[]>(() => {
-    return [...tasks]
-      .filter((task) => task.status !== "completed")
-      .sort(compareTasks)
-      .map((task) => createTaskReminder(task));
-  }, [tasks]);
+  const allReminders = React.useMemo<ReminderCardItem[]>(() => {
+    const activeTasks = [...tasks].filter((task) => task.status !== "completed").sort(compareTasks);
+    const activeActivities = [...activities].filter((activity) => activity.status !== "completed").sort(compareActivities);
 
-  const activityReminders = React.useMemo<ReminderCardItem[]>(() => {
-    return [...activities]
-      .filter((activity) => activity.status !== "completed")
-      .sort(compareActivities)
-      .map((activity) => createActivityReminder(activity));
-  }, [activities]);
+    const reminders: ReminderCardItem[] = [];
 
-  const activeCount = activeTab === "tasks" ? taskReminders.length : activityReminders.length;
+    if (activeTasks.length > 0) {
+      const nearest = activeTasks[0];
+      reminders.push({
+        id: "tasks-summary",
+        label: "Tugas",
+        count: activeTasks.length,
+        nearestDate: fromApiDate(nearest.date) || "Tanggal belum diatur",
+        nearestTime: fromApiTime(nearest.time) || "Waktu belum diatur",
+        type: "task",
+      });
+    }
+
+    if (activeActivities.length > 0) {
+      const nearest = activeActivities[0];
+      reminders.push({
+        id: "activities-summary",
+        label: "Aktivitas",
+        count: activeActivities.length,
+        nearestDate: fromApiDate(nearest.tanggal) || "Tanggal belum diatur",
+        nearestTime: nearest.time_start ? fromApiTime(nearest.time_start) : "Waktu belum diatur",
+        type: "activity",
+      });
+    }
+
+    return reminders;
+  }, [tasks, activities]);
+
+  const stats = React.useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    const completedToday = [
+      ...tasks.filter((t) => t.status === "completed" && t.date === today),
+      ...activities.filter((a) => a.status === "completed" && a.tanggal === today),
+    ].length;
+
+    const scheduledThisWeek = [
+      ...tasks.filter(
+        (t) => t.status !== "completed" && t.date && t.date >= today && t.date <= weekEnd.toISOString().split("T")[0]
+      ),
+      ...activities.filter(
+        (a) => a.status !== "completed" && a.tanggal && a.tanggal >= today && a.tanggal <= weekEnd.toISOString().split("T")[0]
+      ),
+    ].length;
+
+    const totalCompleted = [...tasks, ...activities].filter((item) => item.status === "completed").length;
+
+    return { completedToday, scheduledThisWeek, totalCompleted };
+  }, [tasks, activities]);
 
   return (
     <View style={[styles.safeArea, { paddingTop: top, paddingBottom: bottom }]}>
@@ -60,7 +98,7 @@ export default function ReminderListScreen(): JSX.Element {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
+            <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
           </Pressable>
 
           <Text style={styles.title}>Reminder List</Text>
@@ -80,88 +118,81 @@ export default function ReminderListScreen(): JSX.Element {
           </View>
         </View>
 
-        <View style={styles.tabRow}>
-          <ReminderTabButton
-            label="Tugas"
-            count={taskReminders.length}
-            active={activeTab === "tasks"}
-            onPress={() => setActiveTab("tasks")}
-          />
-          <ReminderTabButton
-            label="Aktivitas"
-            count={activityReminders.length}
-            active={activeTab === "activities"}
-            onPress={() => setActiveTab("activities")}
-          />
-        </View>
+        <Text style={styles.tabSummary}>{allReminders.length} reminder</Text>
 
-        <Text style={styles.tabSummary}>{activeCount} reminder di tab ini</Text>
+        <StatsRow stats={stats} />
 
-        {activeTab === "tasks" ? (
-          <ReminderSection
-            title="Tugas"
-            icon="document-text-outline"
-            items={taskReminders}
-            emptyText="Belum ada tugas yang perlu diingat."
-          />
-        ) : (
-          <ReminderSection
-            title="Aktivitas"
-            icon="sparkles-outline"
-            items={activityReminders}
-            emptyText="Belum ada aktivitas yang perlu diingat."
-          />
-        )}
+        <ReminderSection
+          items={allReminders}
+          emptyText="Belum ada reminder yang perlu diingat."
+        />
       </ScrollView>
     </View>
   );
 }
 
-type ReminderTabButtonProps = {
-  label: string;
-  count: number;
-  active: boolean;
-  onPress: () => void;
-};
-
-function ReminderTabButton({ label, count, active, onPress }: Readonly<ReminderTabButtonProps>): JSX.Element {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.tabButton, active && styles.tabButtonActive]}
-    >
-      <Text style={[styles.tabButtonLabel, active && styles.tabButtonLabelActive]}>{label}</Text>
-      <View style={[styles.tabBadge, active && styles.tabBadgeActive]}>
-        <Text style={[styles.tabBadgeText, active && styles.tabBadgeTextActive]}>{count}</Text>
-      </View>
-    </Pressable>
-  );
-}
-
 type ReminderSectionProps = {
-  title: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
   items: ReminderCardItem[];
   emptyText: string;
 };
 
-function ReminderSection({ title, icon, items, emptyText }: Readonly<ReminderSectionProps>): JSX.Element {
+type StatsRowProps = {
+  stats: {
+    completedToday: number;
+    scheduledThisWeek: number;
+    totalCompleted: number;
+  };
+};
+
+function StatsRow({ stats }: Readonly<StatsRowProps>) {
+  return (
+    <View style={styles.statsRow}>
+      <StatCard
+        icon="checkmark-circle-outline"
+        label="Selesai Hari Ini"
+        value={stats.completedToday}
+        color={colors.primaryContainer}
+      />
+      <StatCard
+        icon="calendar-outline"
+        label="Minggu Ini"
+        value={stats.scheduledThisWeek}
+        color={colors.secondaryContainer}
+      />
+      <StatCard
+        icon="trending-up-outline"
+        label="Total Selesai"
+        value={stats.totalCompleted}
+        color={colors.tertiaryContainer}
+      />
+    </View>
+  );
+}
+
+type StatCardProps = {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  value: number;
+  color: string;
+};
+
+function StatCard({ icon, label, value, color }: Readonly<StatCardProps>) {
+  return (
+    <View style={styles.statCard}>
+      <View style={[styles.statIconWrap, { backgroundColor: color }]}>
+        <Ionicons name={icon} size={16} color={colors.surface} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ReminderSection({ items, emptyText }: Readonly<ReminderSectionProps>) {
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionTitleRow}>
-          <View style={styles.sectionIconWrap}>
-            <Ionicons name={icon} size={16} color={colors.primaryContainer} />
-          </View>
-          <Text style={styles.sectionTitle}>{title}</Text>
-        </View>
-        <Text style={styles.sectionCount}>{items.length} item</Text>
-      </View>
-
       {items.length > 0 ? (
-        items.map((item) => <ReminderCard key={item.id} item={item} />)
+        items.map((item) => <ReminderSummaryCard key={item.id} item={item} />)
       ) : (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>{emptyText}</Text>
@@ -175,71 +206,51 @@ type ReminderCardProps = {
   item: ReminderCardItem;
 };
 
-function ReminderCard({ item }: Readonly<ReminderCardProps>): JSX.Element {
+function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
+  const accentColor = item.type === "task" ? colors.primaryContainer : colors.secondaryContainer;
+  const icon = item.type === "task" ? "document-text-outline" : "sparkles-outline";
+
   return (
     <View style={styles.card}>
-      <View style={[styles.cardAccent, { backgroundColor: item.accentColor }]} />
+      <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
 
       <View style={styles.cardBody}>
         <View style={styles.cardTopRow}>
           <View style={styles.cardTitleRow}>
             <View style={styles.cardIconWrap}>
-              <Ionicons name={item.icon} size={15} color={colors.primaryContainer} />
+              <Ionicons name={icon} size={15} color={accentColor} />
             </View>
             <View>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
+              <Text style={styles.cardTitle}>{item.label}</Text>
+              <Text style={styles.cardSubtitle}>{item.count} item menunggu</Text>
             </View>
           </View>
 
-          <View style={[styles.badge, { backgroundColor: item.badgeBackground }]}>
-            <Text style={styles.badgeText}>{item.badgeLabel}</Text>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit"
+          >
+            <Ionicons name="pencil" size={18} color={colors.onSurfaceVariant} />
+          </Pressable>
         </View>
 
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
             <Ionicons name="calendar-outline" size={14} color={colors.onSurfaceVariant} />
-            <Text style={styles.metaText}>{item.dateLabel}</Text>
+            <Text style={styles.metaText}>{item.nearestDate}</Text>
           </View>
           <View style={styles.metaItem}>
             <Ionicons name="time-outline" size={14} color={colors.onSurfaceVariant} />
-            <Text style={styles.metaText}>{item.timeLabel}</Text>
+            <Text style={styles.metaText}>{item.nearestTime}</Text>
           </View>
         </View>
       </View>
-
-      <Ionicons name="chevron-forward" size={18} color={colors.iconSubtle} />
     </View>
   );
 }
 
-function createTaskReminder(task: Task): ReminderCardItem {
-  return {
-    id: task.id,
-    title: task.task_name,
-    subtitle: task.deskripsi?.trim() || "Tugas harian",
-    dateLabel: fromApiDate(task.date) || "Tanggal belum diatur",
-    timeLabel: fromApiTime(task.time) || "Waktu belum diatur",
-    badgeLabel: task.priority ? PRIORITY_DISPLAY[task.priority] ?? task.priority.toUpperCase() : "PRIORITAS",
-    icon: "document-text-outline",
-    accentColor: colors.primaryContainer,
-    badgeBackground: colors.surfaceWarm,
-  };
-}
-
-function createActivityReminder(activity: Activity): ReminderCardItem {
-  return {
-    id: activity.id,
-    title: activity.activity_name,
-    subtitle: activity.deskripsi?.trim() || "Aktivitas terjadwal",
-    dateLabel: fromApiDate(activity.tanggal) || "Tanggal belum diatur",
-    timeLabel: activity.time_start ? `${fromApiTime(activity.time_start)} - ${fromApiTime(activity.time_end) || "--:--"}` : "Waktu belum diatur",
-    badgeLabel: activity.ulangi ? ULANGI_DISPLAY[activity.ulangi] : "SATU KALI",
-    icon: "sparkles-outline",
-    accentColor: colors.secondaryContainer,
-    badgeBackground: colors.surfaceContainerLow,
-  };
+function buildSortKey(dateText: string | null | undefined, timeText: string | null | undefined): string {
+  return `${dateText ?? "9999-12-31"}T${timeText ?? "23:59:59"}`;
 }
 
 function compareTasks(left: Task, right: Task): number {
@@ -250,10 +261,6 @@ function compareActivities(left: Activity, right: Activity): number {
   return buildSortKey(left.tanggal, left.time_start).localeCompare(buildSortKey(right.tanggal, right.time_start));
 }
 
-function buildSortKey(dateText: string | null | undefined, timeText: string | null | undefined): string {
-  return `${dateText ?? "9999-12-31"}T${timeText ?? "23:59:59"}`;
-}
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -261,9 +268,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 28,
-    gap: 16,
+    paddingTop: 5,
+    paddingBottom: 20,
+    gap: 10,
   },
   headerRow: {
     flexDirection: "row",
@@ -296,11 +303,11 @@ const styles = StyleSheet.create({
   },
   heroCard: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
     alignItems: "center",
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     backgroundColor: colors.surfaceContainerLowest,
     shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: 8 },
@@ -309,9 +316,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   heroIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: colors.surfaceWarm,
     alignItems: "center",
     justifyContent: "center",
@@ -322,7 +329,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: colors.onSurface,
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: fonts["700"],
   },
   heroSubtitle: {
@@ -331,89 +338,50 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: typography.bodySm.fontFamily,
   },
-  tabRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  tabButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    minHeight: 48,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerHigh,
-  },
-  tabButtonActive: {
-    backgroundColor: colors.primaryContainer,
-    borderColor: colors.primaryContainer,
-  },
-  tabButtonLabel: {
-    color: colors.onSurface,
-    fontSize: 14,
-    fontFamily: fonts["700"],
-  },
-  tabButtonLabelActive: {
-    color: colors.onPrimary,
-  },
-  tabBadge: {
-    minWidth: 24,
-    height: 24,
-    paddingHorizontal: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceContainerHigh,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  tabBadgeActive: {
-    backgroundColor: colors.onPrimary,
-  },
-  tabBadgeText: {
-    color: colors.onSurface,
-    fontSize: 11,
-    fontFamily: fonts["700"],
-  },
-  tabBadgeTextActive: {
-    color: colors.primaryContainer,
-  },
   tabSummary: {
     color: colors.onSurfaceVariant,
     fontSize: 12,
     fontFamily: fonts["500"],
   },
-  section: {
+  statsRow: {
+    flexDirection: "row",
     gap: 10,
   },
-  sectionHeader: {
-    flexDirection: "row",
+  statCard: {
+    flex: 1,
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  sectionIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    gap: 6,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     backgroundColor: colors.surfaceContainerLowest,
+    shadowColor: colors.onSurface,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  statIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  sectionTitle: {
+  statValue: {
     color: colors.onSurface,
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: fonts["700"],
   },
-  sectionCount: {
+  statLabel: {
     color: colors.onSurfaceVariant,
-    fontSize: 12,
-    fontFamily: fonts["600"],
+    fontSize: 11,
+    fontFamily: fonts["500"],
+    textAlign: "center",
+    lineHeight: 16,
+  },
+  section: {
+    gap: 8,
   },
   card: {
     flexDirection: "row",
@@ -465,11 +433,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts["700"],
   },
   cardSubtitle: {
-    marginTop: 2,
     color: colors.onSurfaceVariant,
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: typography.bodySm.fontFamily,
+    fontSize: 12,
+    fontFamily: fonts["500"],
   },
   badge: {
     paddingHorizontal: 10,
