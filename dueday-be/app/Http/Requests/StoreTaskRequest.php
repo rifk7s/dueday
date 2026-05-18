@@ -35,7 +35,7 @@ class StoreTaskRequest extends FormRequest
             'goal_points.*.text' => 'required|string',
             'goal_points.*.completed' => 'required|boolean',
             'progress' => 'nullable|integer|min:0|max:100',
-            'status' => 'nullable|in:ongoing,completed',
+            'status' => 'nullable|in:ongoing,completed,completed_late',
         ];
     }
 }

@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Repositories\TaskRepository;
 use App\Models\Task;
+use App\Services\TaskGoalService;
+use Carbon\Carbon;
+use DateTimeInterface;
 
 class TaskService
 {
@@ -22,7 +25,19 @@ class TaskService
     {
         $data['user_id'] = $userId;
         $data = $this->processGoals($data);
-        
+        // If the new task is immediately completed (progress >= 100)
+        // determine whether it was completed late based on the current time
+        // compared to the task due date/time and set `completed_late` status.
+        if (isset($data['status']) && $data['status'] === 'completed' || (isset($data['progress']) && $data['progress'] >= 100)) {
+            $due = $this->resolveDueDate($data['date'] ?? null, $data['time'] ?? null);
+
+            if ($due && now()->gt($due)) {
+                $data['status'] = 'completed_late';
+            } else {
+                $data['status'] = 'completed';
+            }
+        }
+
         return $this->taskRepository->create($data);
     }
 
@@ -82,6 +97,21 @@ class TaskService
 
         $data = $this->processGoals($data);
 
+        // If the update results in a completed state, check whether the
+        // completion is after the due date/time and mark `completed_late`.
+        $willBeCompleted = (isset($data['status']) && $data['status'] === 'completed')
+            || (isset($data['progress']) && $data['progress'] >= 100);
+
+        if ($willBeCompleted) {
+            $due = $this->resolveDueDate($data['date'] ?? $task->date ?? null, $data['time'] ?? $task->time ?? null);
+
+            if ($due && now()->gt($due)) {
+                $data['status'] = 'completed_late';
+            } else {
+                $data['status'] = 'completed';
+            }
+        }
+
         return $this->taskRepository->update($taskId, $data);
     }
 
@@ -122,6 +152,22 @@ class TaskService
         }
 
         return $data;
+    }
+
+    /**
+     * Resolve the task due date from either a string or a casted date instance.
+     */
+    private function resolveDueDate(mixed $date, ?string $time): ?Carbon
+    {
+        if (! $date) {
+            return null;
+        }
+
+        $dateString = $date instanceof DateTimeInterface
+            ? $date->format('Y-m-d')
+            : Carbon::parse((string) $date)->toDateString();
+
+        return Carbon::parse($dateString . ' ' . ($time ?? '00:00:00'));
     }
 }
 

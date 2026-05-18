@@ -50,19 +50,35 @@ const DONE_COLOR: StateColor = { bg: colors.surfaceContainerLow, text: colors.on
 
 const filterOptions: Filter[] = ["Semua", "Selesai", "Pekerjaan", "Rapat"];
 
+function isTaskDone(status: Task["status"]): boolean {
+  return status === "completed" || status === "completed_late";
+}
+
 function taskToListItem(task: Task): ListItem {
   const datePart = fromApiDate(task.date);
   const timePart = task.time ? fromApiTime(task.time) : "";
   const deadline = [datePart, timePart].filter(Boolean).join(" | ");
+  const isDone = isTaskDone(task.status);
 
-  const isDone = task.status === "completed";
-  const stateText = isDone ? "SELESAI" : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
+  const isOverdue = !isDone && (task.is_overdue ?? (task.date ? new Date((task.date ?? "") + " " + (task.time ?? "00:00:00")) < new Date() : false));
+
+  const stateText = task.status === "completed_late"
+    ? "TERLAMBAT"
+    : isDone
+    ? "SELESAI"
+    : isOverdue
+    ? "TERLAMBAT"
+    : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
 
   let accentColor: string = colors.primaryContainer;
   if (isDone) accentColor = colors.success;
 
-  const stateColor = isDone
+  const stateColor = task.status === "completed_late"
+    ? { bg: colors.errorSoft, text: colors.errorStrong }
+    : isDone
     ? DONE_COLOR
+    : isOverdue
+    ? { bg: colors.errorSoft, text: colors.errorStrong }
     : (PRIORITY_COLOR[task.priority ?? ""] ?? { bg: colors.errorSoft, text: colors.errorStrong });
 
   return {
@@ -230,17 +246,17 @@ export default function ListPage() {
   const isError = active === "tugas" ? tasksError : activitiesError;
 
   const sortedTasks = [...tasks].sort((a, b) => {
-    const aDone = a.status === "completed" ? 1 : 0;
-    const bDone = b.status === "completed" ? 1 : 0;
+    const aDone = isTaskDone(a.status) ? 1 : 0;
+    const bDone = isTaskDone(b.status) ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
     const aKey = `${a.date ?? "9999-12-31"}T${a.time ?? "23:59:59"}`;
     const bKey = `${b.date ?? "9999-12-31"}T${b.time ?? "23:59:59"}`;
-    return aKey.localeCompare(bKey);
+    return aDone === 1 ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
   });
 
   const sortedActivities = [...activities].sort((a, b) => {
-    const aDone = a.status === "completed" ? 1 : 0;
-    const bDone = b.status === "completed" ? 1 : 0;
+    const aDone = a.status === "completed" || a.status === "completed_late" ? 1 : 0;
+    const bDone = b.status === "completed" || b.status === "completed_late" ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
     const aKey = `${a.tanggal ?? "9999-12-31"}T${a.time_start ?? "23:59:59"}`;
     const bKey = `${b.tanggal ?? "9999-12-31"}T${b.time_start ?? "23:59:59"}`;
@@ -368,7 +384,11 @@ function TaskCard({
           ) : null}
 
           <View style={styles.tagRow}>
-            {status !== "done" ? (
+            {stateText === "TERLAMBAT" ? (
+              <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
+                <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
+              </View>
+            ) : status !== "done" ? (
               <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
                 <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
               </View>
