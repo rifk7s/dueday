@@ -42,4 +42,36 @@ class User extends Authenticatable
     {
         return $this->hasMany(Task::class);
     }
+
+    /**
+     * Get all reminders for the user.
+     */
+    public function reminders()
+    {
+        return $this->hasMany(Reminder::class);
+    }
+
+    /**
+     * Get all notifications for the user.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * Get all subscriptions for the user.
+     */
+    public function subscriptions()
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * Get all payments for the user.
+     */
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
 }

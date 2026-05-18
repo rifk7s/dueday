@@ -1,9 +1,13 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\TaskController;
-use App\Http\Controllers\TagController;
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\TagController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -12,7 +16,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::patch('/me', [AuthController::class, 'update']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+
     // Tasks
     Route::get('/tasks', [TaskController::class, 'index']);
     Route::get('/tasks/{task}', [TaskController::class, 'show']);
@@ -36,4 +40,36 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/activities/{activity}', [ActivityController::class, 'update']);
     Route::patch('/activities/{activity}', [ActivityController::class, 'update']);
     Route::delete('/activities/{activity}', [ActivityController::class, 'destroy']);
+
+    // Reminders
+    Route::get('/reminders', [ReminderController::class, 'index']);
+    Route::get('/reminders/{reminder}', [ReminderController::class, 'show']);
+    Route::post('/reminders', [ReminderController::class, 'store']);
+    Route::put('/reminders/{reminder}', [ReminderController::class, 'update']);
+    Route::patch('/reminders/{reminder}', [ReminderController::class, 'update']);
+    Route::delete('/reminders/{reminder}', [ReminderController::class, 'destroy']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
+    Route::post('/notifications', [NotificationController::class, 'store']);
+    Route::put('/notifications/{notification}', [NotificationController::class, 'update']);
+    Route::patch('/notifications/{notification}', [NotificationController::class, 'update']);
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+
+    // Subscriptions
+    Route::get('/subscriptions', [SubscriptionController::class, 'index']);
+    Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show']);
+    Route::post('/subscriptions', [SubscriptionController::class, 'store']);
+    Route::put('/subscriptions/{subscription}', [SubscriptionController::class, 'update']);
+    Route::patch('/subscriptions/{subscription}', [SubscriptionController::class, 'update']);
+    Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy']);
+
+    // Payments
+    Route::get('/payments', [PaymentController::class, 'index']);
+    Route::get('/payments/{payment}', [PaymentController::class, 'show']);
+    Route::post('/payments', [PaymentController::class, 'store']);
+    Route::put('/payments/{payment}', [PaymentController::class, 'update']);
+    Route::patch('/payments/{payment}', [PaymentController::class, 'update']);
+    Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
 });
