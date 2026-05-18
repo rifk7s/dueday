@@ -103,11 +103,13 @@ class TaskService
             $goalPoints = TaskGoalService::parseGoals($data['goals']);
             $data['goal_points'] = $goalPoints;
             $data['progress'] = TaskGoalService::calculateProgress($goalPoints);
+            $data['status'] = $data['progress'] >= 100 ? 'completed' : 'ongoing';
         } elseif (isset($data['goal_points']) && is_array($data['goal_points'])) {
             // If goal_points is being updated directly, recalculate progress
             $data['progress'] = TaskGoalService::calculateProgress($data['goal_points']);
             // Also regenerate the goals text
             $data['goals'] = TaskGoalService::regenerateGoalsText($data['goal_points']);
+            $data['status'] = $data['progress'] >= 100 ? 'completed' : 'ongoing';
         }
 
         return $data;
