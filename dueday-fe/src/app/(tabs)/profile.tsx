@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import { useTasksQuery } from "@/hooks/useTasks";
 import {
   Image,
   Pressable,
@@ -29,11 +30,7 @@ type SettingItem = {
   onPress?: () => void;
 };
 
-const taskStats: TaskStat[] = [
-  { label: "Selesai", value: "17", color: colors.success },
-  { label: "Berlangsung", value: "3", color: colors.warning },
-  { label: "Terlambat", value: "1", color: colors.errorStrong },
-];
+// taskStats will be computed per-user inside the component using `useTasksQuery`
 
 const settings: SettingItem[] = [
   {
@@ -77,6 +74,26 @@ export default function ProfileScreen(): React.JSX.Element {
       ? { ...item, onPress: () => router.push("/premium-plan") }
       : item
   );
+
+  const { data: tasks = [] } = useTasksQuery();
+
+  const selesai = tasks.filter((t) => t.status === "completed" || t.status === "completed_late").length;
+  const berlangsung = tasks.filter((t) => t.status === "ongoing").length;
+
+  const completedLate = tasks.filter((t) => t.status === "completed_late").length;
+  const ongoingLate = tasks.filter((t) => {
+    if (t.status !== "ongoing") return false;
+    const isOverdue = t.is_overdue ?? (t.date ? new Date((t.date ?? "") + " " + (t.time ?? "00:00:00")) < new Date() : false);
+    return isOverdue;
+  }).length;
+
+  const terlambat = completedLate + ongoingLate;
+
+  const taskStats: TaskStat[] = [
+    { label: "Selesai", value: String(selesai), color: colors.success },
+    { label: "Berlangsung", value: String(berlangsung), color: colors.warning },
+    { label: "Terlambat", value: String(terlambat), color: colors.errorStrong },
+  ];
 
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
