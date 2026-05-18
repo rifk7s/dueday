@@ -1,5 +1,6 @@
 import DatePickerCalendar from "@/components/DatePickerCalendar";
 import { ScheduleCard } from "@/components/ScheduleCard";
+import { fromApiDate, toApiDate } from "@/api/format";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
@@ -10,7 +11,8 @@ import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 
 type ScheduleItem = {
   id: string;
-  date: string;
+  kind: "task" | "activity";
+  dateKey: string;
   startHour: number;
   endHour: number;
   title: string;
@@ -33,8 +35,8 @@ const ACCENT_PALETTE = [
   "#0ea5e9",
 ];
 
-const START_HOUR = 7;
-const END_HOUR = 16;
+const START_HOUR = 0;
+const END_HOUR = 23;
 const SLOT_HEIGHT = 72;
 const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index);
 
@@ -47,7 +49,7 @@ export default function CalendarScreen() {
     const month = (today.getMonth() + 1).toString().padStart(2, "0");
     return `${day}/${month}/${today.getFullYear()}`;
   });
-  const selectedDay = selectedDate.split("/")[0];
+  const selectedDateKey = toApiDate(selectedDate);
   const { data: activities = [] } = useActivitiesQuery();
   const { data: tasks = [] } = useTasksQuery();
 
@@ -55,14 +57,15 @@ export default function CalendarScreen() {
     const fromActivities: ScheduleItem[] = activities
       .filter((a) => !!a.tanggal)
       .map((a, idx) => {
-        const datePart = a.tanggal ? (a.tanggal.substring(8, 10)) : ""; // DD from YYYY-MM-DD
+        const dateKey = normalizeDateKey(a.tanggal);
         const start = a.time_start ? parseInt(a.time_start.substring(0, 2), 10) : START_HOUR;
         const endRaw = a.time_end ? parseInt(a.time_end.substring(0, 2), 10) : start + 1;
         const end = Math.min(Math.max(endRaw, start + 1), END_HOUR);
         const accent = ACCENT_PALETTE[(a.id_tag ?? idx) % ACCENT_PALETTE.length];
         return {
           id: a.id,
-          date: datePart,
+          kind: "activity",
+          dateKey,
           startHour: start,
           endHour: end,
           title: a.activity_name,
@@ -74,15 +77,14 @@ export default function CalendarScreen() {
     const fromTasks: ScheduleItem[] = tasks
       .filter((t) => !!t.date)
       .map((t, idx) => {
-        // task.date may include time (ISO) or be plain YYYY-MM-DD
-        const dateRaw = t.date || "";
-        const datePart = dateRaw.length >= 10 ? dateRaw.substring(8, 10) : "";
+        const dateKey = normalizeDateKey(t.date);
         const start = t.time ? parseInt(t.time.substring(0, 2), 10) : START_HOUR;
         const end = Math.min(start + 1, END_HOUR);
         const accent = ACCENT_PALETTE[(t.id_tag ?? idx) % ACCENT_PALETTE.length];
         return {
           id: t.id,
-          date: datePart,
+          kind: "task",
+          dateKey,
           startHour: start,
           endHour: end,
           title: t.task_name,
@@ -92,16 +94,18 @@ export default function CalendarScreen() {
       });
 
     return [...fromActivities, ...fromTasks];
-  }, [activities]);
+  }, [activities, tasks]);
 
-  const markedDays = Array.from(new Set(scheduleItems.map((item) => item.date)));
-  const selectedScheduleItems = scheduleItems.filter((item) => item.date === selectedDay);
+  const markedDays = Array.from(new Set(scheduleItems.map((item) => item.dateKey)));
+  const selectedScheduleItems = scheduleItems.filter((item) => item.dateKey === selectedDateKey);
   const hasSelectedScheduleItems = selectedScheduleItems.length > 0;
+  const selectedDateLabel = selectedDateKey ? fromApiDate(selectedDateKey) : selectedDate;
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingBottom: bottomBarSpace + 24 }]}
+        stickyHeaderIndices={[1]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
@@ -124,9 +128,11 @@ export default function CalendarScreen() {
         <View style={styles.schedulePanel}>
           <View style={styles.schedulePanelHeader}>
             <View>
-              <Text style={styles.schedulePanelTitle}>Jadwal Hari Ini</Text>
+              <Text style={styles.schedulePanelTitle}>Jadwal Tanggal Terpilih</Text>
               <Text style={styles.schedulePanelSubtitle}>
-                {hasSelectedScheduleItems ? `${selectedScheduleItems.length} kegiatan ditemukan` : "Tidak ada kegiatan pada tanggal ini"}
+                {hasSelectedScheduleItems
+                  ? `${selectedScheduleItems.length} kegiatan pada ${selectedDateLabel}`
+                  : `Tidak ada kegiatan pada ${selectedDateLabel}`}
               </Text>
             </View>
           </View>
@@ -150,15 +156,11 @@ export default function CalendarScreen() {
                     <Link
                       key={item.id}
                       href={{
-                        pathname: "/activityprogress",
-                        params: {
-                          title: item.title,
-                          date: item.date,
-                          startHour: item.startHour.toString(),
-                          endHour: item.endHour.toString(),
-                          color: item.color,
-                          accent: item.accent,
-                        },
+                        pathname: item.kind === "task" ? "/taskprogress" : "/activityprogress",
+                        params:
+                          item.kind === "task"
+                            ? { id: item.id, tab: "tugas" }
+                            : { id: item.id, tab: "aktivitas" },
                       }}
                       asChild
                     >
@@ -181,6 +183,26 @@ export default function CalendarScreen() {
 
 function formatHour(hour: number): string {
   return `${hour.toString().padStart(2, "0")}.00`;
+}
+
+function normalizeDateKey(value: string | null | undefined): string {
+  if (!value) return "";
+
+  const normalized = value.trim();
+  const dateOnly = normalized.split("T")[0] ?? normalized;
+  const isoMatch = dateOnly.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  const slashMatch = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, day, month, year] = slashMatch;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  return "";
 }
 
 const styles = StyleSheet.create({
@@ -227,6 +249,10 @@ const styles = StyleSheet.create({
   calendarSection: {
     paddingHorizontal: 12,
     paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: colors.surfaceContainerLowest,
+    zIndex: 2,
+    elevation: 2,
   },
   schedulePanel: {
     marginHorizontal: 12,

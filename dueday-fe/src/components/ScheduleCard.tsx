@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export type ScheduleCardItem = {
+  kind: "task" | "activity";
   startHour: number;
   endHour: number;
   title: string;
@@ -18,8 +19,11 @@ type ScheduleCardProps = {
 };
 
 export function ScheduleCard({ item, startHour, slotHeight, onPress }: Readonly<ScheduleCardProps>) {
-  const top = (item.startHour - startHour) * slotHeight + 24;
-  const height = (item.endHour - item.startHour) * slotHeight + 28;
+  const isTask = item.kind === "task";
+  const height = isTask ? 72 : (item.endHour - item.startHour) * slotHeight + 28;
+  const top = isTask
+    ? (item.startHour - startHour) * slotHeight + (slotHeight - height) / 2
+    : (item.startHour - startHour) * slotHeight + 24;
 
   return (
     <Pressable
@@ -29,10 +33,17 @@ export function ScheduleCard({ item, startHour, slotHeight, onPress }: Readonly<
     >
       <View style={[styles.scheduleAccent, { backgroundColor: item.accent }]} />
       <Text style={styles.scheduleTitle}>{item.title}</Text>
-      <View style={styles.timeRow}>
-        <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
-        <Text style={styles.timeText}>{`${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}</Text>
-      </View>
+      {isTask ? (
+        <View style={styles.timeRow}>
+          <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
+          <Text style={styles.timeText}>{formatHour(item.startHour)}</Text>
+        </View>
+      ) : (
+        <View style={styles.timeRow}>
+          <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
+          <Text style={styles.timeText}>{`${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -49,7 +60,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 12,
     overflow: "hidden",
     shadowColor: colors.onSurface,
     shadowOffset: {
@@ -69,17 +80,19 @@ const styles = StyleSheet.create({
   },
   scheduleTitle: {
     fontSize: 15,
+    lineHeight: 18,
     fontFamily: fonts["800"],
     color: colors.onSurface,
   },
   timeRow: {
-    marginTop: 4,
+    marginTop: 6,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
   timeText: {
     fontSize: typography.bodySm.fontSize,
+    lineHeight: 16,
     fontFamily: fonts["600"],
     color: colors.onSurfaceVariant,
   },
