@@ -14,6 +14,7 @@ type SessionContextValue = {
   token: string | null;
   user: AuthUser | null;
   isLoading: boolean;
+  setUser?: (user: AuthUser | null) => void;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -53,6 +54,9 @@ export function SessionProvider({ children }: Readonly<PropsWithChildren>) {
         setToken(null);
         setUserJson(null);
         qc.clear();
+      },
+      setUser: (u: AuthUser | null) => {
+        setUserJson(u ? JSON.stringify(u) : null);
       },
     };
   }, [token, userJson, tokenLoading, userLoading, setToken, setUserJson, qc]);

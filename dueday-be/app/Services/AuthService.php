@@ -38,4 +38,12 @@ class AuthService
     {
         $user->currentAccessToken()->delete();
     }
+
+    public function updateProfile(User $user, array $data): User
+    {
+        $this->userRepository->update($user, $data);
+
+        // Refresh and return the updated user. Cast id to int to satisfy repository signature.
+        return $this->userRepository->findById((int) $user->id) ?? $user;
+    }
 }
