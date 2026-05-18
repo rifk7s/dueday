@@ -1,12 +1,16 @@
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { exitFlowTo } from "@/constants/navigation";
+import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
     Animated,
+    BackHandler,
+    type DimensionValue,
     Easing,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -17,8 +21,8 @@ type AccentDotProps = {
   size: number;
   color: string;
   top: number;
-  left?: string;
-  right?: string;
+  left?: DimensionValue;
+  right?: DimensionValue;
   delay: number;
 };
 
@@ -83,13 +87,29 @@ function AccentDot({ size, color, top, left, right, delay }: AccentDotProps): Re
 }
 
 export default function PaymentSuccessScreen(): React.JSX.Element {
-  const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
   const planName = (params.planName as string) || "Dueday Premium - 1 Bulan";
   const planPrice = (params.planPrice as string) || "Rp20.000";
   const methodName = (params.methodName as string) || "Virtual Account";
+
+  const handleDone = useCallback(() => {
+    // Single native dismiss that also switches the buried tab to the
+    // dashboard, so the sheet slides down once and reveals the dashboard
+    // (not the profile tab the flow was launched from).
+    exitFlowTo("/");
+  }, []);
+
+  useEffect(() => {
+    // Android hardware back must also exit the flow, not pop back into the
+    // (already completed) detail-transfer screen.
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleDone();
+      return true;
+    });
+    return () => sub.remove();
+  }, [handleDone]);
 
   const heroScale = useRef(new Animated.Value(0.8)).current;
   const heroOpacity = useRef(new Animated.Value(0)).current;
@@ -138,7 +158,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
     ]).start();
   }, [contentOpacity, contentTranslate, heroOpacity, heroScale]);
 
-  const dots = useMemo(
+  const dots = useMemo<AccentDotProps[]>(
     () => [
       { size: 10, color: colors.secondaryContainer, top: 100, left: "14%", delay: 0 },
       { size: 14, color: colors.surfaceWarm, top: 132, right: "12%", delay: 180 },
@@ -167,7 +187,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   );
 
   return (
-    <View style={[styles.root, { paddingTop: top, paddingBottom: bottom + 16 }]}>
+    <View style={[styles.root, { paddingTop: top }]}>
       <StatusBar style="dark" />
 
       {dots.map((dot, index) => (
@@ -182,6 +202,11 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
         />
       ))}
 
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.content}>
         <Animated.View
           style={[
@@ -240,12 +265,13 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
             </View>
         </Animated.View>
       </View>
+      </ScrollView>
 
-      <View style={styles.footerActions}>
+      <View style={[styles.footerActions, { paddingBottom: bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
           accessibilityRole="button"
-          onPress={() => router.replace("/(tabs)")}
+          onPress={handleDone}
         >
           <Text style={styles.primaryButtonText}>Kembali ke Dashboard</Text>
         </Pressable>
@@ -259,11 +285,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.surfaceContainerLowest,
     paddingHorizontal: 20,
-    justifyContent: "space-between",
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     alignItems: "center",
     paddingTop: 20,
+    paddingBottom: 16,
   },
   heroWrap: {
     marginTop: 20,
@@ -389,6 +421,7 @@ const styles = StyleSheet.create({
   },
   footerActions: {
     gap: 10,
+    paddingTop: 12,
   },
   primaryButton: {
     height: 52,
