@@ -293,6 +293,7 @@ function SummaryCard({ accent, icon, title, value, background }: Readonly<Summar
 }
 
 function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
+  const router = useRouter();
   const isDone = task.status === "completed";
   const datePart = fromApiDate(task.date);
   const timePart = fromApiTime(task.time);
@@ -306,7 +307,11 @@ function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
     if (isDone) accentColor = colors.success;
 
   return (
-    <View style={[styles.taskCard, isDone && styles.taskCardDone]}>
+    <Pressable
+      onPress={() => router.push({ pathname: "/taskprogress", params: { id: task.id, tab: "tugas" } })}
+      accessibilityRole="button"
+      style={[styles.taskCard, isDone && styles.taskCardDone]}
+    >
       <View style={[styles.taskAccent, { backgroundColor: accentColor }]} />
       <View style={styles.taskHeaderRow}>
         <View style={styles.deadlineRow}>
@@ -353,7 +358,7 @@ function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
             )}
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
