@@ -142,6 +142,8 @@ export default function DetailTransferScreen(): React.JSX.Element {
             style={styles.confirmButton}
             accessibilityRole="button"
             onPress={() =>
+              // `replace` (not push): the user must not be able to go back to
+              // the VA / transfer screen after paying. Keep as replace.
               router.replace({
                 pathname: "/payment-success",
                 params: {

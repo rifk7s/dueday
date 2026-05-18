@@ -18,6 +18,24 @@ export function goBackOr(fallback: Href): void {
 }
 
 /**
+ * Exit a modal flow (premium / payment / create-*) back to a base route.
+ *
+ * Use this at the END of a flow instead of `router.replace(...)`. On iOS the
+ * flow screens are presented as `presentation: "modal"`, so `router.replace`
+ * swaps the route *inside* the modal container — the destination renders stuck
+ * in a sheet (the #52/#53 symptom). `dismissTo` tears the whole modal stack
+ * down and lands on `target` with the correct native dismiss animation. On a
+ * deep-link entry (nothing to dismiss) it falls back to a plain replace.
+ */
+export function exitFlowTo(target: Href): void {
+  if (router.canDismiss()) {
+    router.dismissTo(target);
+  } else {
+    router.replace(target);
+  }
+}
+
+/**
  * Centralized, platform-aware screen transitions for the root Stack.
  *
  * Expo Router v6 uses react-native-screens' native stack (bundled in Expo Go),
@@ -44,14 +62,28 @@ export const stackScreenOptions: NativeStackNavigationOptions = {
 };
 
 /**
- * Modal / sheet transition for forms and flows (create-*, premium, payment).
+ * Modal / flow transition for forms and flows (create-*, premium, payment).
  *
  * iOS: card sheet that slides up and can be swiped down to dismiss.
- * Android: slide up from the bottom.
+ * Android: NOT a native modal. `presentation: "modal"` on Android hosts the
+ * screen in a separate window, which (a) breaks `useSafeAreaInsets()` (top
+ * collapses to 0 → content under the notch) and (b) fights the explicit
+ * `slide_from_bottom` with the platform modal animation (janky). So on Android
+ * these are plain cards that slide in horizontally like every other screen.
  */
 export const modalScreenOptions: NativeStackNavigationOptions = {
   headerShown: false,
   gestureEnabled: true,
-  presentation: "modal",
-  animation: Platform.OS === "ios" ? "default" : "slide_from_bottom",
+  ...Platform.select({
+    ios: {
+      presentation: "modal" as const,
+      animation: "default" as const,
+      fullScreenGestureEnabled: true,
+    },
+    android: {
+      animation: "slide_from_right" as const,
+      animationDuration: 250,
+    },
+    default: {},
+  }),
 };

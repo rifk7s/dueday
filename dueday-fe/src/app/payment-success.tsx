@@ -1,12 +1,14 @@
+import { exitFlowTo } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useRef } from "react";
 import {
     Animated,
     Easing,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     View,
@@ -83,7 +85,6 @@ function AccentDot({ size, color, top, left, right, delay }: AccentDotProps): Re
 }
 
 export default function PaymentSuccessScreen(): React.JSX.Element {
-  const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
@@ -167,7 +168,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   );
 
   return (
-    <View style={[styles.root, { paddingTop: top, paddingBottom: bottom + 16 }]}>
+    <View style={[styles.root, { paddingTop: top }]}>
       <StatusBar style="dark" />
 
       {dots.map((dot, index) => (
@@ -182,7 +183,12 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
         />
       ))}
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.content}>
         <Animated.View
           style={[
             styles.heroWrap,
@@ -239,13 +245,19 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
               ))}
             </View>
         </Animated.View>
-      </View>
+        </View>
+      </ScrollView>
 
-      <View style={styles.footerActions}>
+      <View style={[styles.footerActions, { paddingBottom: bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
           accessibilityRole="button"
-          onPress={() => router.replace("/(tabs)")}
+          // Tear down the whole modal flow (premium → payment → detail →
+          // success) and land on the dashboard. `router.replace` here would
+          // swap inside the iOS modal container and leave the dashboard stuck
+          // in a sheet (#52/#53). There is intentionally no back into the
+          // completed payment flow.
+          onPress={() => exitFlowTo("/(tabs)")}
         >
           <Text style={styles.primaryButtonText}>Kembali ke Dashboard</Text>
         </Pressable>
@@ -258,8 +270,13 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.surfaceContainerLowest,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    justifyContent: "space-between",
   },
   content: {
     alignItems: "center",
@@ -389,6 +406,9 @@ const styles = StyleSheet.create({
   },
   footerActions: {
     gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: colors.surfaceContainerLowest,
   },
   primaryButton: {
     height: 52,
