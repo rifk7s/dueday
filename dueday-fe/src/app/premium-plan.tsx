@@ -56,11 +56,11 @@ const plans: PlanItem[] = [
 
 export default function PremiumPlanScreen(): React.JSX.Element {
   const router = useRouter();
-  const { bottom } = useSafeAreaInsets();
+  const { top, bottom } = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<PlanItem>(plans[0]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: top }]}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>

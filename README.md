@@ -60,27 +60,27 @@ npm install
 Copy-Item .env.local.example .env.local
 ```
 
-Edit `.env.local` dan set `EXPO_PUBLIC_API_URL` sesuai target run (lihat tabel di bawah).
+File `.env.local` opsional. API URL ke-detect otomatis (lihat bagian API URL). Isi file ini hanya kalau mau pakai mock auth atau override khusus.
 
 ## Running
 
 ### Jalankan backend
 
-Untuk akses dari Android emulator atau device fisik, backend harus listen di `0.0.0.0`, bukan default `127.0.0.1`.
-
 ```bash
 cd dueday-be
-php artisan serve --host=0.0.0.0 --port=8000
+composer run dev
 ```
 
-Output yang benar:
+Script `dev` menjalankan `php artisan serve --host=0.0.0.0 --port=8000` (plus queue, logs, dan Vite), jadi backend langsung bisa diakses dari Android emulator dan device fisik di jaringan yang sama tanpa setup tambahan.
+
+Output yang benar di panel `server`:
 
 ```
 INFO  Server running on [http://0.0.0.0:8000].
 ```
 
-> [!WARNING]
-> `composer run dev` saat ini menjalankan `php artisan serve` tanpa `--host=0.0.0.0`, sehingga server hanya listen di `127.0.0.1`. Android emulator dan device fisik tidak bisa connect. Gunakan command manual di atas sampai script `dev` di-update.
+> [!NOTE]
+> `--host=0.0.0.0` membuat dev server terlihat oleh perangkat lain di jaringan Wi-Fi yang sama. Jalankan di jaringan yang tepercaya.
 
 ### Jalankan frontend
 
@@ -89,35 +89,25 @@ cd dueday-fe
 npm run start
 ```
 
-Lalu tekan `a` untuk Android, `i` untuk iOS, atau scan QR code dengan Expo Go di device fisik.
+Lalu tekan `a` untuk Android, `i` untuk iOS, atau scan QR code dengan Expo Go di device fisik (HP harus di jaringan Wi-Fi yang sama dengan komputer host).
 
-## Konfigurasi API URL
+## API URL
 
-Set `EXPO_PUBLIC_API_URL` di `dueday-fe/.env.local` sesuai target:
+API URL ke-resolve otomatis, tidak perlu set manual:
 
-| Target run | API URL |
-|------------|---------|
+| Target run | API URL hasil |
+|------------|---------------|
 | iOS simulator (macOS) | `http://localhost:8000/api` |
 | Android emulator (AVD) | `http://10.0.2.2:8000/api` |
-| Physical device (iOS/Android) | `http://<IP-LAN-host>:8000/api` |
+| Physical device via Expo Go (iOS/Android) | `http://<IP-LAN-host>:8000/api` |
+
+Untuk device fisik, app membaca IP komputer host dari QR code yang di-scan, jadi cukup pastikan HP dan komputer host di jaringan Wi-Fi yang sama. IP yang berubah saat pindah jaringan tidak masalah karena ke-detect ulang setiap scan.
 
 > [!NOTE]
-> Android emulator menjalankan VM terpisah, jadi `localhost` di sana menunjuk ke emulator itu sendiri, bukan ke komputer host. Alias `10.0.2.2` adalah alamat khusus Android emulator yang me-route ke `127.0.0.1` host.
+> Android emulator menjalankan VM terpisah, jadi `localhost` di sana menunjuk ke emulator itu sendiri, bukan ke komputer host. Alias `10.0.2.2` adalah alamat khusus emulator yang me-route ke `127.0.0.1` host. Ini sudah ditangani otomatis.
 
 > [!TIP]
-> Cek IP LAN komputer host:
->
-> - macOS: `ipconfig getifaddr en0`
-> - Windows (PowerShell): `ipconfig` lalu cari `IPv4 Address` di adapter Wi-Fi atau Ethernet aktif
->
-> IP ini bisa berubah saat pindah jaringan, jadi update `.env.local` kalau koneksi tiba-tiba gagal di device fisik.
-
-> [!IMPORTANT]
-> Setiap kali mengubah `.env.local`, restart Expo dengan cache clear supaya env baru ke-pickup:
->
-> ```bash
-> npx expo start --clear
-> ```
+> Set `EXPO_PUBLIC_API_URL` di `dueday-fe/.env.local` hanya untuk setup non-standar: `expo start --tunnel`, backend di mesin lain, atau API staging. Contoh: `http://192.168.x.x:8000/api`. Setelah mengubah `.env.local`, restart dengan `npx expo start --clear` supaya env baru ke-pickup.
 
 
 ## Mock Auth
@@ -135,18 +125,20 @@ Frontend akan skip real login dan menggunakan seed data lokal.
 
 ### `Network request failed` di Android emulator
 
-1. Pastikan `EXPO_PUBLIC_API_URL=http://10.0.2.2:8000/api` di `.env.local`.
-2. Pastikan backend listen di `0.0.0.0`, bukan `127.0.0.1`.
-3. Restart Expo dengan `npx expo start --clear`.
+1. Pastikan backend jalan via `composer run dev` (listen di `0.0.0.0`).
+2. Restart Expo dengan `npx expo start --clear`.
 
 ### `Network request failed` di device fisik
 
 1. Pastikan komputer host dan device terhubung ke jaringan Wi-Fi yang sama.
-2. Set `EXPO_PUBLIC_API_URL` ke IP LAN host (`http://192.168.x.x:8000/api`).
+2. Pastikan backend jalan via `composer run dev` (listen di `0.0.0.0`).
 3. Pastikan firewall tidak memblokir port 8000:
    - macOS: System Settings > Network > Firewall, izinkan `php`.
-   - Windows: Windows Defender Firewall > Allow an app, izinkan `php.exe` di Private network.
-4. Pastikan backend listen di `0.0.0.0`.
+   - Windows: Windows Defender Firewall > Allow an app, izinkan `php.exe` di Private network. Pastikan profil jaringan Wi-Fi di-set ke Private, bukan Public.
+4. Cek IP LAN host kalau masih gagal:
+   - macOS: `ipconfig getifaddr en0`
+   - Windows (PowerShell): `ipconfig`, cari `IPv4 Address` di adapter Wi-Fi atau Ethernet aktif
+5. Kalau jaringan punya client isolation (umum di Wi-Fi kampus atau kantor), pakai `EXPO_PUBLIC_API_URL` dengan tunnel (ngrok atau cloudflared) ke port 8000.
 
 ### `php` atau `composer` tidak dikenali di Windows
 
