@@ -119,6 +119,13 @@ class ActivityService
                 return $data;
             }
 
+            if ($status === 'cancelled') {
+                $data['progress'] = (int) ($existingActivity?->progress ?? 0);
+                $data['progress_started_at'] = null;
+
+                return $data;
+            }
+
             if ($status === 'not_started') {
                 $data['progress'] = 0;
                 $data['progress_started_at'] = null;

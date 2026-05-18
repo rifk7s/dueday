@@ -21,7 +21,7 @@ export default function ActivityProgressScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
-  
+
   const { data: activity, isLoading, error } = useActivityQuery(id);
   const updateActivityMutation = useUpdateActivityMutation();
   const [activityState, setActivityState] = useState<Activity["status"]>("not_started");
@@ -189,7 +189,32 @@ export default function ActivityProgressScreen() {
   };
 
   const handleCancel = () => {
-    updateStatus("not_started");
+    Alert.alert(
+      "Batalkan aktivitas?",
+      "Aktivitas ini akan ditandai sebagai dibatalkan dan tidak lagi muncul sebagai aktivitas aktif.",
+      [
+        { text: "Tidak", style: "cancel" },
+        {
+          text: "Batalkan",
+          style: "destructive",
+          onPress: () => updateStatus("cancelled"),
+        },
+      ],
+    );
+  };
+
+  const handleReactivate = () => {
+    Alert.alert(
+      "Aktifkan kembali aktivitas?",
+      "Aktivitas ini akan kembali ke status belum mulai dan progresnya direset ke 0%.",
+      [
+        { text: "Tidak", style: "cancel" },
+        {
+          text: "Aktifkan Kembali",
+          onPress: () => updateStatus("not_started"),
+        },
+      ],
+    );
   };
 
   const renderStepActions = () => {
@@ -240,10 +265,23 @@ export default function ActivityProgressScreen() {
             <Text style={styles.secondaryButtonText}>Ubah Jadwal</Text>
           </Pressable>
 
-          <Pressable style={styles.ghostButton}>
+          <Pressable style={styles.ghostButton} onPress={handleCancel}>
             <Text style={styles.ghostButtonText}>Batalkan</Text>
           </Pressable>
         </>
+      );
+    }
+
+    if (activityState === "cancelled") {
+      return (
+        <View style={styles.completeMessage}>
+          <Ionicons name="close-circle" size={48} color={colors.error} />
+          <Text style={styles.completeText}>Aktivitas dibatalkan.</Text>
+
+          <Pressable style={[styles.primaryButton, styles.restoreButton]} onPress={handleReactivate}>
+            <Text style={styles.primaryButtonText}>Aktifkan Kembali</Text>
+          </Pressable>
+        </View>
       );
     }
 
@@ -279,6 +317,7 @@ export default function ActivityProgressScreen() {
         >
           <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
         </Pressable>
+
       </View>
 
       <ScrollView
@@ -786,9 +825,15 @@ const styles = StyleSheet.create({
     fontFamily: typography.button.fontFamily,
   },
   completeMessage: {
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 24,
+  },
+  restoreButton: {
+    alignSelf: "stretch",
+    marginTop: 16,
+    paddingHorizontal: 24,
   },
   completeText: {
     marginTop: 12,

@@ -9,6 +9,7 @@ import { goBackOr } from "@/constants/navigation";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
   Pressable,
@@ -104,18 +105,22 @@ function activityToListItem(activity: Activity): ListItem {
     .map((t) => fromApiTime(t));
   const deadline = [datePart, timeParts.join("-")].filter(Boolean).join(" | ");
 
-  const isDone = activity.status === "completed";
+  const isDone = activity.status === "completed" || activity.status === "cancelled";
 
   let stateText: string;
-  if (isDone) stateText = "SELESAI";
+  if (activity.status === "cancelled") stateText = "DIBATALKAN";
+  else if (isDone) stateText = "SELESAI";
   else if (activity.ulangi) stateText = ULANGI_DISPLAY[activity.ulangi];
   else stateText = activity.tag?.nama_tag?.toUpperCase() ?? "AKTIF";
 
   let accentColor: string = colors.primaryContainer;
-  if (isDone) accentColor = colors.success;
+  if (activity.status === "cancelled") accentColor = colors.error;
+  else if (isDone) accentColor = colors.success;
 
   const stateColor: StateColor = isDone
-    ? DONE_COLOR
+    ? activity.status === "cancelled"
+      ? { bg: colors.errorSoft, text: colors.errorStrong }
+      : DONE_COLOR
     : { bg: colors.surfaceWarm, text: colors.warning };
 
   return {
@@ -221,6 +226,7 @@ function renderListContent(
 export default function ListPage() {
   const { top } = useSafeAreaInsets();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
 
   const [active, setActive] = useState<Tab>("tugas");
@@ -233,13 +239,16 @@ export default function ListPage() {
 
   useFocusEffect(
     React.useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
       if (tabParam === "aktivitas") {
         setActive("aktivitas");
       } else {
         setActive("tugas");
       }
       setActiveFilter("Semua");
-    }, [tabParam]),
+    }, [queryClient, tabParam]),
   );
 
   const isLoading = active === "tugas" ? tasksLoading : activitiesLoading;
@@ -255,8 +264,8 @@ export default function ListPage() {
   });
 
   const sortedActivities = [...activities].sort((a, b) => {
-    const aDone = a.status === "completed" || a.status === "completed_late" ? 1 : 0;
-    const bDone = b.status === "completed" || b.status === "completed_late" ? 1 : 0;
+    const aDone = a.status === "completed" || a.status === "cancelled" ? 1 : 0;
+    const bDone = b.status === "completed" || b.status === "cancelled" ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
     const aKey = `${a.tanggal ?? "9999-12-31"}T${a.time_start ?? "23:59:59"}`;
     const bKey = `${b.tanggal ?? "9999-12-31"}T${b.time_start ?? "23:59:59"}`;
@@ -384,9 +393,9 @@ function TaskCard({
           ) : null}
 
           <View style={styles.tagRow}>
-            {stateText === "TERLAMBAT" ? (
+            {stateText === "TERLAMBAT" || stateText === "DIBATALKAN" ? (
               <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
-                <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
+                <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>{stateText}</Text>
               </View>
             ) : status !== "done" ? (
               <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
@@ -403,9 +412,20 @@ function TaskCard({
 
         <View style={styles.progressWrap}>
             {status === "done" ? (
-              // Completed: show same-size ring with success color and subtle bg
-              <View style={[styles.doneCircle, { borderColor: colors.success, backgroundColor: colors.surfaceSuccess }]}>
-                <Ionicons name="checkmark" size={18} color={colors.success} />
+              <View
+                style={[
+                  styles.doneCircle,
+                  {
+                    borderColor: stateText === "DIBATALKAN" ? colors.error : colors.success,
+                    backgroundColor: stateText === "DIBATALKAN" ? colors.errorSoft : colors.surfaceSuccess,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name={stateText === "DIBATALKAN" ? "close" : "checkmark"}
+                  size={18}
+                  color={stateText === "DIBATALKAN" ? colors.error : colors.success}
+                />
               </View>
             ) : (
               <ProgressRing progress={progress} size={56} strokeWidth={5} />

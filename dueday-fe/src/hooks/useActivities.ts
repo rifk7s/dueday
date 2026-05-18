@@ -4,6 +4,7 @@ import {
   createActivity,
   getActivity,
   updateActivity,
+  type Activity,
   type NewActivity,
   type UpdateActivity,
 } from "@/api/activities";
@@ -57,6 +58,46 @@ export function useUpdateActivityMutation() {
   return useMutation({
     mutationFn: (input: { id: string; data: UpdateActivity }) =>
       updateActivity(input.id, input.data, token),
+    onMutate: async ({ id, data }) => {
+      await qc.cancelQueries({ queryKey: ["activities"] });
+      await qc.cancelQueries({ queryKey: ["activity", id] });
+
+      const previousActivities = qc.getQueryData<Activity[]>(["activities"]);
+      const previousActivity = qc.getQueryData<Activity>(["activity", id]);
+
+      const patchActivity = (activity: Activity): Activity => ({
+        ...activity,
+        ...data,
+        status: data.status ?? activity.status,
+        progress:
+          data.status === "not_started"
+            ? 0
+            : data.status === "completed"
+              ? 100
+              : activity.progress,
+      });
+
+      if (previousActivities) {
+        qc.setQueryData<Activity[]>(["activities"], previousActivities.map((activity) => (activity.id === id ? patchActivity(activity) : activity)));
+      }
+
+      if (previousActivity) {
+        qc.setQueryData<Activity>(["activity", id], patchActivity(previousActivity));
+      }
+
+      return { previousActivities, previousActivity, id };
+    },
+    onError: (_error, _variables, context) => {
+      if (!context) return;
+
+      if (context.previousActivities) {
+        qc.setQueryData(["activities"], context.previousActivities);
+      }
+
+      if (context.previousActivity) {
+        qc.setQueryData(["activity", context.id], context.previousActivity);
+      }
+    },
     onSuccess: (activity) => {
       qc.setQueryData(["activity", activity.id], activity);
       qc.setQueryData(["activities"], (current: unknown) => {
