@@ -4,6 +4,7 @@ use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
@@ -54,4 +55,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/notifications/{notification}', [NotificationController::class, 'update']);
     Route::patch('/notifications/{notification}', [NotificationController::class, 'update']);
     Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+
+    // Subscriptions
+    Route::get('/subscriptions', [SubscriptionController::class, 'index']);
+    Route::get('/subscriptions/{subscription}', [SubscriptionController::class, 'show']);
+    Route::post('/subscriptions', [SubscriptionController::class, 'store']);
+    Route::put('/subscriptions/{subscription}', [SubscriptionController::class, 'update']);
+    Route::patch('/subscriptions/{subscription}', [SubscriptionController::class, 'update']);
+    Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy']);
 });
