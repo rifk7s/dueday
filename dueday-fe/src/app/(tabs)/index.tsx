@@ -36,17 +36,17 @@ export default function App() {
   const actionTwoProgress = React.useRef(new Animated.Value(0)).current;
 
   const sortedTasks = [...tasks].sort((a, b) => {
-    const aDone = a.status === "completed" ? 1 : 0;
-    const bDone = b.status === "completed" ? 1 : 0;
+    const aDone = a.status === "completed" || a.status === "completed_late" ? 1 : 0;
+    const bDone = b.status === "completed" || b.status === "completed_late" ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
 
     const aKey = `${a.date ?? "9999-12-31"}T${a.time ?? "23:59:59"}`;
     const bKey = `${b.date ?? "9999-12-31"}T${b.time ?? "23:59:59"}`;
-    return aKey.localeCompare(bKey);
+    return aDone === 1 ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
   });
 
-  const pendingTasks = tasks.filter((task) => task.status !== "completed").length;
-  const completedTasks = tasks.filter((task) => task.status === "completed").length;
+  const pendingTasks = tasks.filter((task) => task.status !== "completed" && task.status !== "completed_late").length;
+  const completedTasks = tasks.filter((task) => task.status === "completed" || task.status === "completed_late").length;
   const activeTask = sortedTasks[0] ?? null;
   const greetingName =
     currentUser?.nickname ?? sessionUser?.nickname ?? currentUser?.name ?? sessionUser?.name ?? currentUser?.username ?? sessionUser?.username ?? "Mahasiswa";
@@ -294,13 +294,25 @@ function SummaryCard({ accent, icon, title, value, background }: Readonly<Summar
 
 function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
   const router = useRouter();
-  const isDone = task.status === "completed";
+  const isDone = task.status === "completed" || task.status === "completed_late";
   const datePart = fromApiDate(task.date);
   const timePart = fromApiTime(task.time);
   const deadline = [datePart, timePart].filter(Boolean).join(" | ") || "—";
-  const stateText = isDone ? "SELESAI" : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
+  const isOverdue = !isDone && (task.is_overdue ?? (task.date ? new Date((task.date ?? "") + " " + (task.time ?? "00:00:00")) < new Date() : false));
+
+  const stateText = task.status === "completed_late"
+    ? "TERLAMBAT"
+    : isDone
+    ? "SELESAI"
+    : isOverdue
+    ? "TERLAMBAT"
+    : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
   const stateColor = isDone
-    ? { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant }
+    ? task.status === "completed_late"
+      ? { bg: colors.errorSoft, text: colors.errorStrong }
+      : { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant }
+    : isOverdue
+    ? { bg: colors.errorSoft, text: colors.errorStrong }
     : { bg: colors.errorSoft, text: colors.errorStrong };
 
   let accentColor: string = colors.primaryContainer;
@@ -335,7 +347,11 @@ function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
           ) : null}
 
           <View style={styles.tagRow}>
-            {!isDone ? (
+            {stateText === "TERLAMBAT" ? (
+              <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
+                <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
+              </View>
+            ) : !isDone ? (
               <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
                 <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
               </View>

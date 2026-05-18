@@ -16,7 +16,7 @@ export type Task = {
   date: string;
   time: string | null;
   priority: string | null;
-  status: "ongoing" | "completed";
+  status: "ongoing" | "completed" | "completed_late";
   source: string | null;
   deskripsi: string | null;
   progress: number;
@@ -25,6 +25,7 @@ export type Task = {
   tag: Tag | null;
   created_at: string;
   updated_at: string;
+  is_overdue?: boolean;
 };
 
 export type NewTask = {
@@ -35,7 +36,7 @@ export type NewTask = {
   id_tag?: number;
   goals?: string;
   deskripsi?: string;
-  status?: "ongoing" | "completed";
+  status?: "ongoing" | "completed" | "completed_late";
 };
 
 export type UpdateTask = Partial<NewTask> & {
