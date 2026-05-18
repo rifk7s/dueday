@@ -4,6 +4,7 @@ import GoalsChecklistModal from "@/components/GoalsChecklistModal";
 import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useTasksQuery, useUpdateTaskMutation } from "@/hooks/useTasks";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -80,6 +81,7 @@ export default function TaskProgressScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const updateTaskMutation = useUpdateTaskMutation();
   const [modalVisible, setModalVisible] = useState(false);
+  const qc = useQueryClient();
 
   const { data: tasks = [], isLoading, isError } = useTasksQuery();
   const task = tasks.find((t) => t.id === id);
@@ -97,6 +99,8 @@ export default function TaskProgressScreen() {
       },
       {
         onSuccess: () => {
+          // ensure task list and dashboard refresh (refetch active and inactive)
+          qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "all" });
           setModalVisible(false);
         },
       },
@@ -141,7 +145,7 @@ export default function TaskProgressScreen() {
             <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
           </Pressable>
           <Text style={styles.headerTitle}>Progress Tugas</Text>
-          <Pressable hitSlop={12}>
+          <Pressable hitSlop={12} onPress={() => router.push({ pathname: "/edit-task", params: { id: task.id } })}>
             <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
           </Pressable>
         </View>

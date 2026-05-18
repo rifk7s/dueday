@@ -71,6 +71,15 @@ class TaskService
             return null;
         }
 
+        // If the client sent the raw `goals` text but it is identical to the
+        // stored text, don't re-parse it — parsing regenerates `goal_points`
+        // and would reset any per-item completion status. Only parse when
+        // the raw `goals` value actually changed or when `goal_points` are
+        // explicitly provided.
+        if (isset($data['goals']) && is_string($data['goals']) && $data['goals'] === $task->goals) {
+            unset($data['goals']);
+        }
+
         $data = $this->processGoals($data);
 
         return $this->taskRepository->update($taskId, $data);
@@ -106,9 +115,9 @@ class TaskService
             $data['status'] = $data['progress'] >= 100 ? 'completed' : 'ongoing';
         } elseif (isset($data['goal_points']) && is_array($data['goal_points'])) {
             // If goal_points is being updated directly, recalculate progress
+            // Do NOT regenerate the raw goals text here to avoid reintroducing
+            // bracket markers (e.g., "- [+] ...") into the user's `goals` field.
             $data['progress'] = TaskGoalService::calculateProgress($data['goal_points']);
-            // Also regenerate the goals text
-            $data['goals'] = TaskGoalService::regenerateGoalsText($data['goal_points']);
             $data['status'] = $data['progress'] >= 100 ? 'completed' : 'ongoing';
         }
 

@@ -28,7 +28,7 @@ class TaskSeeder extends Seeder
                 'priority' => 'high',
                 'status' => 'ongoing',
                 'deskripsi' => 'Final review untuk project Dueday App',
-                'goals' => "- [+] Susun struktur halaman\n- [+] Buat wireframe utama\n- [ ] Review dengan dosen\n- [ ] Revisi akhir",
+                'goals' => "Susun struktur halaman\nBuat wireframe utama\nReview dengan dosen\nRevisi akhir",
                 'id_tag' => 1,
             ],
             [
@@ -38,7 +38,7 @@ class TaskSeeder extends Seeder
                 'priority' => 'medium',
                 'status' => 'ongoing',
                 'deskripsi' => 'Buat fitur login',
-                'goals' => "- [+] Setup form login\n- [+] Implementasi token\n- [ ] Handle error state\n- [ ] Tes flow login",
+                'goals' => "Setup form login\nImplementasi token\nHandle error state\nTes flow login",
                 'id_tag' => 1,
             ],
             [
@@ -48,7 +48,7 @@ class TaskSeeder extends Seeder
                 'priority' => 'low',
                 'status' => 'ongoing',
                 'deskripsi' => 'Rangkum bab 3 dan 4',
-                'goals' => "- [+] Baca bab 3\n- [+] Catat poin penting bab 3\n- [ ] Baca bab 4\n- [ ] Catat poin penting bab 4",
+                'goals' => "Baca bab 3\nCatat poin penting bab 3\nBaca bab 4\nCatat poin penting bab 4",
                 'id_tag' => 1,
             ],
             [
@@ -58,7 +58,7 @@ class TaskSeeder extends Seeder
                 'priority' => 'medium',
                 'status' => 'completed',
                 'deskripsi' => 'Laporan hasil riset kompetitor',
-                'goals' => "- [+] Kumpulkan data kompetitor\n- [+] Analisis fitur\n- [+] Susun laporan akhir",
+                'goals' => "Kumpulkan data kompetitor\nAnalisis fitur\nSusun laporan akhir",
                 'id_tag' => 2,
             ],
         ];
