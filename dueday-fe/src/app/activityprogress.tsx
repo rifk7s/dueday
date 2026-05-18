@@ -1,7 +1,7 @@
 import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Platform, Alert, ToastAndroid } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +18,7 @@ type ActivityProgressParams = {
 };
 
 export default function ActivityProgressScreen() {
+  const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
   
@@ -261,7 +262,21 @@ export default function ActivityProgressScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.headerTitle}>Activity Progress</Text>
-        <Pressable hitSlop={12}>
+        <Pressable
+          hitSlop={12}
+          onPress={() => {
+            if (!id) return;
+            if (activity.status === "ongoing") {
+              if (Platform.OS === "android") {
+                ToastAndroid.show("Tidak bisa edit saat aktivitas masih ongoing", ToastAndroid.SHORT);
+              } else {
+                Alert.alert("Tidak bisa edit", "Aktivitas masih ongoing. Selesaikan atau jeda dulu sebelum mengedit.");
+              }
+              return;
+            }
+            router.push({ pathname: "/edit-activity", params: { id, tab: tab ?? "aktivitas" } });
+          }}
+        >
           <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
         </Pressable>
       </View>

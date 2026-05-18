@@ -21,7 +21,10 @@ export function useActivitiesQuery(options?: { enabled?: boolean }) {
   });
 }
 
-export function useActivityQuery(id: string | undefined, options?: { enabled?: boolean }) {
+export function useActivityQuery(
+  id: string | undefined,
+  options?: { enabled?: boolean; refetchInterval?: false | number },
+) {
   const { token } = useSession();
   return useQuery({
     queryKey: ["activity", id],
@@ -30,7 +33,8 @@ export function useActivityQuery(id: string | undefined, options?: { enabled?: b
       return getActivity(id, token);
     },
     staleTime: 0,
-    refetchInterval: (query) => (query.state.data?.status === "ongoing" ? 5_000 : false),
+    refetchInterval:
+      options?.refetchInterval ?? ((query) => (query.state.data?.status === "ongoing" ? 5_000 : false)),
     refetchOnMount: true,
     enabled: (options?.enabled ?? true) && !!token && !!id,
   });
@@ -54,6 +58,14 @@ export function useUpdateActivityMutation() {
     mutationFn: (input: { id: string; data: UpdateActivity }) =>
       updateActivity(input.id, input.data, token),
     onSuccess: (activity) => {
+      qc.setQueryData(["activity", activity.id], activity);
+      qc.setQueryData(["activities"], (current: unknown) => {
+        if (!Array.isArray(current)) {
+          return current;
+        }
+
+        return current.map((item) => (item && typeof item === "object" && "id" in item && item.id === activity.id ? activity : item));
+      });
       qc.invalidateQueries({ queryKey: ["activities"] });
       qc.invalidateQueries({ queryKey: ["activity", activity.id] });
     },
