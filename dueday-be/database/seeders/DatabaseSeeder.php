@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             TagSeeder::class,
             TaskSeeder::class,
             ActivitySeeder::class,
+            ReminderSeeder::class,
         ]);
     }
 }

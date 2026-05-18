@@ -1,9 +1,10 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\TaskController;
-use App\Http\Controllers\TagController;
 use App\Http\Controllers\ActivityController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ReminderController;
+use App\Http\Controllers\TagController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -12,7 +13,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::patch('/me', [AuthController::class, 'update']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+
     // Tasks
     Route::get('/tasks', [TaskController::class, 'index']);
     Route::get('/tasks/{task}', [TaskController::class, 'show']);
@@ -36,4 +37,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/activities/{activity}', [ActivityController::class, 'update']);
     Route::patch('/activities/{activity}', [ActivityController::class, 'update']);
     Route::delete('/activities/{activity}', [ActivityController::class, 'destroy']);
+
+    // Reminders
+    Route::get('/reminders', [ReminderController::class, 'index']);
+    Route::get('/reminders/{reminder}', [ReminderController::class, 'show']);
+    Route::post('/reminders', [ReminderController::class, 'store']);
+    Route::put('/reminders/{reminder}', [ReminderController::class, 'update']);
+    Route::patch('/reminders/{reminder}', [ReminderController::class, 'update']);
+    Route::delete('/reminders/{reminder}', [ReminderController::class, 'destroy']);
 });
