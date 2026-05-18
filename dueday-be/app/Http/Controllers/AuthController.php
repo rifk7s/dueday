@@ -7,6 +7,7 @@ use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Http\Requests\UpdateProfileRequest;
 
 class AuthController extends Controller
 {
@@ -41,5 +42,12 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'User has logged out',
         ]);
+    }
+
+    public function update(UpdateProfileRequest $request): UserResource
+    {
+        $user = $this->authService->updateProfile($request->user(), $request->validated());
+
+        return new UserResource($user);
     }
 }

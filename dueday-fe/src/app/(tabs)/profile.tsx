@@ -5,15 +5,22 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { useTasksQuery } from "@/hooks/useTasks";
+import { setStorageItemAsync } from "@/auth/useStorageState";
+import { updateMe } from "@/api/users";
+import { useMutation } from "@tanstack/react-query";
+import type { AuthUser } from "@/auth/api";
 import {
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
+import { Platform, ToastAndroid, Alert } from "react-native";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 
 type TaskStat = {
@@ -53,9 +60,65 @@ const settings: SettingItem[] = [
 export default function ProfileScreen(): React.JSX.Element {
   const { top } = useSafeAreaInsets();
   const bottomBarSpace = useBottomBarSpace();
-  const { user, signOut } = useSession();
+  const { user, signOut, token, setUser } = useSession();
+  const [displayNickname, setDisplayNickname] = useState(user?.nickname ?? user?.name ?? "—");
   const [signingOut, setSigningOut] = useState(false);
+  const [editingNickname, setEditingNickname] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState(user?.nickname ?? "");
   const router = useRouter();
+
+  React.useEffect(() => {
+    setDisplayNickname(user?.nickname ?? user?.name ?? "—");
+    setNicknameInput(user?.nickname ?? "");
+  }, [user?.nickname, user?.name]);
+
+  const queryClientRef = useQueryClient();
+
+  const updateMutation = useMutation({
+    mutationFn: (nick: string) => updateMe({ nickname: nick }, token ?? null),
+    onSuccess: async (updatedUser: AuthUser) => {
+      // Close the modal immediately and update local UI
+      setEditingNickname(false);
+      setDisplayNickname(updatedUser.nickname ?? displayNickname);
+      setNicknameInput(updatedUser.nickname ?? "");
+
+      // Persist updated user to secure storage
+      await setStorageItemAsync("auth_user", JSON.stringify(updatedUser));
+
+      // Update global session user so other screens refresh
+      try {
+        setUser?.(updatedUser);
+      } catch (e) {
+        // ignore
+      }
+
+      // Update `me` cache and invalidate relevant lists so other screens reload
+      try {
+        queryClientRef.setQueryData(["me"], updatedUser);
+        queryClientRef.setQueryData(["current-user"], updatedUser);
+        queryClientRef.invalidateQueries({ queryKey: ["activities"] });
+        queryClientRef.invalidateQueries({ queryKey: ["tasks"] });
+        queryClientRef.invalidateQueries({ queryKey: ["current-user"] });
+      } catch (e) {
+        // ignore
+      }
+
+      // Show success toast
+      if (Platform.OS === "android") {
+        ToastAndroid.show("Nickname berhasil disimpan", ToastAndroid.SHORT);
+      } else {
+        Alert.alert("Berhasil", "Nickname berhasil disimpan");
+      }
+    },
+    onError: (err) => {
+      if (Platform.OS === "android") {
+        ToastAndroid.show("Gagal menyimpan nickname", ToastAndroid.SHORT);
+      } else {
+        Alert.alert("Error", "Gagal menyimpan nickname");
+      }
+    },
+    onSettled: () => {},
+  });
 
   const handleLogout = async () => {
     if (signingOut) {
@@ -130,11 +193,18 @@ export default function ProfileScreen(): React.JSX.Element {
             </View>
           </View>
 
-          <Text style={styles.profileName}>{user?.nickname ?? user?.name ?? user?.username ?? "—"}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.profileName}>{displayNickname}</Text>
+            <Pressable style={styles.editNicknameButton} onPress={() => setEditingNickname(true)}>
+              <Ionicons name="pencil" size={16} color={colors.primaryContainer} />
+            </Pressable>
+          </View>
           <Text style={styles.profileRole}>{user?.name ?? "—"}</Text>
           {user?.nim ? <Text style={styles.profileMeta}>NIM: {user.nim}</Text> : null}
           <Text style={styles.profileMeta}>{user?.email ?? "—"}</Text>
         </View>
+
+        {/* nickname edit modal is rendered outside the ScrollView to ensure it overlays other content */}
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
@@ -172,6 +242,32 @@ export default function ProfileScreen(): React.JSX.Element {
           </Text>
         </Pressable>
       </ScrollView>
+      {editingNickname ? (
+        <View style={styles.modalBackdrop} pointerEvents="box-none">
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Edit Nickname</Text>
+            <TextInput
+              style={styles.input}
+              value={nicknameInput}
+              onChangeText={setNicknameInput}
+              placeholder="Nickname"
+              autoCapitalize="words"
+            />
+            <View style={styles.modalActionRow}>
+              <Pressable style={[styles.secondaryButton, { flex: 1, marginRight: 8 }]} onPress={() => setEditingNickname(false)}>
+                <Text style={styles.secondaryButtonText}>Batal</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.primaryButton, { flex: 1 }]}
+                onPress={() => updateMutation.mutate(nicknameInput)}
+                disabled={updateMutation.isPending}
+              >
+                <Text style={styles.primaryButtonText}>{updateMutation.isPending ? 'Menyimpan...' : 'Simpan'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -405,5 +501,79 @@ const styles = StyleSheet.create({
     color: colors.errorStrong,
     fontSize: 15,
     fontFamily: fonts["800"],
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editNicknameButton: {
+    marginLeft: 8,
+  },
+  modalBackdrop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerLow,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontFamily: fonts["600"],
+    color: colors.onSurface,
+    marginBottom: 12,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerLow,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.surfaceContainerLowest,
+    marginBottom: 12,
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    marginTop: 8,
+  },
+  primaryButton: {
+    backgroundColor: colors.primaryContainer,
+    borderRadius: 999,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  primaryButtonText: {
+    color: colors.onPrimary,
+    fontSize: typography.button.fontSize,
+    fontFamily: typography.button.fontFamily,
+  },
+  secondaryButton: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 999,
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primaryContainer,
+  },
+  secondaryButtonText: {
+    color: colors.primaryContainer,
+    fontSize: typography.button.fontSize,
+    fontFamily: typography.button.fontFamily,
   },
 });
