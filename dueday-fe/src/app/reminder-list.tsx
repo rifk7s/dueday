@@ -26,8 +26,12 @@ export default function ReminderListScreen() {
   const { data: activities = [] } = useActivitiesQuery();
 
   const allReminders = React.useMemo<ReminderCardItem[]>(() => {
-    const activeTasks = [...tasks].filter((task) => task.status !== "completed").sort(compareTasks);
-    const activeActivities = [...activities].filter((activity) => activity.status !== "completed").sort(compareActivities);
+    const activeTasks = [...tasks]
+      .filter((task) => task.status !== "completed" && task.status !== "completed_late")
+      .sort(compareTasks);
+    const activeActivities = [...activities]
+      .filter((activity) => activity.status !== "completed" && activity.status !== "cancelled")
+      .sort(compareActivities);
 
     const reminders: ReminderCardItem[] = [];
 
@@ -67,20 +71,33 @@ export default function ReminderListScreen() {
     weekEnd.setDate(weekStart.getDate() + 6);
 
     const completedToday = [
-      ...tasks.filter((t) => t.status === "completed" && t.date === today),
+      ...tasks.filter((t) => (t.status === "completed" || t.status === "completed_late") && t.date === today),
       ...activities.filter((a) => a.status === "completed" && a.tanggal === today),
     ].length;
 
     const scheduledThisWeek = [
       ...tasks.filter(
-        (t) => t.status !== "completed" && t.date && t.date >= today && t.date <= weekEnd.toISOString().split("T")[0]
+        (t) =>
+          t.status !== "completed" &&
+          t.status !== "completed_late" &&
+          t.date &&
+          t.date >= today &&
+          t.date <= weekEnd.toISOString().split("T")[0]
       ),
       ...activities.filter(
-        (a) => a.status !== "completed" && a.tanggal && a.tanggal >= today && a.tanggal <= weekEnd.toISOString().split("T")[0]
+        (a) =>
+          a.status !== "completed" &&
+          a.status !== "cancelled" &&
+          a.tanggal &&
+          a.tanggal >= today &&
+          a.tanggal <= weekEnd.toISOString().split("T")[0]
       ),
     ].length;
 
-    const totalCompleted = [...tasks, ...activities].filter((item) => item.status === "completed").length;
+    const totalCompleted = [
+      ...tasks.filter((task) => task.status === "completed" || task.status === "completed_late"),
+      ...activities.filter((activity) => activity.status === "completed"),
+    ].length;
 
     return { completedToday, scheduledThisWeek, totalCompleted };
   }, [tasks, activities]);

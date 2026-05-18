@@ -16,7 +16,7 @@ export type Activity = {
   tanggal: string | null;
   time_start: string | null;
   time_end: string | null;
-  status: "not_started" | "ongoing" | "pending" | "completed";
+  status: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
   progress: number;
   deskripsi: string | null;
   ulangi: UlangiType | null;
@@ -33,7 +33,7 @@ export type NewActivity = {
   id_tag?: number | null;
   ulangi?: UlangiType;
   deskripsi?: string;
-  status?: "not_started" | "ongoing" | "pending" | "completed";
+  status?: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
 };
 
 export type UpdateActivity = Partial<NewActivity>;
