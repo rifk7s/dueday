@@ -18,20 +18,22 @@ export function goBackOr(fallback: Href): void {
 }
 
 /**
- * Exit a modal flow (premium / payment / create-*) back to a base route.
+ * Exit a modal flow and land on a specific destination in ONE native dismiss.
  *
- * Use this at the END of a flow instead of `router.replace(...)`. On iOS the
- * flow screens are presented as `presentation: "modal"`, so `router.replace`
- * swaps the route *inside* the modal container — the destination renders stuck
- * in a sheet (the #52/#53 symptom). `dismissTo` tears the whole modal stack
- * down and lands on `target` with the correct native dismiss animation. On a
- * deep-link entry (nothing to dismiss) it falls back to a plain replace.
+ * `dismissTo` pops the root Stack back to the already-anchored target route (so
+ * the native modal host plays its normal dismiss animation) AND applies the
+ * nested route params in the same committed state — switching the buried (tabs)
+ * navigator to the target tab. No intermediate tab is composited because the
+ * modal covers the screen until the dismiss animation completes.
+ *
+ * Fallback (canDismiss() false, e.g. cold deep-link straight into the flow):
+ * nothing to pop, so reset to the destination with replace.
  */
-export function exitFlowTo(target: Href): void {
+export function exitFlowTo(destination: Href): void {
   if (router.canDismiss()) {
-    router.dismissTo(target);
+    router.dismissTo(destination);
   } else {
-    router.replace(target);
+    router.replace(destination);
   }
 }
 
@@ -62,28 +64,28 @@ export const stackScreenOptions: NativeStackNavigationOptions = {
 };
 
 /**
- * Modal / flow transition for forms and flows (create-*, premium, payment).
+ * Modal / sheet transition for forms and flows (create-*, premium, payment).
  *
  * iOS: card sheet that slides up and can be swiped down to dismiss.
- * Android: NOT a native modal. `presentation: "modal"` on Android hosts the
- * screen in a separate window, which (a) breaks `useSafeAreaInsets()` (top
- * collapses to 0 → content under the notch) and (b) fights the explicit
- * `slide_from_bottom` with the platform modal animation (janky). So on Android
- * these are plain cards that slide in horizontally like every other screen.
+ * Android: slide up from the bottom.
  */
 export const modalScreenOptions: NativeStackNavigationOptions = {
   headerShown: false,
   gestureEnabled: true,
-  ...Platform.select({
-    ios: {
-      presentation: "modal" as const,
-      animation: "default" as const,
-      fullScreenGestureEnabled: true,
-    },
-    android: {
-      animation: "slide_from_right" as const,
-      animationDuration: 250,
-    },
-    default: {},
-  }),
+  presentation: "modal",
+  animation: Platform.OS === "ios" ? "default" : "slide_from_bottom",
+};
+
+/**
+ * Terminal success screen inside the payment modal flow.
+ *
+ * Same modal host as `modalScreenOptions` so it stays inside the existing
+ * native modal (no card/slide mismatch when detail-transfer does
+ * `router.replace` into it). Gesture is DISABLED: swiping it away would reveal
+ * the half-finished payment stack still mounted underneath — the only exit is
+ * the CTA, which calls `dismissAll()` to tear down the whole modal host.
+ */
+export const successScreenOptions: NativeStackNavigationOptions = {
+  ...modalScreenOptions,
+  gestureEnabled: false,
 };

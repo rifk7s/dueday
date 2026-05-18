@@ -38,6 +38,10 @@ export type NewTask = {
   status?: "ongoing" | "completed";
 };
 
+export type UpdateTask = Partial<NewTask> & {
+  goal_points?: GoalPoint[];
+};
+
 export const PRIORITY_API_MAP: Record<string, string> = {
   Tinggi: "high",
   Sedang: "medium",
@@ -51,6 +55,15 @@ export const PRIORITY_DISPLAY: Record<string, string> = {
 };
 
 const MOCK_API = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
+
+function calculateGoalProgress(goalPoints: GoalPoint[] | null | undefined): number {
+  if (!goalPoints || goalPoints.length === 0) {
+    return 0;
+  }
+
+  const completedCount = goalPoints.filter((goalPoint) => goalPoint.completed).length;
+  return Math.round((completedCount / goalPoints.length) * 100);
+}
 
 let mockStore: Task[] = [
   {
@@ -113,6 +126,36 @@ export async function createTask(
   }
   return apiFetch<Task>("/tasks", token, {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateTask(
+  id: string,
+  input: UpdateTask,
+  token: string | null,
+): Promise<Task> {
+  if (MOCK_API) {
+    const existing = mockStore.find((task) => task.id === id);
+    if (!existing) {
+      throw new Error(`Task with id ${id} not found`);
+    }
+
+    const nextGoalPoints = input.goal_points ?? existing.goal_points;
+    const next: Task = {
+      ...existing,
+      ...input,
+      goal_points: nextGoalPoints ?? null,
+      progress: nextGoalPoints ? calculateGoalProgress(nextGoalPoints) : existing.progress,
+      updated_at: new Date().toISOString(),
+    };
+
+    mockStore = mockStore.map((task) => (task.id === id ? next : task));
+    return next;
+  }
+
+  return apiFetch<Task>(`/tasks/${id}`, token, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

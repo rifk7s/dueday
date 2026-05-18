@@ -1,6 +1,6 @@
 import { SessionProvider, useSession } from "@/auth/ctx";
 import { SplashScreenController } from "@/auth/splash";
-import { modalScreenOptions, stackScreenOptions } from "@/constants/navigation";
+import { modalScreenOptions, stackScreenOptions, successScreenOptions } from "@/constants/navigation";
 import "@/global.css";
 import {
     Lexend_400Regular,
@@ -27,6 +27,10 @@ const queryClient = new QueryClient({
 });
 
 SplashScreen.preventAutoHideAsync();
+
+// Keep (tabs) anchored behind deep-linked modals so back / dismissAll always
+// has a base (Expo Router modal guidance).
+export const unstable_settings = { anchor: "(tabs)" };
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -66,7 +70,7 @@ function RootNavigator() {
         <Stack.Screen name="premium-plan" options={modalScreenOptions} />
         <Stack.Screen name="payment" options={modalScreenOptions} />
         <Stack.Screen name="detail-transfer" options={modalScreenOptions} />
-        <Stack.Screen name="payment-success" options={modalScreenOptions} />
+        <Stack.Screen name="payment-success" options={successScreenOptions} />
         <Stack.Screen name="create-task" options={modalScreenOptions} />
         <Stack.Screen name="create-activity" options={modalScreenOptions} />
         <Stack.Screen name="activityprogress" />

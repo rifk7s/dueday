@@ -1,9 +1,9 @@
 import { fromApiTime } from "@/api/format";
-import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
+import { PRIORITY_DISPLAY, type GoalPoint, type Task } from "@/api/tasks";
 import GoalsChecklistModal from "@/components/GoalsChecklistModal";
 import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
-import { useTasksQuery } from "@/hooks/useTasks";
+import { useTasksQuery, useUpdateTaskMutation } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -42,16 +42,35 @@ function formatDottedTime(hms: string | null | undefined): string {
   return hm ? hm.replace(":", ".") : "";
 }
 
-function parseGoals(task: Task): string[] {
+function buildGoalPoints(task: Task): GoalPoint[] {
   if (task.goal_points && task.goal_points.length > 0) {
-    return task.goal_points.map((g) => g.text);
+    return task.goal_points;
   }
+
   if (task.goals) {
     return task.goals
       .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
+      .map((line, index) => {
+        const trimmed = line.trim();
+        const match = trimmed.match(/^[-•]\s*\[(?<state>[+ xX ])\]\s*(?<text>.+)$/);
+
+        if (match?.groups?.text) {
+          return {
+            id: index + 1,
+            text: match.groups.text.trim(),
+            completed: match.groups.state === "+",
+          };
+        }
+
+        return {
+          id: index + 1,
+          text: trimmed.replace(/^[-•]\s*/, ""),
+          completed: false,
+        };
+      })
+      .filter((goalPoint) => goalPoint.text.length > 0);
   }
+
   return [];
 }
 
@@ -59,9 +78,30 @@ export default function TaskProgressScreen() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const updateTaskMutation = useUpdateTaskMutation();
+  const [modalVisible, setModalVisible] = useState(false);
 
   const { data: tasks = [], isLoading, isError } = useTasksQuery();
   const task = tasks.find((t) => t.id === id);
+  const goalPoints = task ? buildGoalPoints(task) : [];
+  const completedGoalCount = goalPoints.filter((goalPoint) => goalPoint.completed).length;
+  const calculatedProgress = goalPoints.length > 0 ? Math.round((completedGoalCount / goalPoints.length) * 100) : task?.progress ?? 0;
+
+  const handleSaveGoals = (updatedGoalPoints: GoalPoint[]) => {
+    if (!task) return;
+
+    updateTaskMutation.mutate(
+      {
+        id: task.id,
+        data: { goal_points: updatedGoalPoints },
+      },
+      {
+        onSuccess: () => {
+          setModalVisible(false);
+        },
+      },
+    );
+  };
 
   if (isLoading) {
     return (
@@ -90,28 +130,6 @@ export default function TaskProgressScreen() {
   const timePart = formatDottedTime(task.time);
   const deadline = [datePart, timePart].filter(Boolean).join(" | ");
 
-  const goals = parseGoals(task);
-
-  // Local UI state for showing the goals checklist modal and tracking progress locally
-  const [modalVisible, setModalVisible] = useState(false);
-  // savedChecks stores per-task saved checkbox state so it persists across modal opens
-  const [savedChecks, setSavedChecks] = useState<Record<string, Record<number, boolean>>>({});
-  const [localProgress, setLocalProgress] = useState<number>(task.progress ?? 0);
-  const onModalSave = (newMap: Record<number, boolean>) => {
-    const prevMap = savedChecks[task.id] ?? {};
-    const prevCheckedCount = Object.values(prevMap).filter(Boolean).length;
-    const newCheckedCount = Object.values(newMap).filter(Boolean).length;
-    const deltaChecked = Math.max(0, newCheckedCount - prevCheckedCount);
-
-    if (goals.length > 0 && deltaChecked > 0) {
-      const increment = Math.round((deltaChecked / goals.length) * 100);
-      setLocalProgress((p) => Math.min(100, p + increment));
-    }
-
-    setSavedChecks((prev) => ({ ...prev, [task.id]: { ...(prev[task.id] ?? {}), ...newMap } }));
-    setModalVisible(false);
-  };
-
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -130,7 +148,7 @@ export default function TaskProgressScreen() {
 
         <ProgressCard
           title={task.task_name}
-          progress={localProgress}
+          progress={calculatedProgress}
           onUpdatePress={() => {
             setModalVisible(true);
           }}
@@ -157,14 +175,21 @@ export default function TaskProgressScreen() {
           </>
         ) : null}
 
-        {goals.length > 0 ? (
+        {goalPoints.length > 0 ? (
           <>
             <SectionLabel label="GOALS" />
             <View style={styles.goalList}>
-              {goals.map((g, i) => (
-                <View key={`${i}-${g}`} style={styles.goalRow}>
-                  <Text style={styles.goalBullet}>•</Text>
-                  <Text style={styles.goalText}>{g}</Text>
+              {goalPoints.map((goalPoint) => (
+                <View key={goalPoint.id} style={styles.goalRow}>
+                  <Ionicons
+                    name={goalPoint.completed ? "checkmark-circle" : "ellipse-outline"}
+                    size={18}
+                    color={goalPoint.completed ? colors.success : colors.onSurfaceVariant}
+                    style={styles.goalIcon}
+                  />
+                  <Text style={[styles.goalText, goalPoint.completed && styles.goalTextCompleted]}>
+                    {goalPoint.text}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -191,10 +216,9 @@ export default function TaskProgressScreen() {
       </ScrollView>
       <GoalsChecklistModal
         visible={modalVisible}
-        goals={goals}
-        initialChecked={savedChecks[task.id] ?? {}}
+        goalPoints={goalPoints}
         onClose={() => setModalVisible(false)}
-        onSave={onModalSave}
+        onSave={handleSaveGoals}
       />
     </View>
   );
@@ -292,18 +316,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 8,
   },
-  goalBullet: {
-    fontSize: 16,
-    fontFamily: fonts["700"],
-    color: colors.onSurfaceVariant,
-    lineHeight: 22,
-  },
+  goalIcon: { marginTop: 1 },
   goalText: {
     flex: 1,
     fontSize: 14,
     lineHeight: 22,
     fontFamily: fonts["400"],
     color: colors.onSurfaceVariant,
+  },
+  goalTextCompleted: {
+    color: colors.success,
   },
   description: {
     fontSize: 14,

@@ -1,11 +1,13 @@
-import { exitFlowTo } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { exitFlowTo } from "@/constants/navigation";
 import { useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
     Animated,
+    BackHandler,
+    type DimensionValue,
     Easing,
     Pressable,
     ScrollView,
@@ -19,8 +21,8 @@ type AccentDotProps = {
   size: number;
   color: string;
   top: number;
-  left?: string;
-  right?: string;
+  left?: DimensionValue;
+  right?: DimensionValue;
   delay: number;
 };
 
@@ -92,6 +94,23 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   const planPrice = (params.planPrice as string) || "Rp20.000";
   const methodName = (params.methodName as string) || "Virtual Account";
 
+  const handleDone = useCallback(() => {
+    // Single native dismiss that also switches the buried tab to the
+    // dashboard, so the sheet slides down once and reveals the dashboard
+    // (not the profile tab the flow was launched from).
+    exitFlowTo("/");
+  }, []);
+
+  useEffect(() => {
+    // Android hardware back must also exit the flow, not pop back into the
+    // (already completed) detail-transfer screen.
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      handleDone();
+      return true;
+    });
+    return () => sub.remove();
+  }, [handleDone]);
+
   const heroScale = useRef(new Animated.Value(0.8)).current;
   const heroOpacity = useRef(new Animated.Value(0)).current;
   const contentTranslate = useRef(new Animated.Value(16)).current;
@@ -139,7 +158,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
     ]).start();
   }, [contentOpacity, contentTranslate, heroOpacity, heroScale]);
 
-  const dots = useMemo(
+  const dots = useMemo<AccentDotProps[]>(
     () => [
       { size: 10, color: colors.secondaryContainer, top: 100, left: "14%", delay: 0 },
       { size: 14, color: colors.surfaceWarm, top: 132, right: "12%", delay: 180 },
@@ -188,7 +207,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.content}>
+      <View style={styles.content}>
         <Animated.View
           style={[
             styles.heroWrap,
@@ -245,19 +264,14 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
               ))}
             </View>
         </Animated.View>
-        </View>
+      </View>
       </ScrollView>
 
       <View style={[styles.footerActions, { paddingBottom: bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
           accessibilityRole="button"
-          // Tear down the whole modal flow (premium → payment → detail →
-          // success) and land on the dashboard. `router.replace` here would
-          // swap inside the iOS modal container and leave the dashboard stuck
-          // in a sheet (#52/#53). There is intentionally no back into the
-          // completed payment flow.
-          onPress={() => exitFlowTo("/(tabs)")}
+          onPress={handleDone}
         >
           <Text style={styles.primaryButtonText}>Kembali ke Dashboard</Text>
         </Pressable>
@@ -270,17 +284,18 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.surfaceContainerLowest,
+    paddingHorizontal: 20,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
   },
   content: {
     alignItems: "center",
     paddingTop: 20,
+    paddingBottom: 16,
   },
   heroWrap: {
     marginTop: 20,
@@ -406,9 +421,7 @@ const styles = StyleSheet.create({
   },
   footerActions: {
     gap: 10,
-    paddingHorizontal: 20,
     paddingTop: 12,
-    backgroundColor: colors.surfaceContainerLowest,
   },
   primaryButton: {
     height: 52,
