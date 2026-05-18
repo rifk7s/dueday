@@ -2,13 +2,13 @@ import DatePickerCalendar from "@/components/DatePickerCalendar";
 import TimePicker from "@/components/TimePicker";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
-import { useCreateTaskMutation } from "@/hooks/useTasks";
+import { useUpdateTaskMutation } from "@/hooks/useTasks";
 import { useTagIdByName } from "@/hooks/useTags";
-import { toApiDate, toApiTime } from "@/api/format";
-import { PRIORITY_API_MAP } from "@/api/tasks";
+import { fromApiTime, toApiDate, toApiTime } from "@/api/format";
+import { PRIORITY_API_MAP, type UpdateTask } from "@/api/tasks";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useRef, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -22,17 +22,29 @@ import {
   ToastAndroid,
 } from "react-native";
 import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard-controller";
-import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-} from "react-native-reanimated";
+import Animated, { Extrapolation, interpolate, useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTasksQuery } from "@/hooks/useTasks";
 
 type PriorityType = "Tinggi" | "Sedang" | "Rendah" | null;
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
 
-export default function CreateTaskPage() {
+const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
+
+function isoToDdMmYyyy(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const ymd = iso.substring(0, 10);
+  const [yyyy, mm, dd] = ymd.split("-");
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+const PRIORITY_API_TO_UI: Record<string, PriorityType> = {
+  high: "Tinggi",
+  medium: "Sedang",
+  low: "Rendah",
+};
+
+export default function EditTaskPage() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
@@ -42,6 +54,10 @@ export default function CreateTaskPage() {
   const prevDescHeight = useRef(0);
   const isDescFocused = useRef(false);
   const [footerHeight, setFooterHeight] = useState(80);
+
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { data: tasks = [], isLoading, isError } = useTasksQuery();
+  const task = tasks.find((t) => t.id === id);
 
   const [namatugas, setNamaTugas] = useState("");
   const [tanggal, setTanggal] = useState("");
@@ -54,11 +70,21 @@ export default function CreateTaskPage() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [validationError, setValidationError] = useState("");
 
-  const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-
-  const mutation = useCreateTaskMutation();
+  const updateMutation = useUpdateTaskMutation();
   const tagId = useTagIdByName(tag);
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
+
+  useEffect(() => {
+    if (task) {
+      setNamaTugas(task.task_name ?? "");
+      setTanggal(isoToDdMmYyyy(task.date ?? ""));
+      setJam(fromApiTime(task.time));
+      setPrioritas(PRIORITY_API_TO_UI[task.priority ?? ""] ?? null);
+      setTag((task.tag?.nama_tag as TagType) ?? null);
+      setGoals(task.goals ?? "");
+      setDeskripsi(task.deskripsi ?? "");
+    }
+  }, [task]);
 
   const getPriorityColor = (priority: PriorityType) => {
     if (priority === "Tinggi") return colors.error;
@@ -68,8 +94,8 @@ export default function CreateTaskPage() {
   };
 
   const handleSave = () => {
-    // Two-stage save: first tap dismisses keyboard so the user can see the full
-    // form and verify required pickers (tenggat) before committing.
+    if (!task) return;
+
     if (isKeyboardVisible) {
       Keyboard.dismiss();
       return;
@@ -85,23 +111,25 @@ export default function CreateTaskPage() {
     }
     setValidationError("");
 
-    mutation.mutate(
+    updateMutation.mutate(
       {
-        task_name: namatugas.trim(),
-        date: toApiDate(tanggal),
-        ...(jam ? { time: toApiTime(jam) } : {}),
-        ...(prioritas ? { priority: PRIORITY_API_MAP[prioritas] } : {}),
-        ...(tagId !== undefined ? { id_tag: tagId } : {}),
-        ...(goals.trim() ? { goals: goals.trim() } : {}),
-        ...(deskripsi.trim() ? { deskripsi: deskripsi.trim() } : {}),
-        status: "ongoing",
+        id: task.id,
+        data: {
+          ...(namatugas ? { task_name: namatugas.trim() } : {}),
+          ...(tanggal ? { date: toApiDate(tanggal) } : {}),
+          ...(jam ? { time: toApiTime(jam) } : { time: null }),
+          ...(prioritas ? { priority: PRIORITY_API_MAP[prioritas] } : { priority: null }),
+          ...(tagId !== undefined ? { id_tag: tagId } : {}),
+          ...(goals.trim() ? { goals: goals.trim() } : {}),
+          ...(deskripsi.trim() ? { deskripsi: deskripsi.trim() } : {}),
+        } as UpdateTask,
       },
       {
         onSuccess: () => {
           if (Platform.OS === "android") {
-            ToastAndroid.show("Tugas berhasil dibuat!", ToastAndroid.SHORT);
+            ToastAndroid.show("Tugas berhasil diedit!", ToastAndroid.SHORT);
           } else {
-            Alert.alert("Berhasil", "Tugas berhasil dibuat!");
+            Alert.alert("Berhasil", "Tugas berhasil diedit!");
           }
           router.back();
         },
@@ -119,17 +147,35 @@ export default function CreateTaskPage() {
     ),
   }));
 
+  if (isLoading) {
+    return (
+      <View style={[styles.centered, { paddingTop: top }]}>
+        <ActivityIndicator size="large" color={colors.primaryContainer} />
+      </View>
+    );
+  }
+
+  if (isError || !task) {
+    return (
+      <View style={[styles.centered, { paddingTop: top }]}>
+        <Text style={styles.emptyText}>Tugas tidak ditemukan.</Text>
+        <Pressable onPress={() => router.back()} style={styles.backLink}>
+          <Text style={styles.backLinkText}>Kembali</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.root, { paddingTop: top }]}>
+    <View style={[styles.root, { paddingTop: top }]}> 
       <View style={styles.header}>
         <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Buat Tugas</Text>
+        <Text style={styles.headerTitle}>Edit Tugas</Text>
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* bottomOffset is measured from the footer at runtime so it adapts to screen size and style changes */}
       <KeyboardAwareScrollView
         ref={scrollRef}
         style={styles.container}
@@ -141,9 +187,9 @@ export default function CreateTaskPage() {
         {validationError ? (
           <Text style={styles.errorText}>{validationError}</Text>
         ) : null}
-        {mutation.isError ? (
+        {updateMutation.isError ? (
           <Text style={styles.errorText}>
-            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan tugas."}
+            {updateMutation.error instanceof Error ? updateMutation.error.message : "Gagal menyimpan perubahan."}
           </Text>
         ) : null}
 
@@ -273,20 +319,19 @@ export default function CreateTaskPage() {
         </View>
       </KeyboardAwareScrollView>
 
-      {/* Absolutely positioned footer — slides up in sync with keyboard */}
       <Animated.View
         style={[styles.footer, footerAnimatedStyle]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
       >
         <Pressable
-          style={[styles.saveButton, mutation.isPending && styles.saveButtonDisabled]}
+          style={[styles.saveButton, updateMutation.isPending && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={mutation.isPending}
+          disabled={updateMutation.isPending}
         >
-          {mutation.isPending ? (
+          {updateMutation.isPending ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>Simpan</Text>
+            <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
           )}
         </Pressable>
       </Animated.View>
@@ -307,11 +352,15 @@ export default function CreateTaskPage() {
   );
 }
 
+function getPriorityColor(priority: PriorityType) {
+  if (priority === "Tinggi") return colors.error;
+  if (priority === "Sedang") return colors.primaryContainer;
+  if (priority === "Rendah") return colors.success;
+  return colors.surfaceContainerLow;
+}
+
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  root: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -319,124 +368,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  backButtonIcon: {
-    padding: 8,
-    marginLeft: -8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: fonts["600"],
-    color: colors.onBackground,
-    flex: 1,
-    textAlign: "center",
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  container: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-  },
-  errorText: {
-    fontSize: 13,
-    fontFamily: fonts["500"],
-    color: colors.error,
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontFamily: fonts["600"],
-    color: colors.primaryContainer,
-    marginBottom: 10,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerLow,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
-    fontFamily: fonts["400"],
-    color: colors.onSurface,
-    backgroundColor: colors.surfaceContainerLowest,
-  },
-  goalsInput: {
-    minHeight: 120,
-    paddingTop: 12,
-  },
-  descriptionInput: {
-    minHeight: 100,
-    paddingTop: 12,
-  },
-  dateTimeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerLow,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.surfaceContainerLowest,
-    marginBottom: 12,
-  },
-  dateIcon: {
-    marginRight: 8,
-  },
-  dateTimeText: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 14,
-    fontFamily: fonts["400"],
-    color: colors.onSurface,
-  },
-  dateTimePlaceholder: {
-    color: colors.iconMuted,
-  },
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    marginBottom: 8,
-  },
-  chipText: {
-    fontSize: 13,
-    fontFamily: fonts["500"],
-  },
-  footer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceContainerLow,
-  },
-  saveButton: {
-    backgroundColor: colors.primaryContainer,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontFamily: fonts["600"],
-    color: colors.onPrimary,
-  },
+  backButtonIcon: { padding: 8, marginLeft: -8 },
+  headerTitle: { fontSize: 20, fontFamily: fonts["600"], color: colors.onBackground, flex: 1, textAlign: "center" },
+  headerSpacer: { width: 44 },
+  container: { flex: 1 },
+  content: { paddingHorizontal: 16, paddingTop: 20 },
+  errorText: { fontSize: 13, fontFamily: fonts["500"], color: colors.error, marginBottom: 16, paddingHorizontal: 4 },
+  section: { marginBottom: 24 },
+  label: { fontSize: 14, fontFamily: fonts["600"], color: colors.primaryContainer, marginBottom: 10 },
+  input: { borderWidth: 1, borderColor: colors.surfaceContainerLow, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, fontFamily: fonts["400"], color: colors.onSurface, backgroundColor: colors.surfaceContainerLowest },
+  goalsInput: { minHeight: 120, paddingTop: 12 },
+  descriptionInput: { minHeight: 100, paddingTop: 12 },
+  dateTimeContainer: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.surfaceContainerLow, borderRadius: 8, paddingHorizontal: 12, backgroundColor: colors.surfaceContainerLowest, marginBottom: 12 },
+  dateIcon: { marginRight: 8 },
+  dateTimeText: { flex: 1, paddingVertical: 12, fontSize: 14, fontFamily: fonts["400"], color: colors.onSurface },
+  dateTimePlaceholder: { color: colors.iconMuted },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, marginBottom: 8 },
+  chipText: { fontSize: 13, fontFamily: fonts["500"] },
+  footer: { position: "absolute", left: 0, right: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.surfaceContainerLow },
+  saveButton: { backgroundColor: colors.primaryContainer, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: { fontSize: 16, fontFamily: fonts["600"], color: colors.onPrimary },
+  centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.surfaceContainerLowest },
+  emptyText: { fontSize: 14, fontFamily: fonts["500"], color: colors.onSurfaceVariant, textAlign: "center", marginBottom: 12 },
+  backLink: { paddingVertical: 8, paddingHorizontal: 16 },
+  backLinkText: { color: colors.primaryContainer, fontFamily: fonts["700"], fontSize: 14 },
 });
