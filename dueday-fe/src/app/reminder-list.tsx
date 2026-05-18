@@ -19,7 +19,7 @@ type ReminderCardItem = {
   type: "task" | "activity";
 };
 
-export default function ReminderListScreen(): JSX.Element {
+export default function ReminderListScreen() {
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const { data: tasks = [] } = useTasksQuery();
@@ -98,7 +98,7 @@ export default function ReminderListScreen(): JSX.Element {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
+            <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
           </Pressable>
 
           <Text style={styles.title}>Reminder List</Text>
@@ -144,7 +144,7 @@ type StatsRowProps = {
   };
 };
 
-function StatsRow({ stats }: Readonly<StatsRowProps>): JSX.Element {
+function StatsRow({ stats }: Readonly<StatsRowProps>) {
   return (
     <View style={styles.statsRow}>
       <StatCard
@@ -176,7 +176,7 @@ type StatCardProps = {
   color: string;
 };
 
-function StatCard({ icon, label, value, color }: Readonly<StatCardProps>): JSX.Element {
+function StatCard({ icon, label, value, color }: Readonly<StatCardProps>) {
   return (
     <View style={styles.statCard}>
       <View style={[styles.statIconWrap, { backgroundColor: color }]}>
@@ -188,7 +188,7 @@ function StatCard({ icon, label, value, color }: Readonly<StatCardProps>): JSX.E
   );
 }
 
-function ReminderSection({ items, emptyText }: Readonly<ReminderSectionProps>): JSX.Element {
+function ReminderSection({ items, emptyText }: Readonly<ReminderSectionProps>) {
   return (
     <View style={styles.section}>
       {items.length > 0 ? (
@@ -206,7 +206,7 @@ type ReminderCardProps = {
   item: ReminderCardItem;
 };
 
-function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>): JSX.Element {
+function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
   const accentColor = item.type === "task" ? colors.primaryContainer : colors.secondaryContainer;
   const icon = item.type === "task" ? "document-text-outline" : "sparkles-outline";
 
@@ -431,6 +431,11 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontSize: 15,
     fontFamily: fonts["700"],
+  },
+  cardSubtitle: {
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    fontFamily: fonts["500"],
   },
   badge: {
     paddingHorizontal: 10,
