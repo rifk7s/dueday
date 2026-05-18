@@ -3,6 +3,7 @@
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TagController;
@@ -63,4 +64,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/subscriptions/{subscription}', [SubscriptionController::class, 'update']);
     Route::patch('/subscriptions/{subscription}', [SubscriptionController::class, 'update']);
     Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy']);
+
+    // Payments
+    Route::get('/payments', [PaymentController::class, 'index']);
+    Route::get('/payments/{payment}', [PaymentController::class, 'show']);
+    Route::post('/payments', [PaymentController::class, 'store']);
+    Route::put('/payments/{payment}', [PaymentController::class, 'update']);
+    Route::patch('/payments/{payment}', [PaymentController::class, 'update']);
+    Route::delete('/payments/{payment}', [PaymentController::class, 'destroy']);
 });

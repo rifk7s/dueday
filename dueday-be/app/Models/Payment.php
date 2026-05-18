@@ -6,10 +6,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['id', 'user_id', 'plan', 'status', 'started_at', 'expired_at'])]
-class Subscription extends Model
+#[Fillable(['id', 'user_id', 'subscription_id', 'amount', 'method', 'status'])]
+class Payment extends Model
 {
     use HasFactory;
 
@@ -26,13 +25,13 @@ class Subscription extends Model
     {
         return [
             'user_id' => 'string',
-            'started_at' => 'datetime',
-            'expired_at' => 'datetime',
+            'subscription_id' => 'string',
+            'amount' => 'decimal:2',
         ];
     }
 
     /**
-     * Get the user that owns the subscription.
+     * Get the user that owns the payment.
      */
     public function user(): BelongsTo
     {
@@ -40,10 +39,10 @@ class Subscription extends Model
     }
 
     /**
-     * Get the payments for the subscription.
+     * Get the subscription this payment belongs to.
      */
-    public function payments(): HasMany
+    public function subscription(): BelongsTo
     {
-        return $this->hasMany(Payment::class);
+        return $this->belongsTo(Subscription::class);
     }
 }
