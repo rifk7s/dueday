@@ -73,6 +73,7 @@ function RootNavigator() {
         <Stack.Screen name="payment-success" options={successScreenOptions} />
         <Stack.Screen name="create-task" options={modalScreenOptions} />
         <Stack.Screen name="create-activity" options={modalScreenOptions} />
+        <Stack.Screen name="edit-activity" options={modalScreenOptions} />
         <Stack.Screen name="activityprogress" />
         <Stack.Screen name="list" />
         <Stack.Screen name="reminder-list" />

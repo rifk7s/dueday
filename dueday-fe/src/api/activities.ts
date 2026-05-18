@@ -30,7 +30,7 @@ export type NewActivity = {
   tanggal?: string;
   time_start?: string;
   time_end?: string;
-  id_tag?: number;
+  id_tag?: number | null;
   ulangi?: UlangiType;
   deskripsi?: string;
   status?: "not_started" | "ongoing" | "pending" | "completed";
