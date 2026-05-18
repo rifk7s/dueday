@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TaskController;
@@ -45,4 +46,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/reminders/{reminder}', [ReminderController::class, 'update']);
     Route::patch('/reminders/{reminder}', [ReminderController::class, 'update']);
     Route::delete('/reminders/{reminder}', [ReminderController::class, 'destroy']);
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
+    Route::post('/notifications', [NotificationController::class, 'store']);
+    Route::put('/notifications/{notification}', [NotificationController::class, 'update']);
+    Route::patch('/notifications/{notification}', [NotificationController::class, 'update']);
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
 });

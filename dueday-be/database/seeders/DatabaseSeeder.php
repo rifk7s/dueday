@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             TaskSeeder::class,
             ActivitySeeder::class,
             ReminderSeeder::class,
+            NotificationSeeder::class,
         ]);
     }
 }

@@ -50,4 +50,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Reminder::class);
     }
+
+    /**
+     * Get all notifications for the user.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
 }
