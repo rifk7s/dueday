@@ -8,9 +8,11 @@
     "scheme": "duedayfe",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.rifky.dueday",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.rifky.dueday",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,7 +39,9 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-dev-client",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
