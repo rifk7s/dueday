@@ -105,7 +105,11 @@ export default function DatePickerCalendar({
     return false;
   };
 
-  const hasMarker = (day: number) => markedDays.includes(day.toString().padStart(2, "0"));
+  const hasMarker = (day: number) => {
+    const fullDateKey = `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+    const dayKey = day.toString().padStart(2, "0");
+    return markedDays.includes(fullDateKey) || markedDays.includes(dayKey);
+  };
 
   const calendarContent = (
     <View style={[styles.content, inline && styles.inlineContent]}>
