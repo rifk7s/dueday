@@ -11,6 +11,10 @@ const ACTIVE_DISC_SIZE = 70;
 // How far the active bubble pops above the bar top. Fixed (not derived from
 // bar height) so shrinking TAB_HEIGHT doesn't blow up the pop distance.
 const ACTIVE_BUBBLE_TOP = -44;
+// Cap on the orange band kept below the icon row. The full safe-area inset
+// (~34 on iPhone) is visually too much dead space under a filled bar, so the
+// bar's bottom region is clamped to this instead of the raw inset.
+const MAX_BOTTOM_BAND = 14;
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export default function BottomNav({ state, navigation }: Readonly<BottomTabBarProps>) {
@@ -47,7 +51,15 @@ export default function BottomNav({ state, navigation }: Readonly<BottomTabBarPr
       pointerEvents="box-none"
       style={[styles.wrapper, { transform: [{ translateY }] }]}
     >
-      <View style={[styles.bar, { height: TAB_HEIGHT + bottomInset, paddingBottom: bottomInset }]}>
+      <View
+        style={[
+          styles.bar,
+          {
+            height: TAB_HEIGHT + Math.min(bottomInset, MAX_BOTTOM_BAND),
+            paddingBottom: Math.min(bottomInset, MAX_BOTTOM_BAND),
+          },
+        ]}
+      >
         <Animated.View
           pointerEvents="none"
           style={[styles.activeBubble, { transform: [{ translateX: bubbleX }] }]}
