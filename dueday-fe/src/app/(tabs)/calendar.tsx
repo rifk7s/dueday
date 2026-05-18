@@ -3,7 +3,7 @@ import { ScheduleCard } from "@/components/ScheduleCard";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
@@ -17,89 +17,20 @@ type ScheduleItem = {
   color: string;
   accent: string;
 };
+import { useActivitiesQuery } from "@/hooks/useActivities";
+import { useTasksQuery } from "@/hooks/useTasks";
 
-const scheduleItems: ScheduleItem[] = [
-  {
-    id: "morning-workout",
-    date: "08",
-    startHour: 8,
-    endHour: 9,
-    title: "Olahraga Pagi",
-    color: "#FEF3C7",
-    accent: "#e0a400",
-  },
-  {
-    id: "english",
-    date: "08",
-    startHour: 12,
-    endHour: 13,
-    title: "Bahasa Inggris",
-    color: "#CCFBF1",
-    accent: "#23b56a",
-  },
-  {
-    id: "history",
-    date: "08",
-    startHour: 14,
-    endHour: 15,
-    title: "Sejarah",
-    color: "#EDE9FE",
-    accent: "#8f54dd",
-  },
-  {
-    id: "design-review",
-    date: "09",
-    startHour: 9,
-    endHour: 10,
-    title: "Design Review",
-    color: "#FFE4E6",
-    accent: "#fb7185",
-  },
-  {
-    id: "math-09",
-    date: "09",
-    startHour: 13,
-    endHour: 14,
-    title: "Matematika",
-    color: "#DDD6FE",
-    accent: "#6366f1",
-  },
-  {
-    id: "meeting-10",
-    date: "10",
-    startHour: 10,
-    endHour: 11,
-    title: "Meeting Tim",
-    color: "#DBEAFE",
-    accent: "#3b82f6",
-  },
-  {
-    id: "task-10",
-    date: "10",
-    startHour: 15,
-    endHour: 16,
-    title: "Tugas Kampus",
-    color: "#DCFCE7",
-    accent: "#22c55e",
-  },
-  {
-    id: "gym-11",
-    date: "11",
-    startHour: 7,
-    endHour: 8,
-    title: "Gym",
-    color: "#FEF3C7",
-    accent: "#f59e0b",
-  },
-  {
-    id: "call-12",
-    date: "12",
-    startHour: 11,
-    endHour: 12,
-    title: "Call Client",
-    color: "#E0F2FE",
-    accent: "#0ea5e9",
-  },
+// Colors / accents palette used when activity/tag doesn't provide explicit color
+const ACCENT_PALETTE = [
+  "#e0a400",
+  "#23b56a",
+  "#8f54dd",
+  "#fb7185",
+  "#6366f1",
+  "#3b82f6",
+  "#22c55e",
+  "#f59e0b",
+  "#0ea5e9",
 ];
 
 const START_HOUR = 7;
@@ -117,6 +48,52 @@ export default function CalendarScreen() {
     return `${day}/${month}/${today.getFullYear()}`;
   });
   const selectedDay = selectedDate.split("/")[0];
+  const { data: activities = [] } = useActivitiesQuery();
+  const { data: tasks = [] } = useTasksQuery();
+
+  const scheduleItems: ScheduleItem[] = useMemo(() => {
+    const fromActivities: ScheduleItem[] = activities
+      .filter((a) => !!a.tanggal)
+      .map((a, idx) => {
+        const datePart = a.tanggal ? (a.tanggal.substring(8, 10)) : ""; // DD from YYYY-MM-DD
+        const start = a.time_start ? parseInt(a.time_start.substring(0, 2), 10) : START_HOUR;
+        const endRaw = a.time_end ? parseInt(a.time_end.substring(0, 2), 10) : start + 1;
+        const end = Math.min(Math.max(endRaw, start + 1), END_HOUR);
+        const accent = ACCENT_PALETTE[(a.id_tag ?? idx) % ACCENT_PALETTE.length];
+        return {
+          id: a.id,
+          date: datePart,
+          startHour: start,
+          endHour: end,
+          title: a.activity_name,
+          color: colors.surfaceContainerLowest,
+          accent,
+        } as ScheduleItem;
+      });
+
+    const fromTasks: ScheduleItem[] = tasks
+      .filter((t) => !!t.date)
+      .map((t, idx) => {
+        // task.date may include time (ISO) or be plain YYYY-MM-DD
+        const dateRaw = t.date || "";
+        const datePart = dateRaw.length >= 10 ? dateRaw.substring(8, 10) : "";
+        const start = t.time ? parseInt(t.time.substring(0, 2), 10) : START_HOUR;
+        const end = Math.min(start + 1, END_HOUR);
+        const accent = ACCENT_PALETTE[(t.id_tag ?? idx) % ACCENT_PALETTE.length];
+        return {
+          id: t.id,
+          date: datePart,
+          startHour: start,
+          endHour: end,
+          title: t.task_name,
+          color: colors.surfaceContainerLowest,
+          accent,
+        } as ScheduleItem;
+      });
+
+    return [...fromActivities, ...fromTasks];
+  }, [activities]);
+
   const markedDays = Array.from(new Set(scheduleItems.map((item) => item.date)));
   const selectedScheduleItems = scheduleItems.filter((item) => item.date === selectedDay);
   const hasSelectedScheduleItems = selectedScheduleItems.length > 0;
