@@ -6,9 +6,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type DatePickerCalendarProps = {
   visible: boolean;
@@ -27,6 +28,8 @@ export default function DatePickerCalendar({
   inline = false,
   markedDays = [],
 }: Readonly<DatePickerCalendarProps>) {
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -112,7 +115,16 @@ export default function DatePickerCalendar({
   };
 
   const calendarContent = (
-    <View style={[styles.content, inline && styles.inlineContent]}>
+    <View
+      style={[
+        styles.content,
+        inline && styles.inlineContent,
+        !inline && {
+          maxHeight: windowHeight * 0.88,
+          paddingBottom: Math.max(insets.bottom, 20),
+        },
+      ]}
+    >
       {!inline ? (
         <View style={styles.header}>
           <Pressable onPress={onClose}>
@@ -186,7 +198,7 @@ export default function DatePickerCalendar({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <SafeAreaView style={styles.container}>{calendarContent}</SafeAreaView>
+        <View style={styles.container}>{calendarContent}</View>
       </View>
     </Modal>
   );

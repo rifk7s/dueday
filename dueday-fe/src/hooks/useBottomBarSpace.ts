@@ -4,6 +4,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export const TAB_BAR_HEIGHT = 62;
 
 /**
+ * How far the BottomNav active bubble pops *above* the bar's top edge.
+ * The floating bubble overhangs the bar, so screen content / FABs must clear
+ * this on top of the bar height or they sit under the bubble.
+ * Single source of truth — BottomNav derives its bubble offset from this.
+ */
+export const ACTIVE_BUBBLE_OVERHANG = 44;
+
+/**
  * Minimum bottom inset applied even on devices without a system
  * gesture/home area (older Android, devices with hardware buttons).
  */
@@ -20,10 +28,11 @@ export function useBottomBarInset(): number {
 }
 
 /**
- * Total vertical space the floating BottomNav occupies, inset included.
- * Use for scroll `paddingBottom` and FAB offsets on (tabs) screens so
- * content/FAB never sits behind the bar or the home indicator.
+ * Total vertical space the floating BottomNav occupies, inset included AND
+ * the active-bubble overhang that pops above the bar. Use for scroll
+ * `paddingBottom` and FAB offsets on (tabs) screens so content/FAB never
+ * sits behind the bar, the bubble, or the home indicator.
  */
 export function useBottomBarSpace(): number {
-  return TAB_BAR_HEIGHT + useBottomBarInset();
+  return TAB_BAR_HEIGHT + useBottomBarInset() + ACTIVE_BUBBLE_OVERHANG;
 }

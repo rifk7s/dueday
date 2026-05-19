@@ -5,7 +5,7 @@ import { apiFetch } from "@/api/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Payment } from "@/api/payments";
 
@@ -112,38 +112,72 @@ export default function DetailTransferScreen(): React.JSX.Element {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialPaymentStatus);
   const hasNavigatedToSuccess = useRef(false);
 
-  const refreshPaymentStatus = useCallback(async () => {
-    if (!paymentId || !token) {
-      return;
-    }
+  const refreshPaymentStatus = useCallback(
+    async (options?: { notify?: boolean }) => {
+      // notify === true only for an explicit "Cek Status" tap. The 5s polling
+      // and the on-mount fetch pass nothing, so they never raise a dialog.
+      const notify = options?.notify ?? false;
 
-    setRefreshing(true);
+      if (!paymentId || !token) {
+        if (notify) {
+          const info = paymentStatusMeta[paymentStatus] ?? paymentStatusMeta.unknown;
+          Alert.alert(info.title, info.description);
+        }
+        return;
+      }
 
-    try {
-      const payment = await apiFetch<Payment>(`/payments/${paymentId}`, token);
-      setPaymentStatus(payment.status);
-    } catch {
-      // Keep the last known status if the request fails.
-    } finally {
-      setRefreshing(false);
-    }
-  }, [paymentId, token]);
+      // Only the manual "Cek Status" tap drives the button's loading state.
+      // Background polling stays silent so the button doesn't flicker.
+      if (notify) {
+        setRefreshing(true);
+      }
+
+      try {
+        const payment = await apiFetch<Payment>(`/payments/${paymentId}`, token);
+        setPaymentStatus(payment.status);
+        // "paid" is handled by the navigate-to-success effect, so no dialog.
+        if (notify && payment.status !== "paid") {
+          const info = paymentStatusMeta[payment.status] ?? paymentStatusMeta.unknown;
+          Alert.alert(info.title, info.description);
+        }
+      } catch {
+        // Keep the last known status if the request fails.
+        if (notify) {
+          Alert.alert(
+            "Gagal mengecek status",
+            "Terjadi kesalahan saat mengecek status pembayaran. Silakan coba lagi.",
+          );
+        }
+      } finally {
+        if (notify) {
+          setRefreshing(false);
+        }
+      }
+    },
+    [paymentId, token, paymentStatus],
+  );
 
   useEffect(() => {
     void refreshPaymentStatus();
 
-    if (!paymentId || !token) {
+    // Stop polling once the payment reaches a terminal state — "paid" navigates
+    // away via the effect below, "failed"/"refunded" won't change again, so
+    // there's nothing to keep asking the server about.
+    const isTerminal =
+      paymentStatus === "paid" || paymentStatus === "failed" || paymentStatus === "refunded";
+
+    if (!paymentId || !token || isTerminal) {
       return;
     }
 
     const intervalId = setInterval(() => {
       void refreshPaymentStatus();
-    }, 5000);
+    }, 10000);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, [paymentId, token, refreshPaymentStatus]);
+  }, [paymentId, token, paymentStatus, refreshPaymentStatus]);
 
   useEffect(() => {
     if (paymentStatus !== "paid" || hasNavigatedToSuccess.current) {
@@ -244,7 +278,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
           <Pressable
             style={styles.confirmButton}
             accessibilityRole="button"
-            onPress={() => void refreshPaymentStatus()}
+            onPress={() => void refreshPaymentStatus({ notify: true })}
           >
             <Text style={styles.confirmButtonText}>
               {refreshing ? "Mengecek Status..." : "Cek Status"}

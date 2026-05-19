@@ -95,10 +95,10 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   const methodName = (params.methodName as string) || "Virtual Account";
 
   const handleDone = useCallback(() => {
-    // Single native dismiss that also switches the buried tab to the
-    // dashboard, so the sheet slides down once and reveals the dashboard
-    // (not the profile tab the flow was launched from).
-    exitFlowTo("/");
+    // Single native dismiss that also switches the buried tab back to
+    // profile, so the sheet slides down once and reveals the profile tab
+    // the flow was launched from (not the dashboard).
+    exitFlowTo("/profile");
   }, []);
 
   useEffect(() => {
@@ -273,7 +273,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
           accessibilityRole="button"
           onPress={handleDone}
         >
-          <Text style={styles.primaryButtonText}>Kembali ke Dashboard</Text>
+          <Text style={styles.primaryButtonText}>Kembali ke Profil</Text>
         </Pressable>
       </View>
     </View>

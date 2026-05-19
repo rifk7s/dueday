@@ -3,18 +3,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, LayoutChangeEvent, Pressable, StyleSheet, View } from "react-native";
-import { TAB_BAR_HEIGHT, useBottomBarInset } from "@/hooks/useBottomBarSpace";
+import { ACTIVE_BUBBLE_OVERHANG, TAB_BAR_HEIGHT, useBottomBarInset } from "@/hooks/useBottomBarSpace";
 
 const TAB_HEIGHT = TAB_BAR_HEIGHT;
 const ACTIVE_BUBBLE_SIZE = 92;
 const ACTIVE_DISC_SIZE = 70;
-// How far the active bubble pops above the bar top. Fixed (not derived from
-// bar height) so shrinking TAB_HEIGHT doesn't blow up the pop distance.
-const ACTIVE_BUBBLE_TOP = -44;
-// Cap on the orange band kept below the icon row. The full safe-area inset
-// (~34 on iPhone) is visually too much dead space under a filled bar, so the
-// bar's bottom region is clamped to this instead of the raw inset.
-const MAX_BOTTOM_BAND = 14;
+// How far the active bubble pops above the bar top. Shared with
+// useBottomBarSpace so screen content padding always clears the bubble.
+const ACTIVE_BUBBLE_TOP = -ACTIVE_BUBBLE_OVERHANG;
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>["name"];
 
 export default function BottomNav({ state, navigation }: Readonly<BottomTabBarProps>) {
@@ -55,8 +51,11 @@ export default function BottomNav({ state, navigation }: Readonly<BottomTabBarPr
         style={[
           styles.bar,
           {
-            height: TAB_HEIGHT + Math.min(bottomInset, MAX_BOTTOM_BAND),
-            paddingBottom: Math.min(bottomInset, MAX_BOTTOM_BAND),
+            // Full safe-area inset (floored at 12 by useBottomBarInset) so the
+            // tap targets clear the Android system nav / iOS home indicator and
+            // the bar exactly fills the space screens reserve via useBottomBarSpace().
+            height: TAB_HEIGHT + bottomInset,
+            paddingBottom: bottomInset,
           },
         ]}
       >

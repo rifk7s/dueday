@@ -120,7 +120,7 @@ export default function ProfileScreen(): React.JSX.Element {
     onSettled: () => {},
   });
 
-  const handleLogout = async () => {
+  const performLogout = async () => {
     if (signingOut) {
       return;
     }
@@ -130,6 +130,21 @@ export default function ProfileScreen(): React.JSX.Element {
     } finally {
       setSigningOut(false);
     }
+  };
+
+  const handleLogout = () => {
+    if (signingOut) {
+      return;
+    }
+    Alert.alert(
+      "Logout",
+      "Yakin ingin keluar dari akun ini?",
+      [
+        { text: "Batal", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: () => void performLogout() },
+      ],
+      { cancelable: true },
+    );
   };
 
   const settingsWithActions = settings.map((item) =>
@@ -222,7 +237,9 @@ export default function ProfileScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Pengaturan</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pengaturan</Text>
+          </View>
 
           <View style={styles.settingsList}>
             {settingsWithActions.map((item) => (
@@ -401,7 +418,7 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 18,
     backgroundColor: colors.surfaceContainerLowest,
-    padding: 14,
+    padding: 16,
     shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.06,
