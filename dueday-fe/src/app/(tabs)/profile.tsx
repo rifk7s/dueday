@@ -1,27 +1,30 @@
+import { updateActivity } from "@/api/activities";
+import { updateTask } from "@/api/tasks";
+import { updateMe } from "@/api/users";
+import type { AuthUser } from "@/auth/api";
 import { useSession } from "@/auth/ctx";
+import { setStorageItemAsync } from "@/auth/useStorageState";
 import { colors, fonts, typography } from "@/constants/theme";
+import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
+import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
-import { useTasksQuery } from "@/hooks/useTasks";
-import { setStorageItemAsync } from "@/auth/useStorageState";
-import { updateMe } from "@/api/users";
-import { useMutation } from "@tanstack/react-query";
-import type { AuthUser } from "@/auth/api";
 import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Alert,
+    Image,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    ToastAndroid,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQueryClient } from "@tanstack/react-query";
-import { Platform, ToastAndroid, Alert } from "react-native";
-import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 
 type TaskStat = {
   label: string;
@@ -152,6 +155,108 @@ export default function ProfileScreen(): React.JSX.Element {
       ? { ...item, onPress: () => router.push("/premium-plan") }
       : item
   );
+
+  // Developer-only: show a toggle to simulate subscription when using mock auth
+  const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
+  if (MOCK_AUTH && user) {
+    settingsWithActions.push({
+      icon: "sparkles-outline",
+      label: user.status === "Subscribed" ? "Unset Premium (Dev)" : "Set Premium (Dev)",
+      onPress: async () => {
+        try {
+          const newStatus = user.status === "Subscribed" ? "Unsubscribed" : "Subscribed";
+          const updatedUser: AuthUser = { ...(user as AuthUser), status: newStatus };
+
+          // persist to storage
+          await setStorageItemAsync("auth_user", JSON.stringify(updatedUser));
+
+          // update session and caches
+          try {
+            setUser?.(updatedUser);
+          } catch (e) {
+            // ignore
+          }
+
+          queryClientRef.setQueryData(["current-user"], updatedUser);
+
+          // If we're unsetting premium, clear premium fields on tasks and activities
+          if (newStatus === "Unsubscribed") {
+            try {
+              const tasksCache = queryClientRef.getQueryData<any[]>(["tasks"]) ?? [];
+              const activitiesCache = queryClientRef.getQueryData<any[]>(["activities"]) ?? [];
+
+              // Optimistically update cache to remove premium fields
+              queryClientRef.setQueryData(["tasks"], tasksCache.map((t) => ({
+                ...t,
+                reminder_style: null,
+                reminder_sound: null,
+                reminder_frequency: null,
+                reminder_vibrate: null,
+              })));
+
+              queryClientRef.setQueryData(["activities"], activitiesCache.map((a) => ({
+                ...a,
+                reminder_style: null,
+                reminder_sound: null,
+                reminder_frequency: null,
+                reminder_vibrate: null,
+              })));
+
+              // Persist changes to mock store / backend
+              const taskPromises = tasksCache.map((t) => {
+                if (t?.reminder_style || t?.reminder_sound || t?.reminder_frequency || t?.reminder_vibrate) {
+                  return updateTask(t.id, {
+                    reminder_style: null,
+                    reminder_sound: null,
+                    reminder_frequency: null,
+                    reminder_vibrate: null,
+                  }, token ?? null).catch(() => null);
+                }
+                return Promise.resolve(null);
+              });
+
+              const activityPromises = activitiesCache.map((a) => {
+                if (a?.reminder_style || a?.reminder_sound || a?.reminder_frequency || a?.reminder_vibrate) {
+                  return updateActivity(a.id, {
+                    reminder_style: null,
+                    reminder_sound: null,
+                    reminder_frequency: null,
+                    reminder_vibrate: null,
+                  }, token ?? null).catch(() => null);
+                }
+                return Promise.resolve(null);
+              });
+
+              await Promise.all([...taskPromises, ...activityPromises]);
+
+              queryClientRef.invalidateQueries({ queryKey: ["tasks"] });
+              queryClientRef.invalidateQueries({ queryKey: ["activities"] });
+            } catch (e) {
+              // ignore errors from cleaning up
+            }
+          } else {
+            queryClientRef.invalidateQueries({ queryKey: ["activities"] });
+            queryClientRef.invalidateQueries({ queryKey: ["tasks"] });
+          }
+
+          queryClientRef.invalidateQueries({ queryKey: ["current-user"] });
+
+          const msg = updatedUser.status === "Subscribed" ? "User set to Subscribed (dev)" : "User set to Unsubscribed (dev)";
+          if (Platform.OS === "android") {
+            ToastAndroid.show(msg, ToastAndroid.SHORT);
+          } else {
+            Alert.alert("Dev", msg);
+          }
+        } catch (err) {
+          if (Platform.OS === "android") {
+            ToastAndroid.show("Gagal mengubah status dev", ToastAndroid.SHORT);
+          } else {
+            Alert.alert("Error", "Gagal mengubah status dev");
+          }
+        }
+      },
+    });
+  }
 
   const { data: tasks = [] } = useTasksQuery();
 

@@ -20,6 +20,10 @@ export type Activity = {
   progress: number;
   deskripsi: string | null;
   reminder_message: string | null;
+  reminder_style?: string | null;
+  reminder_sound?: string | null;
+  reminder_frequency?: "once" | "daily" | "weekly" | null;
+  reminder_vibrate?: boolean | null;
   ulangi: UlangiType | null;
   tag: Tag | null;
   created_at: string;
@@ -35,6 +39,10 @@ export type NewActivity = {
   ulangi?: UlangiType;
   deskripsi?: string;
   reminder_message?: string | null;
+  reminder_style?: string | null;
+  reminder_sound?: string | null;
+  reminder_frequency?: "once" | "daily" | "weekly" | null;
+  reminder_vibrate?: boolean | null;
   status?: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
 };
 
@@ -68,6 +76,10 @@ let mockStore: Activity[] = [
     progress: 0,
     deskripsi: "Review progress sprint",
     reminder_message: null,
+    reminder_style: null,
+    reminder_sound: null,
+    reminder_frequency: null,
+    reminder_vibrate: null,
     ulangi: "satu_minggu",
     tag: mockTags[2] ?? null,
     created_at: new Date().toISOString(),
@@ -152,6 +164,10 @@ export async function updateActivity(
         ? (mockTags.find((tag) => tag.id_tag === input.id_tag) ?? existing.tag)
         : existing.tag,
       reminder_message: input.reminder_message ?? existing.reminder_message,
+      reminder_style: input.reminder_style ?? existing.reminder_style,
+      reminder_sound: input.reminder_sound ?? existing.reminder_sound,
+      reminder_frequency: input.reminder_frequency ?? existing.reminder_frequency,
+      reminder_vibrate: input.reminder_vibrate ?? existing.reminder_vibrate,
       updated_at: new Date().toISOString(),
     };
 
