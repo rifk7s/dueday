@@ -1,10 +1,13 @@
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { useSession } from "@/auth/ctx";
+import { apiFetch } from "@/api/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { Payment } from "@/api/payments";
 
 type MethodMeta = {
   name: string;
@@ -47,15 +50,52 @@ const paymentSteps = [
   "Konfirmasi pembayaran",
 ];
 
+type PaymentStatus = Payment["status"] | "unknown";
+
+const paymentStatusMeta: Record<
+  PaymentStatus,
+  { title: string; description: string; color: string }
+> = {
+  pending: {
+    title: "Menunggu konfirmasi admin",
+    description: "Silakan tunggu sampai admin menyetujui atau menolak pembayaran ini.",
+    color: colors.secondaryContainer,
+  },
+  paid: {
+    title: "Pembayaran disetujui",
+    description: "Admin sudah mengonfirmasi pembayaran kamu.",
+    color: colors.success,
+  },
+  failed: {
+    title: "Pembayaran ditolak",
+    description: "Admin menolak pembayaran ini. Silakan cek ulang atau lakukan pembayaran ulang.",
+    color: colors.error,
+  },
+  refunded: {
+    title: "Pembayaran dikembalikan",
+    description: "Pembayaran ini sudah dibatalkan dan dikembalikan.",
+    color: colors.primaryContainer,
+  },
+  unknown: {
+    title: "Menunggu status pembayaran",
+    description: "Status pembayaran akan tampil di sini setelah admin mengubahnya.",
+    color: colors.primaryContainer,
+  },
+};
+
 export default function DetailTransferScreen(): React.JSX.Element {
   const router = useRouter();
+  const { token } = useSession();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
   const planName = (params.planName as string) || "Dueday Premium 1 Bulan";
   const planPrice = (params.planPrice as string) || "Rp20.000";
+  const planAmount = (params.planAmount as string) || "0";
   const methodId = ((params.methodId as string) || "bca").toLowerCase();
   const methodNameParam = params.methodName as string | undefined;
+  const paymentId = params.paymentId as string | undefined;
+  const initialPaymentStatus = (params.paymentStatus as PaymentStatus) || "unknown";
 
   const methodMeta = useMemo(() => {
     const fallback = methodMetaMap.bca;
@@ -68,6 +108,60 @@ export default function DetailTransferScreen(): React.JSX.Element {
   }, [methodId, methodNameParam]);
 
   const [copyLabel, setCopyLabel] = useState("Salin");
+  const [refreshing, setRefreshing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialPaymentStatus);
+  const hasNavigatedToSuccess = useRef(false);
+
+  const refreshPaymentStatus = useCallback(async () => {
+    if (!paymentId || !token) {
+      return;
+    }
+
+    setRefreshing(true);
+
+    try {
+      const payment = await apiFetch<Payment>(`/payments/${paymentId}`, token);
+      setPaymentStatus(payment.status);
+    } catch {
+      // Keep the last known status if the request fails.
+    } finally {
+      setRefreshing(false);
+    }
+  }, [paymentId, token]);
+
+  useEffect(() => {
+    void refreshPaymentStatus();
+
+    if (!paymentId || !token) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      void refreshPaymentStatus();
+    }, 5000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [paymentId, token, refreshPaymentStatus]);
+
+  useEffect(() => {
+    if (paymentStatus !== "paid" || hasNavigatedToSuccess.current) {
+      return;
+    }
+
+    hasNavigatedToSuccess.current = true;
+    router.replace({
+      pathname: "/payment-success",
+      params: {
+        planName,
+        planPrice,
+        methodName: methodMeta.name,
+      },
+    });
+  }, [methodMeta.name, paymentStatus, planName, planPrice, router]);
+
+  const paymentStatusInfo = paymentStatusMeta[paymentStatus] ?? paymentStatusMeta.unknown;
 
   return (
     <View style={[styles.root, { paddingTop: top }]}>
@@ -97,6 +191,15 @@ export default function DetailTransferScreen(): React.JSX.Element {
             <Text style={styles.planName}>{planName}</Text>
             <Text style={styles.planPrice}>{planPrice}</Text>
           </View>
+          <Text style={styles.planAmount}>Jumlah: Rp {Number(planAmount).toLocaleString("id-ID")}</Text>
+        </View>
+
+        <View style={[styles.statusCard, { borderColor: paymentStatusInfo.color }]}>
+          <Text style={[styles.statusTitle, { color: paymentStatusInfo.color }]}>
+            {paymentStatusInfo.title}
+          </Text>
+          <Text style={styles.statusDescription}>{paymentStatusInfo.description}</Text>
+          {paymentId ? <Text style={styles.statusHint}>Payment ID: {paymentId}</Text> : null}
         </View>
 
         <View style={styles.methodCard}>
@@ -141,20 +244,11 @@ export default function DetailTransferScreen(): React.JSX.Element {
           <Pressable
             style={styles.confirmButton}
             accessibilityRole="button"
-            onPress={() =>
-              // `replace` (not push): the user must not be able to go back to
-              // the VA / transfer screen after paying. Keep as replace.
-              router.replace({
-                pathname: "/payment-success",
-                params: {
-                  planName,
-                  planPrice,
-                  methodName: methodMeta.name,
-                },
-              })
-            }
+            onPress={() => void refreshPaymentStatus()}
           >
-            <Text style={styles.confirmButtonText}>Konfirmasi Pembayaran</Text>
+            <Text style={styles.confirmButtonText}>
+              {refreshing ? "Mengecek Status..." : "Cek Status"}
+            </Text>
           </Pressable>
 
           <Pressable
@@ -233,6 +327,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts["700"],
     color: colors.primaryContainer,
+  },
+  planAmount: {
+    marginTop: 8,
+    fontSize: 13,
+    fontFamily: fonts["600"],
+    color: colors.onSurfaceVariant,
+  },
+  statusCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: colors.surfaceContainerLowest,
+    padding: 12,
+    marginBottom: 10,
+  },
+  statusTitle: {
+    fontSize: 15,
+    fontFamily: fonts["700"],
+    marginBottom: 4,
+  },
+  statusDescription: {
+    fontSize: 13,
+    fontFamily: fonts["500"],
+    color: colors.onSurfaceVariant,
+  },
+  statusHint: {
+    marginTop: 6,
+    fontSize: 12,
+    fontFamily: fonts["400"],
+    color: colors.onSurfaceVariant,
   },
   methodCard: {
     borderRadius: 12,

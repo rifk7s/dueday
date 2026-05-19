@@ -1,4 +1,5 @@
 import { goBackOr } from "@/constants/navigation";
+import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -6,6 +7,11 @@ import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  createPaymentFlow,
+  parseRupiahAmount,
+  type PaymentMethod,
+} from "@/api/payments";
 
 type PaymentMethodItem = {
   id: string;
@@ -23,19 +29,30 @@ const paymentMethods: PaymentMethodItem[] = [
 
 export default function PaymentScreen(): React.JSX.Element {
   const router = useRouter();
+  const { token } = useSession();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
   const planName = (params.planName as string) || "Dueday Premium - 1 Bulan";
   const planPrice = (params.planPrice as string) || "Rp20.000";
+  const planAmount = Number(params.planAmount ?? "0") || 0;
   const planDuration = (params.planDuration as string) || "1 bulan";
 
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedMethodData = paymentMethods.find((item) => item.id === selectedMethod);
 
-  const handleProceed = () => {
-    if (selectedMethodData) {
+  const handleProceed = async () => {
+    if (!selectedMethodData || isSubmitting) {
+      return;
+    }
+
+    setErrorMessage(null);
+
+    // If the app is in mock-auth mode, keep the local manual flow intact.
+    if (!token || process.env.EXPO_PUBLIC_MOCK_AUTH === "true") {
       router.push({
         pathname: "/detail-transfer",
         params: {
@@ -43,9 +60,45 @@ export default function PaymentScreen(): React.JSX.Element {
           methodName: selectedMethodData.name,
           planName,
           planPrice,
+          planAmount: String(planAmount || parseRupiahAmount(planPrice)),
           planDuration,
         },
       });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const payment = await createPaymentFlow(token, {
+        planName,
+        planPrice,
+        planDuration,
+        amount: planAmount || parseRupiahAmount(planPrice),
+        method: selectedMethodData as PaymentMethod,
+      });
+
+      router.replace({
+        pathname: "/detail-transfer",
+        params: {
+          paymentId: payment.id,
+          paymentStatus: payment.status,
+          methodId: selectedMethodData.id,
+          methodName: selectedMethodData.name,
+          planName,
+          planPrice,
+          planAmount: String(planAmount || parseRupiahAmount(planPrice)),
+          planDuration,
+        },
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Gagal menyiapkan pembayaran. Coba lagi nanti.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -136,15 +189,19 @@ export default function PaymentScreen(): React.JSX.Element {
         <Pressable
           style={({ pressed }) => [
             styles.ctaButton,
-            !selectedMethod && styles.ctaButtonDisabled,
-            pressed && selectedMethod && styles.ctaButtonPressed,
+            (!selectedMethod || isSubmitting) && styles.ctaButtonDisabled,
+            pressed && selectedMethod && !isSubmitting && styles.ctaButtonPressed,
           ]}
           accessibilityRole="button"
           onPress={handleProceed}
-          disabled={!selectedMethod}
+          disabled={!selectedMethod || isSubmitting}
         >
-          <Text style={styles.ctaText}>Lanjutkan Pembayaran</Text>
+          <Text style={styles.ctaText}>
+            {isSubmitting ? "Menyiapkan Pembayaran..." : "Lanjutkan Pembayaran"}
+          </Text>
         </Pressable>
+
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
       </View>
     </View>
   );
@@ -326,5 +383,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts["800"],
     color: colors.onPrimary,
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 12,
+    fontFamily: fonts["500"],
+    color: colors.error,
+    textAlign: "center",
   },
 });
