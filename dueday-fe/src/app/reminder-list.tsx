@@ -17,6 +17,8 @@ type ReminderCardItem = {
   nearestDate: string;
   nearestTime: string;
   type: "task" | "activity";
+  sourceId: string | null;
+  reminderMessage: string | null;
 };
 
 export default function ReminderListScreen() {
@@ -33,33 +35,40 @@ export default function ReminderListScreen() {
       .filter((activity) => activity.status !== "completed" && activity.status !== "cancelled")
       .sort(compareActivities);
 
-    const reminders: ReminderCardItem[] = [];
-
-    if (activeTasks.length > 0) {
-      const nearest = activeTasks[0];
-      reminders.push({
+    return [
+      {
         id: "tasks-summary",
         label: "Tugas",
         count: activeTasks.length,
-        nearestDate: fromApiDate(nearest.date) || "Tanggal belum diatur",
-        nearestTime: fromApiTime(nearest.time) || "Waktu belum diatur",
+        nearestDate:
+          activeTasks[0] != null
+            ? fromApiDate(activeTasks[0].date) || "Tanggal belum diatur"
+            : "Belum ada tugas terjadwal",
+        nearestTime:
+          activeTasks[0] != null
+            ? fromApiTime(activeTasks[0].time) || "Waktu belum diatur"
+            : "Belum ada waktu",
         type: "task",
-      });
-    }
-
-    if (activeActivities.length > 0) {
-      const nearest = activeActivities[0];
-      reminders.push({
+        sourceId: activeTasks[0]?.id ?? null,
+        reminderMessage: activeTasks[0]?.reminder_message ?? null,
+      },
+      {
         id: "activities-summary",
         label: "Aktivitas",
         count: activeActivities.length,
-        nearestDate: fromApiDate(nearest.tanggal) || "Tanggal belum diatur",
-        nearestTime: nearest.time_start ? fromApiTime(nearest.time_start) : "Waktu belum diatur",
+        nearestDate:
+          activeActivities[0] != null
+            ? fromApiDate(activeActivities[0].tanggal) || "Tanggal belum diatur"
+            : "Belum ada aktivitas terjadwal",
+        nearestTime:
+          activeActivities[0] != null
+            ? fromApiTime(activeActivities[0].time_start) || "Waktu belum diatur"
+            : "Belum ada waktu",
         type: "activity",
-      });
-    }
-
-    return reminders;
+        sourceId: activeActivities[0]?.id ?? null,
+        reminderMessage: activeActivities[0]?.reminder_message ?? null,
+      },
+    ];
   }, [tasks, activities]);
 
   const stats = React.useMemo(() => {
@@ -226,6 +235,24 @@ type ReminderCardProps = {
 function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
   const accentColor = item.type === "task" ? colors.primaryContainer : colors.secondaryContainer;
   const icon = item.type === "task" ? "document-text-outline" : "sparkles-outline";
+  const router = useRouter();
+
+  const handleEditPress = () => {
+    if (!item.sourceId) {
+      return;
+    }
+
+    router.push({
+      pathname: "/set-reminder",
+      params: {
+        id: item.sourceId,
+        type: item.type,
+        label: item.label,
+        time: item.nearestTime,
+        message: item.reminderMessage ?? undefined,
+      },
+    });
+  };
 
   return (
     <View style={styles.card}>
@@ -237,7 +264,7 @@ function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
             <View style={styles.cardIconWrap}>
               <Ionicons name={icon} size={15} color={accentColor} />
             </View>
-            <View>
+            <View style={styles.cardTitleTextBlock}>
               <Text style={styles.cardTitle}>{item.label}</Text>
               <Text style={styles.cardSubtitle}>{item.count} item menunggu</Text>
             </View>
@@ -246,20 +273,26 @@ function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Edit"
+            onPress={handleEditPress}
           >
             <Ionicons name="pencil" size={18} color={colors.onSurfaceVariant} />
           </Pressable>
         </View>
 
-        <View style={styles.metaRow}>
-          <View style={styles.metaItem}>
-            <Ionicons name="calendar-outline" size={14} color={colors.onSurfaceVariant} />
-            <Text style={styles.metaText}>{item.nearestDate}</Text>
-          </View>
-          <View style={styles.metaItem}>
+        <View style={styles.detailRow}>
+          <View style={styles.detailItem}>
             <Ionicons name="time-outline" size={14} color={colors.onSurfaceVariant} />
-            <Text style={styles.metaText}>{item.nearestTime}</Text>
+            <Text style={styles.detailText}>{item.nearestTime}</Text>
           </View>
+
+          {item.reminderMessage ? (
+            <View style={styles.detailItem}>
+              <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primaryContainer} />
+              <Text style={styles.messageText} numberOfLines={2}>
+                {item.reminderMessage}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -421,19 +454,23 @@ const styles = StyleSheet.create({
   },
   cardBody: {
     flex: 1,
-    gap: 10,
+    gap: 12,
   },
   cardTopRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
   },
   cardTitleRow: {
     flex: 1,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 10,
+  },
+  cardTitleTextBlock: {
+    flex: 1,
+    gap: 2,
   },
   cardIconWrap: {
     width: 22,
@@ -442,7 +479,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceWarm,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 1,
   },
   cardTitle: {
     color: colors.onSurface,
@@ -465,20 +501,32 @@ const styles = StyleSheet.create({
     fontFamily: fonts["700"],
     letterSpacing: 0.3,
   },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
+  detailRow: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 8,
   },
-  metaItem: {
+  detailItem: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
+    alignItems: "flex-start",
+    gap: 6,
+    minWidth: 0,
   },
-  metaText: {
+  detailText: {
     color: colors.onSurfaceVariant,
     fontSize: 12,
     fontFamily: fonts["500"],
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  messageText: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts["500"],
+    lineHeight: 18,
   },
   emptyState: {
     borderRadius: 18,

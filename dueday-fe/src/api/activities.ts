@@ -19,6 +19,7 @@ export type Activity = {
   status: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
   progress: number;
   deskripsi: string | null;
+  reminder_message: string | null;
   ulangi: UlangiType | null;
   tag: Tag | null;
   created_at: string;
@@ -33,6 +34,7 @@ export type NewActivity = {
   id_tag?: number | null;
   ulangi?: UlangiType;
   deskripsi?: string;
+  reminder_message?: string | null;
   status?: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
 };
 
@@ -65,6 +67,7 @@ let mockStore: Activity[] = [
     status: "not_started",
     progress: 0,
     deskripsi: "Review progress sprint",
+    reminder_message: null,
     ulangi: "satu_minggu",
     tag: mockTags[2] ?? null,
     created_at: new Date().toISOString(),
@@ -116,6 +119,7 @@ export async function createActivity(
       status: input.status ?? "not_started",
       progress: 0,
       deskripsi: input.deskripsi ?? null,
+      reminder_message: null,
       ulangi: input.ulangi ?? null,
       tag: tagObj,
       created_at: new Date().toISOString(),
@@ -147,6 +151,7 @@ export async function updateActivity(
       tag: input.id_tag
         ? (mockTags.find((tag) => tag.id_tag === input.id_tag) ?? existing.tag)
         : existing.tag,
+      reminder_message: input.reminder_message ?? existing.reminder_message,
       updated_at: new Date().toISOString(),
     };
 

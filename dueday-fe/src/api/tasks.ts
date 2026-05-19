@@ -19,6 +19,7 @@ export type Task = {
   status: "ongoing" | "completed" | "completed_late";
   source: string | null;
   deskripsi: string | null;
+  reminder_message: string | null;
   progress: number;
   goals: string | null;
   goal_points: GoalPoint[] | null;
@@ -36,6 +37,7 @@ export type NewTask = {
   id_tag?: number;
   goals?: string;
   deskripsi?: string;
+  reminder_message?: string | null;
   status?: "ongoing" | "completed" | "completed_late";
 };
 
@@ -78,6 +80,7 @@ let mockStore: Task[] = [
     status: "ongoing",
     source: null,
     deskripsi: "Pelajari dasar-dasar Expo dan React Native",
+    reminder_message: null,
     progress: 0,
     goals: "Pahami navigasi\nBuat komponen sederhana",
     goal_points: null,
@@ -115,6 +118,7 @@ export async function createTask(
       status: input.status ?? "ongoing",
       source: null,
       deskripsi: input.deskripsi ?? null,
+      reminder_message: null,
       progress: 0,
       goals: input.goals ?? null,
       goal_points: null,
@@ -148,6 +152,7 @@ export async function updateTask(
       ...input,
       goal_points: nextGoalPoints ?? null,
       progress: nextGoalPoints ? calculateGoalProgress(nextGoalPoints) : existing.progress,
+      reminder_message: input.reminder_message ?? existing.reminder_message,
       updated_at: new Date().toISOString(),
     };
 
