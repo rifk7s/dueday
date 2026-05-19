@@ -17,6 +17,7 @@ type PlanItem = {
   label: string;
   duration: string;
   price: string;
+  amount: number;
   note: string;
 };
 
@@ -38,18 +39,21 @@ const plans: PlanItem[] = [
     label: "Paket 1 Bulan",
     duration: "1 bulan",
     price: "Rp20.000",
+    amount: 20000,
     note: "Cocok untuk coba premium dulu.",
   },
   {
     label: "Paket 3 Bulan",
     duration: "3 bulan",
     price: "Rp54.000",
+    amount: 54000,
     note: "Hemat 10% dibanding bayar bulanan.",
   },
   {
     label: "Paket 1 Tahun",
     duration: "12 bulan",
     price: "Rp192.000",
+    amount: 192000,
     note: "Pilihan paling hemat untuk pemakaian penuh.",
   },
 ];
@@ -149,6 +153,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
               params: {
                 planName: selectedPlan.label,
                 planPrice: selectedPlan.price,
+                planAmount: String(selectedPlan.amount),
                 planDuration: selectedPlan.duration,
               },
             })
