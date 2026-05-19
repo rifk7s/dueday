@@ -3,6 +3,7 @@ import { fromApiDate, fromApiTime } from "@/api/format";
 import { type Task } from "@/api/tasks";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useActivitiesQuery } from "@/hooks/useActivities";
+import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -19,6 +20,10 @@ type ReminderCardItem = {
   type: "task" | "activity";
   sourceId: string | null;
   reminderMessage: string | null;
+  reminderStyle?: string | null;
+  reminderSound?: string | null;
+  reminderFrequency?: "once" | "daily" | "weekly" | null;
+  reminderVibrate?: boolean | null;
 };
 
 export default function ReminderListScreen() {
@@ -26,6 +31,8 @@ export default function ReminderListScreen() {
   const router = useRouter();
   const { data: tasks = [] } = useTasksQuery();
   const { data: activities = [] } = useActivitiesQuery();
+  const currentUserQuery = useCurrentUserQuery({ enabled: true });
+  const isPremium = currentUserQuery.data?.status === "Subscribed";
 
   const allReminders = React.useMemo<ReminderCardItem[]>(() => {
     const activeTasks = [...tasks]
@@ -51,6 +58,10 @@ export default function ReminderListScreen() {
         type: "task",
         sourceId: activeTasks[0]?.id ?? null,
         reminderMessage: activeTasks[0]?.reminder_message ?? null,
+        reminderStyle: activeTasks[0]?.reminder_style ?? null,
+        reminderSound: activeTasks[0]?.reminder_sound ?? null,
+        reminderFrequency: activeTasks[0]?.reminder_frequency ?? null,
+        reminderVibrate: activeTasks[0]?.reminder_vibrate ?? null,
       },
       {
         id: "activities-summary",
@@ -67,6 +78,10 @@ export default function ReminderListScreen() {
         type: "activity",
         sourceId: activeActivities[0]?.id ?? null,
         reminderMessage: activeActivities[0]?.reminder_message ?? null,
+        reminderStyle: activeActivities[0]?.reminder_style ?? null,
+        reminderSound: activeActivities[0]?.reminder_sound ?? null,
+        reminderFrequency: activeActivities[0]?.reminder_frequency ?? null,
+        reminderVibrate: activeActivities[0]?.reminder_vibrate ?? null,
       },
     ];
   }, [tasks, activities]);
@@ -151,6 +166,7 @@ export default function ReminderListScreen() {
         <ReminderSection
           items={allReminders}
           emptyText="Belum ada reminder yang perlu diingat."
+          isPremium={isPremium}
         />
       </ScrollView>
     </View>
@@ -160,6 +176,7 @@ export default function ReminderListScreen() {
 type ReminderSectionProps = {
   items: ReminderCardItem[];
   emptyText: string;
+  isPremium?: boolean | null;
 };
 
 type StatsRowProps = {
@@ -214,11 +231,13 @@ function StatCard({ icon, label, value, color }: Readonly<StatCardProps>) {
   );
 }
 
-function ReminderSection({ items, emptyText }: Readonly<ReminderSectionProps>) {
+function ReminderSection({ items, emptyText, isPremium }: Readonly<ReminderSectionProps>) {
   return (
     <View style={styles.section}>
       {items.length > 0 ? (
-        items.map((item) => <ReminderSummaryCard key={item.id} item={item} />)
+        items.map((item) => (
+          <ReminderSummaryCard key={item.id} item={item} isPremium={!!isPremium} />
+        ))
       ) : (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>{emptyText}</Text>
@@ -230,9 +249,10 @@ function ReminderSection({ items, emptyText }: Readonly<ReminderSectionProps>) {
 
 type ReminderCardProps = {
   item: ReminderCardItem;
+  isPremium?: boolean;
 };
 
-function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
+function ReminderSummaryCard({ item, isPremium }: Readonly<ReminderCardProps>) {
   const accentColor = item.type === "task" ? colors.primaryContainer : colors.secondaryContainer;
   const icon = item.type === "task" ? "document-text-outline" : "sparkles-outline";
   const router = useRouter();
@@ -242,8 +262,10 @@ function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
       return;
     }
 
+    const pathname = isPremium ? "/set-reminder-premium" : "/set-reminder";
+
     router.push({
-      pathname: "/set-reminder",
+      pathname,
       params: {
         id: item.sourceId,
         type: item.type,
@@ -291,6 +313,20 @@ function ReminderSummaryCard({ item }: Readonly<ReminderCardProps>) {
               <Text style={styles.messageText} numberOfLines={2}>
                 {item.reminderMessage}
               </Text>
+            </View>
+          ) : null}
+          {isPremium && (item.reminderStyle || item.reminderFrequency) ? (
+            <View style={styles.metaRow}>
+              {item.reminderStyle ? (
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaChipText}>{item.reminderStyle}</Text>
+                </View>
+              ) : null}
+              {item.reminderFrequency ? (
+                <View style={styles.metaChip}>
+                  <Text style={styles.metaChipText}>{item.reminderFrequency === "once" ? "Sekali" : item.reminderFrequency === "daily" ? "Harian" : "Mingguan"}</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -527,6 +563,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts["500"],
     lineHeight: 18,
+  },
+  metaRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "center",
+  },
+  metaChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerLow,
+  },
+  metaChipText: {
+    color: colors.onSurfaceVariant,
+    fontSize: 11,
+    fontFamily: fonts["500"],
   },
   emptyState: {
     borderRadius: 18,

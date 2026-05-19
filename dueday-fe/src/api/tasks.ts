@@ -20,6 +20,10 @@ export type Task = {
   source: string | null;
   deskripsi: string | null;
   reminder_message: string | null;
+  reminder_style?: string | null;
+  reminder_sound?: string | null;
+  reminder_frequency?: "once" | "daily" | "weekly" | null;
+  reminder_vibrate?: boolean | null;
   progress: number;
   goals: string | null;
   goal_points: GoalPoint[] | null;
@@ -38,6 +42,10 @@ export type NewTask = {
   goals?: string;
   deskripsi?: string;
   reminder_message?: string | null;
+  reminder_style?: string | null;
+  reminder_sound?: string | null;
+  reminder_frequency?: "once" | "daily" | "weekly" | null;
+  reminder_vibrate?: boolean | null;
   status?: "ongoing" | "completed" | "completed_late";
 };
 
@@ -81,6 +89,10 @@ let mockStore: Task[] = [
     source: null,
     deskripsi: "Pelajari dasar-dasar Expo dan React Native",
     reminder_message: null,
+    reminder_style: null,
+    reminder_sound: null,
+    reminder_frequency: null,
+    reminder_vibrate: null,
     progress: 0,
     goals: "Pahami navigasi\nBuat komponen sederhana",
     goal_points: null,
@@ -153,6 +165,10 @@ export async function updateTask(
       goal_points: nextGoalPoints ?? null,
       progress: nextGoalPoints ? calculateGoalProgress(nextGoalPoints) : existing.progress,
       reminder_message: input.reminder_message ?? existing.reminder_message,
+      reminder_style: input.reminder_style ?? existing.reminder_style,
+      reminder_sound: input.reminder_sound ?? existing.reminder_sound,
+      reminder_frequency: input.reminder_frequency ?? existing.reminder_frequency,
+      reminder_vibrate: input.reminder_vibrate ?? existing.reminder_vibrate,
       updated_at: new Date().toISOString(),
     };
 
