@@ -17,14 +17,16 @@ type PaymentMethodItem = {
   id: string;
   name: string;
   image: number;
+  type: "VA" | "QRIS";
 };
 
 const paymentMethods: PaymentMethodItem[] = [
-  { id: "bca", name: "BCA", image: require("../../assets/images/BCA.jpg") },
-  { id: "mandiri", name: "Mandiri", image: require("../../assets/images/mandiri.jpg") },
-  { id: "gopay", name: "GoPay", image: require("../../assets/images/gopay.jpg") },
-  { id: "dana", name: "Dana", image: require("../../assets/images/dana.jpg") },
-  { id: "ovo", name: "OVO", image: require("../../assets/images/ovo.jpg") },
+  { id: "qris", name: "QRIS", image: require("../../assets/images/gopay.jpg"), type: "QRIS" },
+  { id: "bca", name: "BCA", image: require("../../assets/images/BCA.jpg"), type: "VA" },
+  { id: "mandiri", name: "Mandiri", image: require("../../assets/images/mandiri.jpg"), type: "VA" },
+  { id: "gopay", name: "GoPay", image: require("../../assets/images/gopay.jpg"), type: "VA" },
+  { id: "dana", name: "Dana", image: require("../../assets/images/dana.jpg"), type: "VA" },
+  { id: "ovo", name: "OVO", image: require("../../assets/images/ovo.jpg"), type: "VA" },
 ];
 
 export default function PaymentScreen(): React.JSX.Element {
@@ -45,27 +47,23 @@ export default function PaymentScreen(): React.JSX.Element {
   const selectedMethodData = paymentMethods.find((item) => item.id === selectedMethod);
 
   const handleProceed = async () => {
-    if (!selectedMethodData || isSubmitting) {
-      return;
-    }
+  if (!selectedMethodData || isSubmitting) return;
 
-    setErrorMessage(null);
-
-    // If the app is in mock-auth mode, keep the local manual flow intact.
-    if (!token || process.env.EXPO_PUBLIC_MOCK_AUTH === "true") {
-      router.push({
-        pathname: "/detail-transfer",
-        params: {
-          methodId: selectedMethodData.id,
-          methodName: selectedMethodData.name,
-          planName,
-          planPrice,
-          planAmount: String(planAmount || parseRupiahAmount(planPrice)),
-          planDuration,
-        },
-      });
-      return;
-    }
+  if (!token || process.env.EXPO_PUBLIC_MOCK_AUTH === "true") {
+    router.push({
+      pathname: "/detail-transfer",
+      params: {
+        methodId: selectedMethodData.id,
+        methodName: selectedMethodData.name,
+        methodType: selectedMethodData.type, // <-- Makes sure "QRIS" or "VA" gets passed
+        planName,
+        planPrice,
+        planAmount: String(planAmount || parseRupiahAmount(planPrice)),
+        planDuration,
+      },
+    });
+    return;
+  }
 
     setIsSubmitting(true);
 

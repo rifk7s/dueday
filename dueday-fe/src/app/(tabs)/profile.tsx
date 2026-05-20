@@ -7,22 +7,22 @@ import { setStorageItemAsync } from "@/auth/useStorageState";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useTasksQuery } from "@/hooks/useTasks";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons"; // 👑 Added FontAwesome5 for the crown icons
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-    Alert,
-    Image,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    ToastAndroid,
-    View,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getPendingPaymentTransferParams } from "@/api/payments";
@@ -40,8 +40,6 @@ type SettingItem = {
   accent?: string;
   onPress?: () => void;
 };
-
-// taskStats will be computed per-user inside the component using `useTasksQuery`
 
 const settings: SettingItem[] = [
   {
@@ -72,6 +70,8 @@ export default function ProfileScreen(): React.JSX.Element {
   const router = useRouter();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
 
+  const isPremium = String(user?.status) === "subscribed";
+
   React.useEffect(() => {
     setDisplayNickname(user?.nickname ?? user?.name ?? "—");
     setNicknameInput(user?.nickname ?? "");
@@ -82,22 +82,18 @@ export default function ProfileScreen(): React.JSX.Element {
   const updateMutation = useMutation({
     mutationFn: (nick: string) => updateMe({ nickname: nick }, token ?? null),
     onSuccess: async (updatedUser: AuthUser) => {
-      // Close the modal immediately and update local UI
       setEditingNickname(false);
       setDisplayNickname(updatedUser.nickname ?? displayNickname);
       setNicknameInput(updatedUser.nickname ?? "");
 
-      // Persist updated user to secure storage
       await setStorageItemAsync("auth_user", JSON.stringify(updatedUser));
 
-      // Update global session user so other screens refresh
       try {
         setUser?.(updatedUser);
       } catch (e) {
         // ignore
       }
 
-      // Update `me` cache and invalidate relevant lists so other screens reload
       try {
         queryClientRef.setQueryData(["me"], updatedUser);
         queryClientRef.setQueryData(["current-user"], updatedUser);
@@ -108,7 +104,6 @@ export default function ProfileScreen(): React.JSX.Element {
         // ignore
       }
 
-      // Show success toast
       if (Platform.OS === "android") {
         ToastAndroid.show("Nickname berhasil disimpan", ToastAndroid.SHORT);
       } else {
@@ -141,6 +136,15 @@ export default function ProfileScreen(): React.JSX.Element {
     if (signingOut) {
       return;
     }
+
+    if (Platform.OS === "web") {
+      const confirmLogout = window.confirm("Yakin ingin keluar dari akun ini?");
+      if (confirmLogout) {
+        void performLogout();
+      }
+      return;
+    }
+
     Alert.alert(
       "Logout",
       "Yakin ingin keluar dari akun ini?",
@@ -169,7 +173,7 @@ export default function ProfileScreen(): React.JSX.Element {
         return;
       }
     } catch {
-      // Fall back to the regular plan selection screen if the lookup fails.
+      // Fall back
     }
 
     router.push("/premium-plan");
@@ -181,20 +185,18 @@ export default function ProfileScreen(): React.JSX.Element {
       : item
   );
 
-  // Developer-only: show a toggle to simulate subscription when using mock auth
+  // Developer-only setup
   if (MOCK_AUTH && user) {
     settingsWithActions.push({
       icon: "sparkles-outline",
-      label: user.status === "Subscribed" ? "Unset Premium (Dev)" : "Set Premium (Dev)",
+      label: isPremium ? "Unset Premium (Dev)" : "Set Premium (Dev)",
       onPress: async () => {
         try {
-          const newStatus = user.status === "Subscribed" ? "Unsubscribed" : "Subscribed";
-          const updatedUser: AuthUser = { ...(user as AuthUser), status: newStatus };
+          const newStatus: "subscribed" | "unsubscribed" = isPremium ? "unsubscribed" : "subscribed";
+          const updatedUser: AuthUser = { ...user, status: newStatus };
 
-          // persist to storage
           await setStorageItemAsync("auth_user", JSON.stringify(updatedUser));
 
-          // update session and caches
           try {
             setUser?.(updatedUser);
           } catch (e) {
@@ -203,13 +205,11 @@ export default function ProfileScreen(): React.JSX.Element {
 
           queryClientRef.setQueryData(["current-user"], updatedUser);
 
-          // If we're unsetting premium, clear premium fields on tasks and activities
-          if (newStatus === "Unsubscribed") {
+          if (newStatus === "unsubscribed") {
             try {
               const tasksCache = queryClientRef.getQueryData<any[]>(["tasks"]) ?? [];
               const activitiesCache = queryClientRef.getQueryData<any[]>(["activities"]) ?? [];
 
-              // Optimistically update cache to remove premium fields
               queryClientRef.setQueryData(["tasks"], tasksCache.map((t) => ({
                 ...t,
                 reminder_style: null,
@@ -226,7 +226,6 @@ export default function ProfileScreen(): React.JSX.Element {
                 reminder_vibrate: null,
               })));
 
-              // Persist changes to mock store / backend
               const taskPromises = tasksCache.map((t) => {
                 if (t?.reminder_style || t?.reminder_sound || t?.reminder_frequency || t?.reminder_vibrate) {
                   return updateTask(t.id, {
@@ -256,7 +255,7 @@ export default function ProfileScreen(): React.JSX.Element {
               queryClientRef.invalidateQueries({ queryKey: ["tasks"] });
               queryClientRef.invalidateQueries({ queryKey: ["activities"] });
             } catch (e) {
-              // ignore errors from cleaning up
+              // ignore
             }
           } else {
             queryClientRef.invalidateQueries({ queryKey: ["activities"] });
@@ -265,7 +264,7 @@ export default function ProfileScreen(): React.JSX.Element {
 
           queryClientRef.invalidateQueries({ queryKey: ["current-user"] });
 
-          const msg = updatedUser.status === "Subscribed" ? "User set to Subscribed (dev)" : "User set to Unsubscribed (dev)";
+          const msg = newStatus === "subscribed" ? "User set to Subscribed (dev)" : "User set to Unsubscribed (dev)";
           if (Platform.OS === "android") {
             ToastAndroid.show(msg, ToastAndroid.SHORT);
           } else {
@@ -332,8 +331,13 @@ export default function ProfileScreen(): React.JSX.Element {
               />
             </View>
 
-            <View style={styles.avatarBadge}>
-              <Ionicons name="camera" size={12} color={colors.onPrimary} />
+            {/* 👑 Dynamic Profile Pic Badge: Shows a Crown if Premium, Camera if normal */}
+            <View style={[styles.avatarBadge, isPremium && { backgroundColor: "#D48C2A" }]}>
+              {isPremium ? (
+                <FontAwesome5 name="crown" size={10} color="#FFFFFF" />
+              ) : (
+                <Ionicons name="camera" size={12} color={colors.onPrimary} />
+              )}
             </View>
           </View>
 
@@ -346,9 +350,15 @@ export default function ProfileScreen(): React.JSX.Element {
           <Text style={styles.profileRole}>{user?.name ?? "—"}</Text>
           {user?.nim ? <Text style={styles.profileMeta}>NIM: {user.nim}</Text> : null}
           <Text style={styles.profileMeta}>{user?.email ?? "—"}</Text>
-        </View>
 
-        {/* nickname edit modal is rendered outside the ScrollView to ensure it overlays other content */}
+          {/* 👑 Guaranteed Premium Badge with FontAwesome5 Crown */}
+          {isPremium && (
+            <View style={styles.premiumBadgeContainer}>
+              <FontAwesome5 name="crown" size={12} color="#784A1A" style={{ marginRight: 6 }} />
+              <Text style={styles.premiumBadgeText}>Premium</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
@@ -388,6 +398,7 @@ export default function ProfileScreen(): React.JSX.Element {
           </Text>
         </Pressable>
       </ScrollView>
+      
       {editingNickname ? (
         <View style={styles.modalBackdrop} pointerEvents="box-none">
           <View style={styles.modalCard}>
@@ -721,5 +732,21 @@ const styles = StyleSheet.create({
     color: colors.primaryContainer,
     fontSize: typography.button.fontSize,
     fontFamily: typography.button.fontFamily,
+  },
+  premiumBadgeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDF3E7", 
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "rgba(120, 74, 26, 0.1)", 
+  },
+  premiumBadgeText: {
+    color: "#784A1A", 
+    fontSize: 15,
+    fontFamily: fonts["700"] ?? "System", 
   },
 });

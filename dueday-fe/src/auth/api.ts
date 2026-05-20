@@ -58,7 +58,7 @@ export type AuthUser = {
   nickname: string | null;
   nim: string | null;
   photo_url: string | null;
-  status: "Subscribed" | "Unsubscribed";
+  status: "subscribed" | "unsubscribed";
   language: "Indonesia" | "English";
   created_at: string;
   updated_at: string;
@@ -91,7 +91,7 @@ const MOCK_USER: AuthUser = {
   nickname: "Cheryl",
   nim: "123456789",
   photo_url: null,
-  status: "Unsubscribed",
+  status: "unsubscribed",
   language: "Indonesia",
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
