@@ -41,6 +41,16 @@ export type Payment = {
   updated_at: string;
 };
 
+export type PendingPaymentTransferParams = {
+  paymentId: string;
+  paymentStatus: Payment["status"];
+  methodId: string;
+  planName: string;
+  planPrice: string;
+  planAmount: string;
+  planDuration: string;
+};
+
 export type PaymentFlowInput = {
   planName: string;
   planPrice: string;
@@ -92,9 +102,38 @@ export async function createPaymentFlow(
   });
 }
 
+export async function getPendingPaymentTransferParams(
+  token: string,
+): Promise<PendingPaymentTransferParams | null> {
+  const payments = await apiFetch<Payment[]>("/payments", token);
+  const pendingPayment = payments.find((payment) => payment.status === "pending");
+
+  if (!pendingPayment) {
+    return null;
+  }
+
+  const subscriptions = await apiFetch<Subscription[]>("/subscriptions", token);
+  const subscription = subscriptions.find((item) => item.id === pendingPayment.subscription_id);
+  const amount = Number(pendingPayment.amount) || 0;
+
+  return {
+    paymentId: pendingPayment.id,
+    paymentStatus: pendingPayment.status,
+    methodId: pendingPayment.method || "bca",
+    planName: subscription?.plan || "Dueday Premium 1 Bulan",
+    planPrice: formatCurrency(amount),
+    planAmount: String(amount),
+    planDuration: resolvePlanDuration(subscription?.plan),
+  };
+}
+
 export function parseRupiahAmount(value: string): number {
   const numericValue = value.replace(/[^0-9]/g, "");
   return Number(numericValue) || 0;
+}
+
+export function formatCurrency(amount: number): string {
+  return `Rp${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
 
 export function resolvePlanMonths(duration: string): number {
@@ -103,6 +142,20 @@ export function resolvePlanMonths(duration: string): number {
   if (normalized.includes("12")) return 12;
   if (normalized.includes("3")) return 3;
   return 1;
+}
+
+export function resolvePlanDuration(planName?: string | null): string {
+  const normalizedPlanName = planName?.toLowerCase() ?? "";
+
+  if (normalizedPlanName.includes("12") || normalizedPlanName.includes("tah")) {
+    return "12 bulan";
+  }
+
+  if (normalizedPlanName.includes("3")) {
+    return "3 bulan";
+  }
+
+  return "1 bulan";
 }
 
 export function formatSqlDateTime(date: Date): string {

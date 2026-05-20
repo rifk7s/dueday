@@ -135,11 +135,6 @@ export default function PaymentScreen(): React.JSX.Element {
           <Text style={styles.summaryPrice}>{planPrice}</Text>
         </View>
 
-        <View style={styles.totalCard}>
-          <Text style={styles.totalLabel}>Total Pembayaran</Text>
-          <Text style={styles.totalPrice}>{planPrice}</Text>
-        </View>
-
         <Text style={styles.methodLabel}>Pilih Metode Pembayaran</Text>
 
         <View style={styles.methodList}>
