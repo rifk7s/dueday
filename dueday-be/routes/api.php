@@ -66,6 +66,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/subscriptions/{subscription}', [SubscriptionController::class, 'destroy']);
 
     // Payments
+    // ✅ CRITICAL FIX: Explicit static paths must be declared before wildcards ({payment})
+    Route::post('/payments/scan', [PaymentController::class, 'scan']);
+    
     Route::get('/payments', [PaymentController::class, 'index']);
     Route::get('/payments/{payment}', [PaymentController::class, 'show']);
     Route::post('/payments', [PaymentController::class, 'store']);
