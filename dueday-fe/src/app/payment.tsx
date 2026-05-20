@@ -21,7 +21,7 @@ type PaymentMethodItem = {
 };
 
 const paymentMethods: PaymentMethodItem[] = [
-  { id: "qris", name: "QRIS (Gopay, OVO, Dana, LinkAja)", image: require("../../assets/images/gopay.jpg"), type: "QRIS" },
+  { id: "qris", name: "QRIS", image: require("../../assets/images/gopay.jpg"), type: "QRIS" },
   { id: "bca", name: "BCA", image: require("../../assets/images/BCA.jpg"), type: "VA" },
   { id: "mandiri", name: "Mandiri", image: require("../../assets/images/mandiri.jpg"), type: "VA" },
   { id: "gopay", name: "GoPay", image: require("../../assets/images/gopay.jpg"), type: "VA" },

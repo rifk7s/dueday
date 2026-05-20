@@ -70,8 +70,7 @@ export default function ProfileScreen(): React.JSX.Element {
   const router = useRouter();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
 
-  // 👑 Bulletproof runtime premium flag (destroys TypeScript comparison errors)
-  const isPremium = true;
+  const isPremium = String(user?.status) === "subscribed";
 
   React.useEffect(() => {
     setDisplayNickname(user?.nickname ?? user?.name ?? "—");

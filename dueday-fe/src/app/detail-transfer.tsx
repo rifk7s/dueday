@@ -2,6 +2,7 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useSession } from "@/auth/ctx";
 import { apiFetch } from "@/api/client";
+import { API_BASE_URL } from "@/auth/api";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Payment } from "@/api/payments";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
+import { getMe } from "@/api/users";
 
 type MethodMeta = {
   name: string;
@@ -85,7 +87,7 @@ const paymentStatusMeta: Record<
 
 export default function DetailTransferScreen(): React.JSX.Element {
   const router = useRouter();
-  const { token } = useSession();
+  const { token, setUser } = useSession();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
@@ -174,11 +176,12 @@ export default function DetailTransferScreen(): React.JSX.Element {
     if (paymentStatus !== "paid" || hasNavigatedToSuccess.current) return;
 
     hasNavigatedToSuccess.current = true;
+    getMe(token).then(setUser).catch(() => {});
     router.replace({
       pathname: "/payment-success",
       params: { planName, planPrice, methodName: methodMeta.name },
     });
-  }, [methodMeta.name, paymentStatus, planName, planPrice, router]);
+  }, [methodMeta.name, paymentStatus, planName, planPrice, router, token, setUser]);
 
   const handleCopyVA = async () => {
     await Clipboard.setStringAsync(methodMeta.virtualAccount);
@@ -188,8 +191,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
 
   const handleSelectAndScanQRIS = async () => {
     setIsUploading(true);
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000/api";
-    const targetUrl = `${baseUrl}/payments/scan`;
+    const targetUrl = `${API_BASE_URL}/payments/scan`;
 
     // ================== WEB BROWSER OVERRIDE ==================
     if (Platform.OS === "web") {
