@@ -331,7 +331,7 @@ export default function ListPage() {
     const validSelections = activeFilters.filter((f) => dynamicFilterOptions.includes(f));
     if (validSelections.length === 0) {
       setActiveFilters(["Semua"]);
-    } else {
+    } else if (validSelections.length < activeFilters.length) {
       setActiveFilters(validSelections);
     }
   }, [active, dynamicFilterOptions]);
