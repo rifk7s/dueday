@@ -1,11 +1,13 @@
 import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
+import { getPendingPaymentTransferParams } from "@/api/payments";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSession } from "@/auth/ctx";
 
 type BenefitItem = {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -60,8 +62,38 @@ const plans: PlanItem[] = [
 
 export default function PremiumPlanScreen(): React.JSX.Element {
   const router = useRouter();
+  const { token } = useSession();
+  const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   const { top, bottom } = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<PlanItem>(plans[0]);
+
+  const handleStartPremium = async (): Promise<void> => {
+    if (token && !MOCK_AUTH) {
+      try {
+        const pendingPayment = await getPendingPaymentTransferParams(token);
+
+        if (pendingPayment) {
+          router.push({
+            pathname: "/detail-transfer",
+            params: pendingPayment,
+          });
+          return;
+        }
+      } catch {
+        // Ignore lookup failures and continue to the standard payment flow.
+      }
+    }
+
+    router.push({
+      pathname: "/payment",
+      params: {
+        planName: selectedPlan.label,
+        planPrice: selectedPlan.price,
+        planAmount: String(selectedPlan.amount),
+        planDuration: selectedPlan.duration,
+      },
+    });
+  };
 
   return (
     <View style={[styles.root, { paddingTop: top }]}>
@@ -147,17 +179,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
         <Pressable
           style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
           accessibilityRole="button"
-          onPress={() =>
-            router.push({
-              pathname: "/payment",
-              params: {
-                planName: selectedPlan.label,
-                planPrice: selectedPlan.price,
-                planAmount: String(selectedPlan.amount),
-                planDuration: selectedPlan.duration,
-              },
-            })
-          }
+          onPress={() => void handleStartPremium()}
         >
           <Text style={styles.ctaText}>Mulai Premium Sekarang</Text>
         </Pressable>

@@ -106,20 +106,22 @@ export default function SetReminderScreen(): React.JSX.Element {
       </View>
 
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroCard}>
           <View style={styles.heroIconWrap}>
             <Ionicons
-              name={reminderType === "activity" ? "sparkles-outline" : "document-text-outline"}
+              name="alert-circle-outline"
               size={20}
               color={colors.primaryContainer}
             />
           </View>
           <View style={styles.heroTextBlock}>
-            <Text style={styles.heroTitle}>Set Reminder</Text>
-            <Text style={styles.heroSubtitle}>Atur pesan dan jam untuk {reminderLabel.toLowerCase()}.</Text>
+            <Text style={styles.heroSubtitle}>
+              Pengingat ini berjalan otomatis dan akan aktif di hari-hari tertentu sesuai prioritas dan deadline {reminderType === "activity" ? "aktivitas" : "tugas"} kamu.
+            </Text>
           </View>
         </View>
 
@@ -187,6 +189,9 @@ export default function SetReminderScreen(): React.JSX.Element {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  scrollView: {
     backgroundColor: colors.surface,
   },
   header: {

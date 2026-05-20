@@ -225,7 +225,6 @@ export default function DetailTransferScreen(): React.JSX.Element {
             <Text style={styles.planName}>{planName}</Text>
             <Text style={styles.planPrice}>{planPrice}</Text>
           </View>
-          <Text style={styles.planAmount}>Jumlah: Rp {Number(planAmount).toLocaleString("id-ID")}</Text>
         </View>
 
         <View style={[styles.statusCard, { borderColor: paymentStatusInfo.color }]}>

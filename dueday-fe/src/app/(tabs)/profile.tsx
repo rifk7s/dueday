@@ -25,6 +25,7 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getPendingPaymentTransferParams } from "@/api/payments";
 
 type TaskStat = {
   label: string;
@@ -69,6 +70,7 @@ export default function ProfileScreen(): React.JSX.Element {
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState(user?.nickname ?? "");
   const router = useRouter();
+  const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
 
   React.useEffect(() => {
     setDisplayNickname(user?.nickname ?? user?.name ?? "—");
@@ -150,14 +152,36 @@ export default function ProfileScreen(): React.JSX.Element {
     );
   };
 
+  const handleUpgradeToPremium = async (): Promise<void> => {
+    if (!token || MOCK_AUTH) {
+      router.push("/premium-plan");
+      return;
+    }
+
+    try {
+      const pendingPayment = await getPendingPaymentTransferParams(token);
+
+      if (pendingPayment) {
+        router.push({
+          pathname: "/detail-transfer",
+          params: pendingPayment,
+        });
+        return;
+      }
+    } catch {
+      // Fall back to the regular plan selection screen if the lookup fails.
+    }
+
+    router.push("/premium-plan");
+  };
+
   const settingsWithActions = settings.map((item) =>
     item.label === "Upgrade to Premium"
-      ? { ...item, onPress: () => router.push("/premium-plan") }
+      ? { ...item, onPress: () => void handleUpgradeToPremium() }
       : item
   );
 
   // Developer-only: show a toggle to simulate subscription when using mock auth
-  const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   if (MOCK_AUTH && user) {
     settingsWithActions.push({
       icon: "sparkles-outline",

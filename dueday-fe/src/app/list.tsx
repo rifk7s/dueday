@@ -22,9 +22,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
 type Tab = "tugas" | "aktivitas";
-type Filter = "Semua" | "Selesai" | "Pekerjaan" | "Rapat";
 
 type StateColor = { bg: string; text: string };
+
+type ActivityStatus = "not_started" | "ongoing" | "paused";
 
 type ListItem = {
   id: string;
@@ -38,6 +39,10 @@ type ListItem = {
   category: string;
   showCategoryTag: boolean;
   status: "open" | "done";
+  rawStatus: string; // Saved to evaluate detailed status filtering
+  activityStatus?: ActivityStatus;
+  activityStatusText?: string;
+  activityStatusColor?: StateColor;
   progress?: number;
 };
 
@@ -47,9 +52,22 @@ const PRIORITY_COLOR: Record<string, StateColor> = {
   low: { bg: colors.surfaceSuccess, text: colors.success },
 };
 
-const DONE_COLOR: StateColor = { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant };
+const ACTIVITY_STATUS_META: Record<ActivityStatus, { label: string; color: StateColor }> = {
+  not_started: {
+    label: "BELUM MULAI",
+    color: { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant },
+  },
+  ongoing: {
+    label: "BERLANGSUNG",
+    color: { bg: colors.surfaceWarm, text: colors.warning },
+  },
+  paused: {
+    label: "PAUSED",
+    color: { bg: colors.errorSoft, text: colors.errorStrong },
+  },
+};
 
-const filterOptions: Filter[] = ["Semua", "Selesai", "Pekerjaan", "Rapat"];
+const DONE_COLOR: StateColor = { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant };
 
 function isTaskDone(status: Task["status"]): boolean {
   return status === "completed" || status === "completed_late";
@@ -94,6 +112,7 @@ function taskToListItem(task: Task): ListItem {
     category: task.tag?.nama_tag ?? "—",
     showCategoryTag: task.id_tag !== null,
     status: isDone ? "done" : "open",
+    rawStatus: task.status,
     progress: task.progress / 100,
   };
 }
@@ -106,6 +125,14 @@ function activityToListItem(activity: Activity): ListItem {
   const deadline = [datePart, timeParts.join("-")].filter(Boolean).join(" | ");
 
   const isDone = activity.status === "completed" || activity.status === "cancelled";
+  const activityStatus: ActivityStatus | undefined = isDone
+    ? undefined
+    : activity.status === "ongoing"
+    ? "ongoing"
+    : activity.status === "pending"
+    ? "paused"
+    : "not_started";
+  const activityStatusMeta = activityStatus ? ACTIVITY_STATUS_META[activityStatus] : null;
 
   let stateText: string;
   if (activity.status === "cancelled") stateText = "DIBATALKAN";
@@ -135,6 +162,10 @@ function activityToListItem(activity: Activity): ListItem {
     category: activity.tag?.nama_tag ?? "—",
     showCategoryTag: activity.id_tag !== null,
     status: isDone ? "done" : "open",
+    rawStatus: activity.status ?? "not_started",
+    activityStatus,
+    activityStatusText: activityStatusMeta?.label,
+    activityStatusColor: activityStatusMeta?.color,
     progress: activity.progress / 100,
   };
 }
@@ -230,7 +261,8 @@ export default function ListPage() {
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
 
   const [active, setActive] = useState<Tab>("tugas");
-  const [activeFilter, setActiveFilter] = useState<Filter>("Semua");
+  // Multi-select active state using an array of strings
+  const [activeFilters, setActiveFilters] = useState<string[]>(["Semua"]);
 
   const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } =
     useTasksQuery();
@@ -247,7 +279,7 @@ export default function ListPage() {
       } else {
         setActive("tugas");
       }
-      setActiveFilter("Semua");
+      setActiveFilters(["Semua"]);
     }, [queryClient, tabParam]),
   );
 
@@ -265,7 +297,7 @@ export default function ListPage() {
 
   const sortedActivities = [...activities].sort((a, b) => {
     const aDone = a.status === "completed" || a.status === "cancelled" ? 1 : 0;
-    const bDone = b.status === "completed" || b.status === "cancelled" ? 1 : 0;
+    const bDone = a.status === "completed" || a.status === "cancelled" ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
     const aKey = `${a.tanggal ?? "9999-12-31"}T${a.time_start ?? "23:59:59"}`;
     const bKey = `${b.tanggal ?? "9999-12-31"}T${b.time_start ?? "23:59:59"}`;
@@ -277,10 +309,95 @@ export default function ListPage() {
       ? sortedTasks.map(taskToListItem)
       : sortedActivities.map(activityToListItem);
 
+  // Generates status modifiers and dynamic tag options based on active tab
+  const dynamicFilterOptions = React.useMemo(() => {
+    const baseStatusFilters =
+      active === "tugas"
+        ? ["Semua", "Berlangsung", "Selesai"]
+        : ["Semua", "Belum Mulai", "Berlangsung", "Selesai"];
+
+    const uniqueTags = new Set<string>();
+    items.forEach((item) => {
+      if (item.showCategoryTag && item.category && item.category !== "—") {
+        uniqueTags.add(item.category);
+      }
+    });
+
+    return [...baseStatusFilters, ...Array.from(uniqueTags)];
+  }, [items, active]);
+
+  // Clean filters array if options vanish upon tab shifts
+  React.useEffect(() => {
+    const validSelections = activeFilters.filter((f) => dynamicFilterOptions.includes(f));
+    if (validSelections.length === 0) {
+      setActiveFilters(["Semua"]);
+    } else if (validSelections.length < activeFilters.length) {
+      setActiveFilters(validSelections);
+    }
+  }, [active, dynamicFilterOptions]);
+
+  // Click handler allowing multiple choice selection toggle logic
+  const handleFilterPress = (filter: string) => {
+    if (filter === "Semua") {
+      setActiveFilters(["Semua"]);
+      return;
+    }
+
+    let nextFilters = activeFilters.filter((f) => f !== "Semua");
+
+    if (nextFilters.includes(filter)) {
+      nextFilters = nextFilters.filter((f) => f !== filter);
+      if (nextFilters.length === 0) {
+        nextFilters = ["Semua"];
+      }
+    } else {
+      nextFilters.push(filter);
+    }
+
+    setActiveFilters(nextFilters);
+  };
+
+  // Complex multi-dimensional filter logic implementation
   const visibleItems = items.filter((item) => {
-    if (activeFilter === "Semua") return true;
-    if (activeFilter === "Selesai") return item.status === "done";
-    return item.category === activeFilter;
+    if (activeFilters.includes("Semua")) return true;
+
+    // 1. Group custom requested structural states
+    const targetStatuses = activeFilters.filter((f) =>
+      ["Belum Mulai", "Berlangsung", "Selesai"].includes(f)
+    );
+    
+    // 2. Identify requested custom tags
+    const targetTags = activeFilters.filter((f) =>
+      !["Belum Mulai", "Berlangsung", "Selesai"].includes(f)
+    );
+
+    // Evaluate matching status conditions
+    let statusMatch = targetStatuses.length === 0; // true if no status filters are active
+    if (!statusMatch) {
+      statusMatch = targetStatuses.some((statusFilter) => {
+        if (statusFilter === "Selesai") {
+          return item.status === "done";
+        }
+        if (statusFilter === "Berlangsung") {
+          return item.itemType === "task"
+            ? item.rawStatus === "ongoing"
+            : item.rawStatus === "ongoing" || item.rawStatus === "pending";
+        }
+        if (statusFilter === "Belum Mulai") {
+          return item.itemType === "activity" && item.rawStatus === "not_started";
+        }
+        return false;
+      });
+    }
+
+    // Evaluate matching tag conditions
+    let tagMatch = targetTags.length === 0; // true if no tag filters are active
+    if (!tagMatch) {
+      tagMatch = targetTags.includes(item.category);
+    }
+
+    // Must satisfy status constraints AND tag parameters together
+    return statusMatch && tagMatch;
   });
 
   return (
@@ -316,19 +433,28 @@ export default function ListPage() {
         </Pressable>
       </View>
 
-      <View style={styles.filterRow}>
-        {filterOptions.map((f) => (
-          <Pressable
-            key={f}
-            onPress={() => setActiveFilter(f)}
-            style={[styles.chip, f === activeFilter ? styles.chipActive : null]}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.chipText, f === activeFilter ? styles.chipTextActive : null]}>
-              {f}
-            </Text>
-          </Pressable>
-        ))}
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {dynamicFilterOptions.map((f) => {
+            const isSelected = activeFilters.includes(f);
+            return (
+              <Pressable
+                key={f}
+                onPress={() => handleFilterPress(f)}
+                style={[styles.chip, isSelected ? styles.chipActive : null]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.chipText, isSelected ? styles.chipTextActive : null]}>
+                  {f}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {renderListContent(isLoading, isError, active, visibleItems, (item) => {
@@ -353,6 +479,8 @@ function TaskCard({
   category = "—",
   showCategoryTag = false,
   status = "open",
+  activityStatusText,
+  activityStatusColor,
   progress = 0,
 }: Readonly<Omit<ListItem, "id">>) {
   const isActivity = itemType === "activity";
@@ -393,6 +521,13 @@ function TaskCard({
           ) : null}
 
           <View style={styles.tagRow}>
+            {isActivity && activityStatusText && activityStatusColor ? (
+              <View style={[styles.tag, { backgroundColor: activityStatusColor.bg }]}>
+                <Text style={[styles.priorityTagText, { color: activityStatusColor.text }]}>
+                  {activityStatusText}
+                </Text>
+              </View>
+            ) : null}
             {stateText === "TERLAMBAT" || stateText === "DIBATALKAN" ? (
               <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
                 <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>{stateText}</Text>
@@ -470,7 +605,6 @@ function ProgressRing({
           fill="none"
         />
       </Svg>
-      {/** default: show label; can be hidden when used for completed-state ring */}
       <View style={styles.progressLabel}>
         <Text style={styles.progressText}>{Math.round(clamped * 100)}%</Text>
       </View>
@@ -501,13 +635,14 @@ const styles = StyleSheet.create({
   tabButtonActive: { borderBottomColor: colors.primaryContainer },
   tabLabel: { color: colors.iconMuted, fontFamily: fonts["700"], fontSize: 15 },
   tabLabelActive: { color: colors.primaryContainer, fontFamily: fonts["900"] },
-  filterRow: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 18,
+  filterContainer: {
     paddingTop: 12,
     paddingBottom: 10,
-    alignItems: "center",
+  },
+  filterScrollContent: {
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    gap: 12,
   },
   chip: {
     paddingHorizontal: 14,
