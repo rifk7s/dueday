@@ -13,7 +13,7 @@ class UserRepository
             ->first();
     }
 
-    public function findById(int $id): ?User
+    public function findById(string $id): ?User 
     {
         return User::find($id);
     }
@@ -23,9 +23,16 @@ class UserRepository
         return User::create($data);
     }
 
+    /**
+     * Force-update user records cleanly
+     */
     public function update(User $user, array $data): bool
     {
-        return $user->update($data);
+        // Force fill the data array into the model attributes
+        $user->fill($data);
+        
+        // Save directly to the database layer
+        return $user->save();
     }
 
     public function delete(User $user): bool

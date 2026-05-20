@@ -4,24 +4,25 @@ namespace App\Services;
 
 use App\Models\Subscription;
 use App\Repositories\SubscriptionRepository;
+use App\Repositories\UserRepository;
 use Carbon\Carbon;
 
 class SubscriptionService
 {
-    public function __construct(private SubscriptionRepository $subscriptionRepository) {}
+    // Inject UserRepository alongside the SubscriptionRepository
+    public function __construct(
+        private SubscriptionRepository $subscriptionRepository,
+        private UserRepository $userRepository
+    ) {}
 
     /**
      * Business logic rule to activate a new or extend an existing user subscription.
      */
     public function activateOrExtendUserSubscription(string $userId, string $planName, int $months): Subscription
     {
-        // 1. Look for existing subscriptions via repository layer
         $subscriptions = $this->subscriptionRepository->getByUserId($userId);
-        $latestSubscription = $subscriptions->first(); // Collect latest because repo uses ->latest()
+        $latestSubscription = $subscriptions->first();
 
-        // 2. Base date calculation logic
-        // If they have an active plan already, extend from their existing expiration date.
-        // Otherwise, start the access validity window right now.
         $baseDate = ($latestSubscription && $latestSubscription->status === 'active' && $latestSubscription->expired_at)
             ? Carbon::parse($latestSubscription->expired_at)
             : Carbon::now();
@@ -39,12 +40,22 @@ class SubscriptionService
             'expired_at' => $expiredAt,
         ];
 
-        // 3. If a record exists, update it cleanly. Otherwise, create a brand new row entry.
         if ($latestSubscription) {
-            return $this->subscriptionRepository->update($latestSubscription->id, $payload);
+            $subscription = $this->subscriptionRepository->update($latestSubscription->id, $payload);
+        } else {
+            $subscription = $this->createSubscription($userId, $payload);
         }
 
-        return $this->createSubscription($userId, $payload);
+        // ⚡ FORCE USER STATUS SYNC HERE
+        $user = $this->userRepository->findById($userId);
+        if ($user) {
+            // Change status to 'subscribed' matching your mobile application needs
+            $this->userRepository->update($user, [
+                'status' => 'subscribed'
+            ]);
+        }
+
+        return $subscription;
     }
 
     public function createSubscription(string $userId, array $data): Subscription

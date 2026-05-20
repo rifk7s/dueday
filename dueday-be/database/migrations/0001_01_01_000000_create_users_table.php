@@ -20,7 +20,10 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('password');
             $table->string('nim')->nullable();
-            $table->enum('status', ['Subscribed', 'Unsubscribed'])->default('Unsubscribed');
+            
+            // 🔄 FIXED: Changed to lowercase values to match your SubscriptionService payload structure perfectly
+            $table->enum('status', ['subscribed', 'unsubscribed'])->default('unsubscribed');
+            
             $table->enum('language', ['Indonesia', 'English'])->default('Indonesia');
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();

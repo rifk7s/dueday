@@ -4,26 +4,27 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
     /**
-     * Seed the users table.
+     * Run the database seeds.
      */
     public function run(): void
     {
-        User::firstOrCreate([
+        User::create([
+            'id' => 'bb0efa5c-bf07-4a72-be22-4f68a210b0c0',
             'email' => 'bglorychen@student.ciputra.ac.id',
-        ], [
-            'id' => (string) Str::uuid(),
-            'photo_url' => 'https://static.vecteezy.com/system/resources/thumbnails/048/334/475/small/a-person-icon-on-a-transparent-background-png.png',
             'username' => 'bglorychen',
             'nickname' => 'brit',
             'name' => 'britney',
-            'password' => bcrypt('Password123'),
+            'password' => Hash::make('Password123'),
             'nim' => '0806022410020',
-            'status' => 'Unsubscribed',
+            
+            // 🔄 FIXED: Changed from 'Unsubscribed' to lowercase 'unsubscribed'
+            'status' => 'unsubscribed', 
+            
             'language' => 'Indonesia',
         ]);
     }
