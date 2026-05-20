@@ -8,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
@@ -25,8 +25,6 @@ type Tab = "tugas" | "aktivitas";
 
 type StateColor = { bg: string; text: string };
 
-type ActivityStatus = "not_started" | "ongoing" | "paused";
-
 type ListItem = {
   id: string;
   itemType: "task" | "activity";
@@ -39,10 +37,7 @@ type ListItem = {
   category: string;
   showCategoryTag: boolean;
   status: "open" | "done";
-  rawStatus: string; // Saved to evaluate detailed status filtering
-  activityStatus?: ActivityStatus;
-  activityStatusText?: string;
-  activityStatusColor?: StateColor;
+  rawStatus: string;
   progress?: number;
 };
 
@@ -50,21 +45,6 @@ const PRIORITY_COLOR: Record<string, StateColor> = {
   high: { bg: colors.errorSoft, text: colors.errorStrong },
   medium: { bg: colors.surfaceWarm, text: colors.warning },
   low: { bg: colors.surfaceSuccess, text: colors.success },
-};
-
-const ACTIVITY_STATUS_META: Record<ActivityStatus, { label: string; color: StateColor }> = {
-  not_started: {
-    label: "BELUM MULAI",
-    color: { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant },
-  },
-  ongoing: {
-    label: "BERLANGSUNG",
-    color: { bg: colors.surfaceWarm, text: colors.warning },
-  },
-  paused: {
-    label: "PAUSED",
-    color: { bg: colors.errorSoft, text: colors.errorStrong },
-  },
 };
 
 const DONE_COLOR: StateColor = { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant };
@@ -125,14 +105,6 @@ function activityToListItem(activity: Activity): ListItem {
   const deadline = [datePart, timeParts.join("-")].filter(Boolean).join(" | ");
 
   const isDone = activity.status === "completed" || activity.status === "cancelled";
-  const activityStatus: ActivityStatus | undefined = isDone
-    ? undefined
-    : activity.status === "ongoing"
-    ? "ongoing"
-    : activity.status === "pending"
-    ? "paused"
-    : "not_started";
-  const activityStatusMeta = activityStatus ? ACTIVITY_STATUS_META[activityStatus] : null;
 
   let stateText: string;
   if (activity.status === "cancelled") stateText = "DIBATALKAN";
@@ -163,9 +135,6 @@ function activityToListItem(activity: Activity): ListItem {
     showCategoryTag: activity.id_tag !== null,
     status: isDone ? "done" : "open",
     rawStatus: activity.status ?? "not_started",
-    activityStatus,
-    activityStatusText: activityStatusMeta?.label,
-    activityStatusColor: activityStatusMeta?.color,
     progress: activity.progress / 100,
   };
 }
@@ -191,18 +160,8 @@ function formatActivityDate(value: string | null): string {
   }
 
   const monthNames = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
   ];
 
   const monthIndex = Number(month) - 1;
@@ -232,8 +191,7 @@ function renderListContent(
     );
   }
   if (visibleItems.length === 0) {
-    const msg =
-      active === "tugas" ? "Belum ada tugas." : "Belum ada aktivitas.";
+    const msg = active === "tugas" ? "Belum ada tugas." : "Belum ada aktivitas.";
     return (
       <View style={styles.centered}>
         <Text style={styles.emptyText}>{msg}</Text>
@@ -241,10 +199,7 @@ function renderListContent(
     );
   }
   return (
-    <ScrollView
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {visibleItems.map((item) => (
         <Pressable key={item.id} onPress={() => onPressItem(item)}>
           <TaskCard {...item} />
@@ -261,13 +216,10 @@ export default function ListPage() {
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
 
   const [active, setActive] = useState<Tab>("tugas");
-  // Multi-select active state using an array of strings
   const [activeFilters, setActiveFilters] = useState<string[]>(["Semua"]);
 
-  const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } =
-    useTasksQuery();
-  const { data: activities = [], isLoading: activitiesLoading, isError: activitiesError } =
-    useActivitiesQuery();
+  const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } = useTasksQuery();
+  const { data: activities = [], isLoading: activitiesLoading, isError: activitiesError } = useActivitiesQuery();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -286,31 +238,27 @@ export default function ListPage() {
   const isLoading = active === "tugas" ? tasksLoading : activitiesLoading;
   const isError = active === "tugas" ? tasksError : activitiesError;
 
-  const sortedTasks = [...tasks].sort((a, b) => {
+  const sortedTasks = useMemo(() => [...tasks].sort((a, b) => {
     const aDone = isTaskDone(a.status) ? 1 : 0;
     const bDone = isTaskDone(b.status) ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
     const aKey = `${a.date ?? "9999-12-31"}T${a.time ?? "23:59:59"}`;
     const bKey = `${b.date ?? "9999-12-31"}T${b.time ?? "23:59:59"}`;
     return aDone === 1 ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
-  });
+  }), [tasks]);
 
-  const sortedActivities = [...activities].sort((a, b) => {
+  const sortedActivities = useMemo(() => [...activities].sort((a, b) => {
     const aDone = a.status === "completed" || a.status === "cancelled" ? 1 : 0;
     const bDone = a.status === "completed" || a.status === "cancelled" ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
     const aKey = `${a.tanggal ?? "9999-12-31"}T${a.time_start ?? "23:59:59"}`;
     const bKey = `${b.tanggal ?? "9999-12-31"}T${b.time_start ?? "23:59:59"}`;
     return aKey.localeCompare(bKey);
-  });
+  }), [activities]);
 
-  const items =
-    active === "tugas"
-      ? sortedTasks.map(taskToListItem)
-      : sortedActivities.map(activityToListItem);
+  const items = active === "tugas" ? sortedTasks.map(taskToListItem) : sortedActivities.map(activityToListItem);
 
-  // Generates status modifiers and dynamic tag options based on active tab
-  const dynamicFilterOptions = React.useMemo(() => {
+  const dynamicFilterOptions = useMemo(() => {
     const baseStatusFilters =
       active === "tugas"
         ? ["Semua", "Berlangsung", "Selesai"]
@@ -326,7 +274,6 @@ export default function ListPage() {
     return [...baseStatusFilters, ...Array.from(uniqueTags)];
   }, [items, active]);
 
-  // Clean filters array if options vanish upon tab shifts
   React.useEffect(() => {
     const validSelections = activeFilters.filter((f) => dynamicFilterOptions.includes(f));
     if (validSelections.length === 0) {
@@ -336,7 +283,6 @@ export default function ListPage() {
     }
   }, [active, dynamicFilterOptions]);
 
-  // Click handler allowing multiple choice selection toggle logic
   const handleFilterPress = (filter: string) => {
     if (filter === "Semua") {
       setActiveFilters(["Semua"]);
@@ -357,46 +303,31 @@ export default function ListPage() {
     setActiveFilters(nextFilters);
   };
 
-  // Complex multi-dimensional filter logic implementation
   const visibleItems = items.filter((item) => {
     if (activeFilters.includes("Semua")) return true;
 
-    // 1. Group custom requested structural states
-    const targetStatuses = activeFilters.filter((f) =>
-      ["Belum Mulai", "Berlangsung", "Selesai"].includes(f)
-    );
-    
-    // 2. Identify requested custom tags
-    const targetTags = activeFilters.filter((f) =>
-      !["Belum Mulai", "Berlangsung", "Selesai"].includes(f)
-    );
+    const targetStatuses = activeFilters.filter((f) => ["Belum Mulai", "Berlangsung", "Selesai"].includes(f));
+    const targetTags = activeFilters.filter((f) => !["Belum Mulai", "Berlangsung", "Selesai"].includes(f));
 
-    // Evaluate matching status conditions
-    let statusMatch = targetStatuses.length === 0; // true if no status filters are active
+    let statusMatch = targetStatuses.length === 0;
     if (!statusMatch) {
       statusMatch = targetStatuses.some((statusFilter) => {
-        if (statusFilter === "Selesai") {
-          return item.status === "done";
-        }
+        if (statusFilter === "Selesai") return item.status === "done";
         if (statusFilter === "Berlangsung") {
           return item.itemType === "task"
             ? item.rawStatus === "ongoing"
             : item.rawStatus === "ongoing" || item.rawStatus === "pending";
         }
-        if (statusFilter === "Belum Mulai") {
-          return item.itemType === "activity" && item.rawStatus === "not_started";
-        }
+        if (statusFilter === "Belum Mulai") return item.itemType === "activity" && item.rawStatus === "not_started";
         return false;
       });
     }
 
-    // Evaluate matching tag conditions
-    let tagMatch = targetTags.length === 0; // true if no tag filters are active
+    let tagMatch = targetTags.length === 0;
     if (!tagMatch) {
       tagMatch = targetTags.includes(item.category);
     }
 
-    // Must satisfy status constraints AND tag parameters together
     return statusMatch && tagMatch;
   });
 
@@ -407,8 +338,13 @@ export default function ListPage() {
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.title}>List</Text>
-        <Pressable style={styles.iconButton} accessibilityRole="button">
-          <Ionicons name="search" size={20} color={colors.iconMuted} />
+        {/* Push to separate search layout screen */}
+        <Pressable 
+          style={styles.iconButton} 
+          accessibilityRole="button"
+          onPress={() => router.push("/search")}
+        >
+          <Ionicons name="search" size={22} color={colors.primaryContainer} />
         </Pressable>
       </View>
 
@@ -418,27 +354,19 @@ export default function ListPage() {
           onPress={() => setActive("tugas")}
           style={[styles.tabButton, active === "tugas" && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, active === "tugas" && styles.tabLabelActive]}>
-            Tugas
-          </Text>
+          <Text style={[styles.tabLabel, active === "tugas" && styles.tabLabelActive]}>Tugas</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => setActive("aktivitas")}
           style={[styles.tabButton, active === "aktivitas" && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, active === "aktivitas" && styles.tabLabelActive]}>
-            Aktivitas
-          </Text>
+          <Text style={[styles.tabLabel, active === "aktivitas" && styles.tabLabelActive]}>Aktivitas</Text>
         </Pressable>
       </View>
 
       <View style={styles.filterContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScrollContent}
-        >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContent}>
           {dynamicFilterOptions.map((f) => {
             const isSelected = activeFilters.includes(f);
             return (
@@ -448,9 +376,7 @@ export default function ListPage() {
                 style={[styles.chip, isSelected ? styles.chipActive : null]}
                 accessibilityRole="button"
               >
-                <Text style={[styles.chipText, isSelected ? styles.chipTextActive : null]}>
-                  {f}
-                </Text>
+                <Text style={[styles.chipText, isSelected ? styles.chipTextActive : null]}>{f}</Text>
               </Pressable>
             );
           })}
@@ -468,6 +394,7 @@ export default function ListPage() {
   );
 }
 
+// Reuse the exact same TaskCard, ProgressRing components and style definitions from your current code base below...
 function TaskCard({
   itemType = "task",
   accentColor = colors.error,
@@ -479,8 +406,6 @@ function TaskCard({
   category = "—",
   showCategoryTag = false,
   status = "open",
-  activityStatusText,
-  activityStatusColor,
   progress = 0,
 }: Readonly<Omit<ListItem, "id">>) {
   const isActivity = itemType === "activity";
@@ -521,13 +446,6 @@ function TaskCard({
           ) : null}
 
           <View style={styles.tagRow}>
-            {isActivity && activityStatusText && activityStatusColor ? (
-              <View style={[styles.tag, { backgroundColor: activityStatusColor.bg }]}>
-                <Text style={[styles.priorityTagText, { color: activityStatusColor.text }]}>
-                  {activityStatusText}
-                </Text>
-              </View>
-            ) : null}
             {stateText === "TERLAMBAT" || stateText === "DIBATALKAN" ? (
               <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
                 <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>{stateText}</Text>

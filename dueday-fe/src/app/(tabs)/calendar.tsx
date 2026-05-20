@@ -55,7 +55,7 @@ export default function CalendarScreen() {
 
   const scheduleItems: ScheduleItem[] = useMemo(() => {
     const fromActivities: ScheduleItem[] = activities
-      .filter((a) => !!a.tanggal)
+      .filter((a) => !!a.tanggal && a.status !== "cancelled")
       .map((a, idx) => {
         const dateKey = normalizeDateKey(a.tanggal);
         const start = a.time_start ? parseInt(a.time_start.substring(0, 2), 10) : START_HOUR;
