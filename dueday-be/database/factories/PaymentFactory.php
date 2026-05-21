@@ -25,7 +25,7 @@ class PaymentFactory extends Factory
             'user_id' => User::factory(),
             'subscription_id' => Subscription::factory(),
             'amount' => fake()->randomFloat(2, 10000, 500000),
-            'method' => fake()->randomElement(['bank_transfer', 'credit_card', 'gopay', 'ovo']),
+            'method' => fake()->randomElement(['qris', 'gopay', 'ovo', 'dana', 'bca', 'bri', 'mandiri']),
             'status' => fake()->randomElement(['pending', 'paid', 'failed', 'refunded']),
             'created_at' => now(),
             'updated_at' => now(),

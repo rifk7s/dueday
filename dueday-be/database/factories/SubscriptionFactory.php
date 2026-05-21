@@ -24,7 +24,7 @@ class SubscriptionFactory extends Factory
         return [
             'id' => (string) Str::uuid(),
             'user_id' => User::factory(),
-            'plan' => fake()->randomElement(['monthly', 'yearly']),
+            'plan' => fake()->randomElement(['satu_bulan', 'tiga_bulan', 'satu_tahun']),
             'status' => fake()->randomElement(['active', 'expired', 'cancelled', 'pending']),
             'started_at' => $startedAt,
             'expired_at' => (clone $startedAt)->modify('+1 month'),

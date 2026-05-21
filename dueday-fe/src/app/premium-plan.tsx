@@ -1,6 +1,6 @@
 import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
-import { getPendingPaymentTransferParams } from "@/api/payments";
+import { getPendingPaymentTransferParams, type PlanValue } from "@/api/payments";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -16,6 +16,7 @@ type BenefitItem = {
 };
 
 type PlanItem = {
+  value: PlanValue;
   label: string;
   duration: string;
   price: string;
@@ -38,6 +39,7 @@ const benefits: BenefitItem[] = [
 
 const plans: PlanItem[] = [
   {
+    value: "satu_bulan",
     label: "Paket 1 Bulan",
     duration: "1 bulan",
     price: "Rp20.000",
@@ -45,6 +47,7 @@ const plans: PlanItem[] = [
     note: "Cocok untuk coba premium dulu.",
   },
   {
+    value: "tiga_bulan",
     label: "Paket 3 Bulan",
     duration: "3 bulan",
     price: "Rp54.000",
@@ -52,6 +55,7 @@ const plans: PlanItem[] = [
     note: "Hemat 10% dibanding bayar bulanan.",
   },
   {
+    value: "satu_tahun",
     label: "Paket 1 Tahun",
     duration: "12 bulan",
     price: "Rp192.000",
@@ -87,6 +91,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
     router.push({
       pathname: "/payment",
       params: {
+        plan: selectedPlan.value,
         planName: selectedPlan.label,
         planPrice: selectedPlan.price,
         planAmount: String(selectedPlan.amount),

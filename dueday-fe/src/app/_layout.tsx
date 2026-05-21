@@ -1,6 +1,7 @@
 import { SessionProvider, useSession } from "@/auth/ctx";
 import { SplashScreenController } from "@/auth/splash";
 import { modalScreenOptions, stackScreenOptions, successScreenOptions } from "@/constants/navigation";
+import { ensureAndroidChannel, setupNotificationHandler } from "@/lib/notifications";
 import "@/global.css";
 import {
     Lexend_400Regular,
@@ -27,6 +28,8 @@ const queryClient = new QueryClient({
 });
 
 SplashScreen.preventAutoHideAsync();
+setupNotificationHandler();
+ensureAndroidChannel().catch(() => null);
 
 // Keep (tabs) anchored behind deep-linked modals so back / dismissAll always
 // has a base (Expo Router modal guidance).

@@ -46,12 +46,10 @@ class SubscriptionService
             $subscription = $this->createSubscription($userId, $payload);
         }
 
-        // ⚡ FORCE USER STATUS SYNC HERE
         $user = $this->userRepository->findById($userId);
         if ($user) {
-            // Change status to 'subscribed' matching your mobile application needs
             $this->userRepository->update($user, [
-                'status' => 'subscribed'
+                'is_subscribed' => true,
             ]);
         }
 

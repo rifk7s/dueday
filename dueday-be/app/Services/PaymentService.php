@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Payment;
 use App\Repositories\PaymentRepository;
-use App\Services\SubscriptionService;
 
 class PaymentService
 {
@@ -58,46 +57,16 @@ class PaymentService
             return null;
         }
 
-        // 2. Intercept check: If payment just updated successfully to 'paid', link the subscription
         if ($updatedPayment->status === 'paid') {
-            
-            // Read target properties dynamically across fallback column configurations
-            $rawPlanName = $updatedPayment->plan_name 
-                ?? $updatedPayment->plan 
-                ?? $updatedPayment->plan_duration 
-                ?? 'Paket 1 Bulan';
-                
-            $amount = (int) ($updatedPayment->amount ?? 0);
+            $subscription = $updatedPayment->subscription;
+            $plan = $subscription?->plan ?? 'satu_bulan';
+            $months = match ($plan) {
+                'satu_tahun' => 12,
+                'tiga_bulan' => 3,
+                default => 1,
+            };
 
-            // Default fallbacks (Paket 1 Bulan)
-            $months = 1;
-            $finalPlanName = 'Paket 1 Bulan';
-
-            // 🔄 CRITICAL FIX: Evaluate from largest to smallest value 
-            // to stop the 1-year plan from getting swallowed by the >= 54000 check.
-            if (
-                str_contains(strtolower($rawPlanName), '1 tahun') || 
-                str_contains(strtolower($rawPlanName), '12 bulan') || 
-                $amount === 192000
-            ) {
-                $months = 12;
-                $finalPlanName = 'Paket 1 Tahun';
-            } 
-            elseif (
-                str_contains(strtolower($rawPlanName), '3 bulan') || 
-                $amount === 54000 || 
-                ($amount >= 54000 && $amount < 192000)
-            ) {
-                $months = 3;
-                $finalPlanName = 'Paket 3 Bulan';
-            }
-
-            // 3. Delegate to SubscriptionService to save into your subscription "plan" column
-            $this->subscriptionService->activateOrExtendUserSubscription(
-                $userId,
-                $finalPlanName,
-                $months
-            );
+            $this->subscriptionService->activateOrExtendUserSubscription($userId, $plan, $months);
         }
 
         return $updatedPayment;

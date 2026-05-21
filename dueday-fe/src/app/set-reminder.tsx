@@ -1,89 +1,103 @@
-import { toApiTime } from "@/api/format";
+import { useReminderSettingsQuery, useUpdateReminderSettingsMutation } from "@/hooks/useReminders";
 import TimePicker from "@/components/TimePicker";
 import { colors, fonts, typography } from "@/constants/theme";
-import { useUpdateActivityMutation } from "@/hooks/useActivities";
-import { useUpdateTaskMutation } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
-import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderRouteType = "task" | "activity";
 
-function resolveInitialTime(value: string | string[] | undefined): string {
-  const timeText = Array.isArray(value) ? value[0] : value;
-  if (typeof timeText === "string" && /^\d{2}:\d{2}$/.test(timeText)) {
-    return timeText;
-  }
-
-  return "07:00";
+function resolveReminderType(value: string | string[] | undefined): ReminderRouteType {
+  const t = Array.isArray(value) ? value[0] : value;
+  return t === "activity" ? "activity" : "task";
 }
 
-function resolveReminderType(value: string | string[] | undefined): ReminderRouteType {
-  const typeText = Array.isArray(value) ? value[0] : value;
-  return typeText === "activity" ? "activity" : "task";
+function showFeedback(title: string, text: string): void {
+  // Multi-line fire-time info needs a real dialog; toast truncates on Android.
+  Alert.alert(title, text);
+}
+
+function formatFireTime(d: Date, now: Date = new Date()): string {
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  if (sameDay) return `hari ini ${hh}:${mm}`;
+  const day = d.getDate();
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return `${day} ${monthLabels[d.getMonth()]} ${hh}:${mm}`;
+}
+
+function buildFeedback(args: {
+  scheduledCount: number;
+  permissionGranted: boolean;
+  label: string;
+  firstFireAt: Date | null;
+  lastFireAt: Date | null;
+}): { title: string; text: string } {
+  const { scheduledCount, permissionGranted, label, firstFireAt, lastFireAt } = args;
+  if (!permissionGranted) {
+    return { title: "Izin notifikasi", text: "Pengaturan disimpan tapi izin notifikasi belum diberikan." };
+  }
+  if (scheduledCount === 0) {
+    return {
+      title: "Belum ada yang dijadwalkan",
+      text: `Pengaturan ${label} tersimpan, tapi jamnya udah lewat atau terlalu dekat. Coba set jam beberapa menit ke depan.`,
+    };
+  }
+  const first = firstFireAt ? formatFireTime(firstFireAt) : null;
+  const last = lastFireAt ? formatFireTime(lastFireAt) : null;
+  const range = first && last && first !== last ? `${first} → ${last}` : first ?? "";
+  return {
+    title: "Berhasil",
+    text: `${scheduledCount} reminder ${label} dijadwalkan.\nNotif: ${range}.`,
+  };
 }
 
 export default function SetReminderScreen(): React.JSX.Element {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
-
   const reminderType = resolveReminderType(params.type);
-  const reminderLabel = (Array.isArray(params.label) ? params.label[0] : params.label) ?? reminderType;
-  const reminderId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const initialMessage = Array.isArray(params.message) ? params.message[0] : params.message;
-  const [message, setMessage] = React.useState(initialMessage ?? "");
-  const [time, setTime] = React.useState(resolveInitialTime(params.time));
+  const reminderLabel = reminderType === "activity" ? "aktivitas" : "tugas";
+
+  const settingsQuery = useReminderSettingsQuery();
+  const mutation = useUpdateReminderSettingsMutation();
+
+  const existing = settingsQuery.data?.[reminderType];
+  const [message, setMessage] = React.useState("");
+  const [time, setTime] = React.useState("07:00");
   const [pickerVisible, setPickerVisible] = React.useState(false);
-  const updateTaskMutation = useUpdateTaskMutation();
-  const updateActivityMutation = useUpdateActivityMutation();
-  const isSaving = updateTaskMutation.isPending || updateActivityMutation.isPending;
-  const qc = useQueryClient();
+  const hydratedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hydratedRef.current || !existing) return;
+    hydratedRef.current = true;
+    if (existing.message) setMessage(existing.message);
+    if (existing.time) setTime(existing.time);
+  }, [existing]);
+
+  const isSaving = mutation.isPending;
 
   const handleSave = async () => {
-    if (!reminderId) {
-      const feedbackText = "Data reminder tidak ditemukan.";
-
-      if (Platform.OS === "android") {
-        ToastAndroid.show(feedbackText, ToastAndroid.SHORT);
-      } else {
-        Alert.alert("Gagal", feedbackText);
-      }
-
-      return;
-    }
-
     try {
-      if (reminderType === "task") {
-        await updateTaskMutation.mutateAsync({ id: reminderId, data: { time: toApiTime(time), reminder_message: message.trim() || null } });
-        qc.invalidateQueries({ queryKey: ["tasks"] });
-      } else {
-        await updateActivityMutation.mutateAsync({ id: reminderId, data: { time_start: toApiTime(time), reminder_message: message.trim() || null } });
-        qc.invalidateQueries({ queryKey: ["activities"] });
-      }
-
-      const feedbackText = message.trim()
-        ? `Reminder ${reminderLabel} disimpan dengan pesan.`
-        : `Jam reminder ${reminderLabel} berhasil diubah.`;
-
-      if (Platform.OS === "android") {
-        ToastAndroid.show(feedbackText, ToastAndroid.SHORT);
-      } else {
-        Alert.alert("Berhasil", feedbackText);
-      }
-
+      const result = await mutation.mutateAsync({
+        [reminderType]: { time, message: message.trim() || null },
+      });
+      const summary = result[reminderType];
+      const { title, text } = buildFeedback({
+        scheduledCount: summary.scheduledCount,
+        permissionGranted: result.permissionGranted,
+        label: reminderLabel,
+        firstFireAt: summary.firstFireAt,
+        lastFireAt: summary.lastFireAt,
+      });
+      showFeedback(title, text);
       router.back();
     } catch (error) {
-      const feedbackText = error instanceof Error ? error.message : "Gagal menyimpan reminder.";
-
-      if (Platform.OS === "android") {
-        ToastAndroid.show(feedbackText, ToastAndroid.SHORT);
-      } else {
-        Alert.alert("Gagal", feedbackText);
-      }
+      const text = error instanceof Error ? error.message : "Gagal menyimpan pengaturan.";
+      showFeedback("Gagal", text);
     }
   };
 
@@ -112,15 +126,11 @@ export default function SetReminderScreen(): React.JSX.Element {
       >
         <View style={styles.heroCard}>
           <View style={styles.heroIconWrap}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={20}
-              color={colors.primaryContainer}
-            />
+            <Ionicons name="alert-circle-outline" size={20} color={colors.primaryContainer} />
           </View>
           <View style={styles.heroTextBlock}>
             <Text style={styles.heroSubtitle}>
-              Pengingat ini berjalan otomatis dan akan aktif di hari-hari tertentu sesuai prioritas dan deadline {reminderType === "activity" ? "aktivitas" : "tugas"} kamu.
+              Pengingat ini berlaku untuk semua {reminderLabel} aktif kamu. Tanggal & waktu fire dihitung otomatis dari prioritas dan deadline.
             </Text>
           </View>
         </View>
@@ -128,8 +138,8 @@ export default function SetReminderScreen(): React.JSX.Element {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryTextBlock}>
-              <Text style={styles.summaryLabel}>Reminder untuk</Text>
-              <Text style={styles.summaryTitle}>{reminderLabel}</Text>
+              <Text style={styles.summaryLabel}>Reminder untuk semua</Text>
+              <Text style={styles.summaryTitle}>{reminderType === "activity" ? "Aktivitas" : "Tugas"}</Text>
             </View>
             <View style={styles.typeBadge}>
               <Ionicons
@@ -154,23 +164,24 @@ export default function SetReminderScreen(): React.JSX.Element {
             numberOfLines={4}
             textAlignVertical="top"
           />
+          <Text style={styles.hint}>Kosongkan untuk pakai template default.</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Waktu</Text>
+          <Text style={styles.label}>Jam Pengingat</Text>
           <Pressable style={styles.timeBox} onPress={() => setPickerVisible(true)}>
             <View style={styles.timeIconWrap}>
               <Ionicons name="time-outline" size={22} color={colors.primaryContainer} />
             </View>
             <View style={styles.timeTextBlock}>
               <Text style={styles.timeText}>{time}</Text>
-              <Text style={styles.timeHint}>Ketuk untuk ubah waktu</Text>
+              <Text style={styles.timeHint}>Ketuk untuk ubah jam reminder</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.iconMuted} />
           </Pressable>
         </View>
 
-        <Pressable style={styles.saveButton} onPress={handleSave}>
+        <Pressable style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={handleSave} disabled={isSaving}>
           <Ionicons name="checkmark-circle-outline" size={18} color={colors.onPrimary} />
           <Text style={styles.saveButtonText}>{isSaving ? "Menyimpan..." : "Simpan"}</Text>
         </Pressable>
@@ -182,18 +193,22 @@ export default function SetReminderScreen(): React.JSX.Element {
         onTimeSelect={setTime}
         selectedTime={time}
       />
+
+      <Modal visible={isSaving} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={colors.primaryContainer} />
+            <Text style={styles.loadingText}>Menjadwalkan reminder...</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surfaceContainerLowest,
-  },
-  scrollView: {
-    backgroundColor: colors.surface,
-  },
+  root: { flex: 1, backgroundColor: colors.surfaceContainerLowest },
+  scrollView: { backgroundColor: colors.surface },
   header: {
     minHeight: 56,
     flexDirection: "row",
@@ -204,25 +219,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.surfaceContainerLow,
     backgroundColor: colors.surfaceContainerLowest,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: typography.h2.fontSize,
-    fontFamily: typography.h2.fontFamily,
-    color: colors.onSurface,
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    gap: 16,
-  },
+  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: typography.h2.fontSize, fontFamily: typography.h2.fontFamily, color: colors.onSurface },
+  headerSpacer: { width: 44 },
+  content: { paddingHorizontal: 20, paddingTop: 16, gap: 16 },
   heroCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -236,72 +236,16 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 3,
   },
-  heroIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceWarm,
-  },
-  heroTextBlock: {
-    flex: 1,
-    gap: 4,
-  },
-  heroTitle: {
-    color: colors.onSurface,
-    fontSize: 16,
-    fontFamily: fonts["700"],
-  },
-  heroSubtitle: {
-    color: colors.onSurfaceVariant,
-    fontSize: typography.bodySm.fontSize,
-    lineHeight: 20,
-    fontFamily: typography.bodySm.fontFamily,
-  },
-  summaryCard: {
-    borderRadius: 18,
-    padding: 16,
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerHigh,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  summaryTextBlock: {
-    flex: 1,
-    gap: 4,
-  },
-  summaryLabel: {
-    color: colors.onSurfaceVariant,
-    fontSize: 11,
-    fontFamily: fonts["500"],
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  summaryTitle: {
-    color: colors.onSurface,
-    fontSize: 18,
-    fontFamily: fonts["700"],
-  },
-  typeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceWarm,
-  },
-  typeBadgeText: {
-    color: colors.primaryContainer,
-    fontSize: 12,
-    fontFamily: fonts["700"],
-  },
+  heroIconWrap: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceWarm },
+  heroTextBlock: { flex: 1, gap: 4 },
+  heroSubtitle: { color: colors.onSurfaceVariant, fontSize: typography.bodySm.fontSize, lineHeight: 20, fontFamily: typography.bodySm.fontFamily },
+  summaryCard: { borderRadius: 18, padding: 16, backgroundColor: colors.surfaceContainerLowest, borderWidth: 1, borderColor: colors.surfaceContainerHigh },
+  summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  summaryTextBlock: { flex: 1, gap: 4 },
+  summaryLabel: { color: colors.onSurfaceVariant, fontSize: 11, fontFamily: fonts["500"], textTransform: "uppercase", letterSpacing: 0.8 },
+  summaryTitle: { color: colors.onSurface, fontSize: 18, fontFamily: fonts["700"] },
+  typeBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surfaceWarm },
+  typeBadgeText: { color: colors.primaryContainer, fontSize: 12, fontFamily: fonts["700"] },
   card: {
     borderRadius: 18,
     padding: 16,
@@ -313,13 +257,8 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 10,
   },
-  label: {
-    color: colors.primaryContainer,
-    fontSize: 12,
-    fontFamily: fonts["700"],
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
+  label: { color: colors.primaryContainer, fontSize: 12, fontFamily: fonts["700"], textTransform: "uppercase", letterSpacing: 0.8 },
+  hint: { color: colors.onSurfaceVariant, fontSize: typography.bodySm.fontSize, fontFamily: typography.bodySm.fontFamily },
   messageInput: {
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
@@ -344,28 +283,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
   },
-  timeIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceWarm,
-  },
-  timeTextBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  timeText: {
-    color: colors.onSurface,
-    fontSize: 34,
-    fontFamily: fonts["700"],
-  },
-  timeHint: {
-    color: colors.onSurfaceVariant,
-    fontSize: typography.bodySm.fontSize,
-    fontFamily: typography.bodySm.fontFamily,
-  },
+  timeIconWrap: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceWarm },
+  timeTextBlock: { flex: 1, gap: 2 },
+  timeText: { color: colors.onSurface, fontSize: 34, fontFamily: fonts["700"] },
+  timeHint: { color: colors.onSurfaceVariant, fontSize: typography.bodySm.fontSize, fontFamily: typography.bodySm.fontFamily },
   saveButton: {
     marginTop: 6,
     flexDirection: "row",
@@ -381,9 +302,33 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 3,
   },
-  saveButtonText: {
-    color: colors.onPrimary,
-    fontSize: 14,
-    fontFamily: fonts["700"],
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: { color: colors.onPrimary, fontSize: 14, fontFamily: fonts["700"] },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  loadingCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    gap: 14,
+    minWidth: 220,
+    shadowColor: colors.onSurface,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  loadingText: {
+    color: colors.onSurface,
+    fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["600"],
+    textAlign: "center",
   },
 });

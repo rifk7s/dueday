@@ -2,12 +2,12 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\GeminiMessageController;
 use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\UserReminderSettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -41,21 +41,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/activities/{activity}', [ActivityController::class, 'update']);
     Route::delete('/activities/{activity}', [ActivityController::class, 'destroy']);
 
-    // Reminders
-    Route::get('/reminders', [ReminderController::class, 'index']);
-    Route::get('/reminders/{reminder}', [ReminderController::class, 'show']);
-    Route::post('/reminders', [ReminderController::class, 'store']);
-    Route::put('/reminders/{reminder}', [ReminderController::class, 'update']);
-    Route::patch('/reminders/{reminder}', [ReminderController::class, 'update']);
-    Route::delete('/reminders/{reminder}', [ReminderController::class, 'destroy']);
+    // Reminder settings (lite) — FE schedules slots locally from these globals.
+    Route::get('/me/reminder-settings', [UserReminderSettingsController::class, 'show']);
+    Route::put('/me/reminder-settings', [UserReminderSettingsController::class, 'update']);
 
-    // Notifications
-    Route::get('/notifications', [NotificationController::class, 'index']);
-    Route::get('/notifications/{notification}', [NotificationController::class, 'show']);
-    Route::post('/notifications', [NotificationController::class, 'store']);
-    Route::put('/notifications/{notification}', [NotificationController::class, 'update']);
-    Route::patch('/notifications/{notification}', [NotificationController::class, 'update']);
-    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+    // Gemini message proxies are throttled per-user to cap runaway loops & abuse.
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::post('/reminders/generate-message', [GeminiMessageController::class, 'generate']);
+        Route::post('/reminders/generate-messages', [GeminiMessageController::class, 'generateBatch']);
+    });
 
     // Subscriptions
     Route::get('/subscriptions', [SubscriptionController::class, 'index']);
@@ -68,7 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Payments
     // ✅ CRITICAL FIX: Explicit static paths must be declared before wildcards ({payment})
     Route::post('/payments/scan', [PaymentController::class, 'scan']);
-    
+
     Route::get('/payments', [PaymentController::class, 'index']);
     Route::get('/payments/{payment}', [PaymentController::class, 'show']);
     Route::post('/payments', [PaymentController::class, 'store']);
