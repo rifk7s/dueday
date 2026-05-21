@@ -1,10 +1,8 @@
-import { toApiTime } from "@/api/format";
+import type { ReminderSound, ReminderStyle } from "@/api/reminders";
 import TimePicker from "@/components/TimePicker";
 import { colors, fonts, typography } from "@/constants/theme";
-import { useUpdateActivityMutation } from "@/hooks/useActivities";
-import { useUpdateTaskMutation } from "@/hooks/useTasks";
+import { useReminderSettingsQuery, useUpdateReminderSettingsMutation } from "@/hooks/useReminders";
 import { Ionicons } from "@expo/vector-icons";
-import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, ToastAndroid, View } from "react-native";
@@ -12,109 +10,93 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderRouteType = "task" | "activity";
 
-function resolveInitialTime(value: string | string[] | undefined): string {
-  const timeText = Array.isArray(value) ? value[0] : value;
-  if (typeof timeText === "string" && /^\d{2}:\d{2}$/.test(timeText)) {
-    return timeText;
-  }
+const STYLE_OPTIONS: { label: string; value: ReminderStyle }[] = [
+  { label: "Tegas", value: "tegas" },
+  { label: "Ngancam halus", value: "ngancam_halus" },
+  { label: "Santai", value: "santai" },
+];
 
-  return "07:00";
-}
+const SOUND_OPTIONS: { label: string; value: ReminderSound }[] = [
+  { label: "Default", value: "default" },
+  { label: "Chime", value: "chime" },
+  { label: "Bell", value: "bell" },
+];
 
 function resolveReminderType(value: string | string[] | undefined): ReminderRouteType {
-  const typeText = Array.isArray(value) ? value[0] : value;
-  return typeText === "activity" ? "activity" : "task";
+  const t = Array.isArray(value) ? value[0] : value;
+  return t === "activity" ? "activity" : "task";
+}
+
+function showFeedback(title: string, text: string): void {
+  if (Platform.OS === "android") {
+    ToastAndroid.show(text, ToastAndroid.SHORT);
+  } else {
+    Alert.alert(title, text);
+  }
 }
 
 export default function SetReminderPremiumScreen(): React.JSX.Element {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
-
   const reminderType = resolveReminderType(params.type);
-  const reminderLabel = (Array.isArray(params.label) ? params.label[0] : params.label) ?? reminderType;
-  const reminderId = Array.isArray(params.id) ? params.id[0] : params.id;
-  const initialMessage = Array.isArray(params.message) ? params.message[0] : params.message;
-  const [message, setMessage] = React.useState(initialMessage ?? "");
-  const [time, setTime] = React.useState(resolveInitialTime(params.time));
+  const reminderLabel = reminderType === "activity" ? "aktivitas" : "tugas";
+
+  const settingsQuery = useReminderSettingsQuery();
+  const mutation = useUpdateReminderSettingsMutation();
+  const existing = settingsQuery.data?.[reminderType];
+
+  const [message, setMessage] = React.useState("");
+  const [time, setTime] = React.useState("07:00");
   const [pickerVisible, setPickerVisible] = React.useState(false);
-  const [frequency, setFrequency] = React.useState<"once" | "daily" | "weekly">("once");
+  const [style, setStyle] = React.useState<ReminderStyle>("tegas");
+  const [sound, setSound] = React.useState<ReminderSound>("default");
   const [vibrate, setVibrate] = React.useState(true);
   const [openDropdown, setOpenDropdown] = React.useState<null | "style" | "sound">(null);
-  const stylesOptions = ["Tegas", "Ngancam halus", "Santai"];
-  const soundOptions = ["Default", "Chime", "Bell"];
-  const [selectedStyle, setSelectedStyle] = React.useState(stylesOptions[0]);
-  const [selectedSound, setSelectedSound] = React.useState(soundOptions[0]);
+  const hydratedRef = React.useRef(false);
 
-  const updateTaskMutation = useUpdateTaskMutation();
-  const updateActivityMutation = useUpdateActivityMutation();
-  const isSaving = updateTaskMutation.isPending || updateActivityMutation.isPending;
-  const qc = useQueryClient();
+  React.useEffect(() => {
+    if (hydratedRef.current || !existing) return;
+    hydratedRef.current = true;
+    if (existing.message) setMessage(existing.message);
+    if (existing.time) setTime(existing.time);
+    if (existing.style) setStyle(existing.style);
+    if (existing.sound) setSound(existing.sound);
+    setVibrate(existing.vibrate);
+  }, [existing]);
+
+  const isSaving = mutation.isPending;
 
   const handleSave = async () => {
-    if (!reminderId) {
-      const feedbackText = "Data reminder tidak ditemukan.";
-
-      if (Platform.OS === "android") {
-        ToastAndroid.show(feedbackText, ToastAndroid.SHORT);
-      } else {
-        Alert.alert("Gagal", feedbackText);
-      }
-
-      return;
-    }
-
     try {
-      const dataForTask: any = {
-        time: toApiTime(time),
-        reminder_message: message.trim() || null,
-        reminder_style: selectedStyle,
-        reminder_sound: selectedSound,
-        reminder_frequency: frequency,
-        reminder_vibrate: vibrate,
-      };
-
-      const dataForActivity: any = {
-        time_start: toApiTime(time),
-        reminder_message: message.trim() || null,
-        reminder_style: selectedStyle,
-        reminder_sound: selectedSound,
-        reminder_frequency: frequency,
-        reminder_vibrate: vibrate,
-      };
-
-      if (reminderType === "task") {
-        await updateTaskMutation.mutateAsync({ id: reminderId, data: dataForTask });
-        qc.invalidateQueries({ queryKey: ["tasks"] });
+      const result = await mutation.mutateAsync({
+        [reminderType]: {
+          time,
+          message: message.trim() || null,
+          style,
+          sound,
+          vibrate,
+        },
+      });
+      if (!result.permissionGranted) {
+        showFeedback("Izin notifikasi", "Pengaturan disimpan tapi izin notifikasi belum diberikan.");
+      } else if (result.scheduledCount > 0) {
+        showFeedback("Berhasil", `${result.scheduledCount} reminder ${reminderLabel} dijadwalkan.`);
       } else {
-        await updateActivityMutation.mutateAsync({ id: reminderId, data: dataForActivity });
-        qc.invalidateQueries({ queryKey: ["activities"] });
+        showFeedback("Tersimpan", `Pengaturan reminder ${reminderLabel} tersimpan.`);
       }
-
-      const feedbackText = message.trim()
-        ? `Reminder ${reminderLabel} disimpan dengan pesan.`
-        : `Jam reminder ${reminderLabel} berhasil diubah.`;
-
-      if (Platform.OS === "android") {
-        ToastAndroid.show(feedbackText, ToastAndroid.SHORT);
-      } else {
-        Alert.alert("Berhasil", feedbackText);
-      }
-
       router.back();
     } catch (error) {
-      const feedbackText = error instanceof Error ? error.message : "Gagal menyimpan reminder.";
-
-      if (Platform.OS === "android") {
-        ToastAndroid.show(feedbackText, ToastAndroid.SHORT);
-      } else {
-        Alert.alert("Gagal", feedbackText);
-      }
+      const text = error instanceof Error ? error.message : "Gagal menyimpan reminder.";
+      showFeedback("Gagal", text);
     }
   };
 
+  const selectedStyleLabel = STYLE_OPTIONS.find((o) => o.value === style)?.label ?? "Tegas";
+  const selectedSoundLabel = SOUND_OPTIONS.find((o) => o.value === sound)?.label ?? "Default";
+
   return (
-    <View style={[styles.root, { paddingTop: top }]}> 
+    <View style={[styles.root, { paddingTop: top }]}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -145,15 +127,17 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
           </View>
           <View style={styles.heroTextBlock}>
             <Text style={styles.heroTitle}>Fitur Premium</Text>
-            <Text style={styles.heroSubtitle}>Pengaturan pengingat lanjutan untuk pengguna premium.</Text>
+            <Text style={styles.heroSubtitle}>
+              Pengingat AI dengan gaya pilihan kamu. Berlaku untuk semua {reminderLabel} aktif.
+            </Text>
           </View>
         </View>
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryTextBlock}>
-              <Text style={styles.summaryLabel}>Reminder untuk</Text>
-              <Text style={styles.summaryTitle}>{reminderLabel}</Text>
+              <Text style={styles.summaryLabel}>Reminder untuk semua</Text>
+              <Text style={styles.summaryTitle}>{reminderType === "activity" ? "Aktivitas" : "Tugas"}</Text>
             </View>
             <View style={styles.typeBadge}>
               <Ionicons
@@ -167,11 +151,11 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Isi Pesan</Text>
+          <Text style={styles.label}>Isi Pesan (opsional)</Text>
           <TextInput
             value={message}
             onChangeText={setMessage}
-            placeholder={`Contoh: Kerjakan ${reminderLabel}`}
+            placeholder={`Kosongkan untuk pakai AI · contoh: Kerjakan ${reminderLabel}`}
             placeholderTextColor={colors.iconMuted}
             style={styles.messageInput}
             multiline
@@ -196,15 +180,25 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
 
         <View style={styles.card}>
           <Text style={styles.label}>Gaya Pesan</Text>
-          <Pressable style={styles.dropdown} onPress={() => setOpenDropdown(openDropdown === "style" ? null : "style")}> 
-            <Text style={styles.dropdownText}>{selectedStyle}</Text>
+          <Pressable
+            style={styles.dropdown}
+            onPress={() => setOpenDropdown(openDropdown === "style" ? null : "style")}
+          >
+            <Text style={styles.dropdownText}>{selectedStyleLabel}</Text>
             <Ionicons name="chevron-down" size={16} color={colors.iconMuted} />
           </Pressable>
           {openDropdown === "style" ? (
             <View style={styles.dropdownList}>
-              {stylesOptions.map((opt) => (
-                <Pressable key={opt} style={styles.dropdownItem} onPress={() => { setSelectedStyle(opt); setOpenDropdown(null); }}>
-                  <Text style={styles.dropdownItemText}>{opt}</Text>
+              {STYLE_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setStyle(opt.value);
+                    setOpenDropdown(null);
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>{opt.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -213,44 +207,37 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
 
         <View style={styles.card}>
           <Text style={styles.label}>Suara Notifikasi</Text>
-          <Pressable style={styles.dropdown} onPress={() => setOpenDropdown(openDropdown === "sound" ? null : "sound")}> 
-            <Text style={styles.dropdownText}>{selectedSound}</Text>
+          <Pressable
+            style={styles.dropdown}
+            onPress={() => setOpenDropdown(openDropdown === "sound" ? null : "sound")}
+          >
+            <Text style={styles.dropdownText}>{selectedSoundLabel}</Text>
             <Ionicons name="chevron-down" size={16} color={colors.iconMuted} />
           </Pressable>
           {openDropdown === "sound" ? (
             <View style={styles.dropdownList}>
-              {soundOptions.map((opt) => (
-                <Pressable key={opt} style={styles.dropdownItem} onPress={() => { setSelectedSound(opt); setOpenDropdown(null); }}>
-                  <Text style={styles.dropdownItemText}>{opt}</Text>
+              {SOUND_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setSound(opt.value);
+                    setOpenDropdown(null);
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>{opt.label}</Text>
                 </Pressable>
               ))}
             </View>
           ) : null}
         </View>
 
-        <View style={styles.cardRow}> 
-          <View style={[styles.card, { flex: 1 }]}> 
-            <Text style={styles.label}>Frekuensi</Text>
-            <View style={styles.freqRow}>
-              <Pressable onPress={() => setFrequency("once")} style={[styles.freqButton, frequency === "once" && styles.freqSelected]}>
-                <Text style={[styles.freqLabel, frequency === "once" && styles.freqLabelSelected]}>Sekali</Text>
-              </Pressable>
-              <Pressable onPress={() => setFrequency("daily")} style={[styles.freqButton, frequency === "daily" && styles.freqSelected]}>
-                <Text style={[styles.freqLabel, frequency === "daily" && styles.freqLabelSelected]}>Harian</Text>
-              </Pressable>
-              <Pressable onPress={() => setFrequency("weekly")} style={[styles.freqButton, frequency === "weekly" && styles.freqSelected]}>
-                <Text style={[styles.freqLabel, frequency === "weekly" && styles.freqLabelSelected]}>Mingguan</Text>
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={[styles.card, { marginLeft: 0, width: 120 }]}> 
-            <Text style={styles.label}>Getaran</Text>
-            <Switch value={vibrate} onValueChange={setVibrate} thumbColor={colors.primaryContainer} />
-          </View>
+        <View style={styles.card}>
+          <Text style={styles.label}>Getaran</Text>
+          <Switch value={vibrate} onValueChange={setVibrate} thumbColor={colors.primaryContainer} />
         </View>
 
-        <Pressable style={styles.saveButton} onPress={handleSave}>
+        <Pressable style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={handleSave} disabled={isSaving}>
           <Ionicons name="checkmark-circle-outline" size={18} color={colors.onPrimary} />
           <Text style={styles.saveButtonText}>{isSaving ? "Menyimpan..." : "Simpan"}</Text>
         </Pressable>
@@ -267,10 +254,7 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
+  root: { flex: 1, backgroundColor: colors.surface },
   header: {
     minHeight: 56,
     flexDirection: "row",
@@ -281,25 +265,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.surfaceContainerLow,
     backgroundColor: colors.surfaceContainerLowest,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: typography.h2.fontSize,
-    fontFamily: typography.h2.fontFamily,
-    color: colors.onSurface,
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    gap: 16,
-  },
+  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  headerTitle: { fontSize: typography.h2.fontSize, fontFamily: typography.h2.fontFamily, color: colors.onSurface },
+  headerSpacer: { width: 44 },
+  content: { paddingHorizontal: 20, paddingTop: 16, gap: 16 },
   heroCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -313,72 +282,17 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 3,
   },
-  heroIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceWarm,
-  },
-  heroTextBlock: {
-    flex: 1,
-    gap: 4,
-  },
-  heroTitle: {
-    color: colors.onSurface,
-    fontSize: 16,
-    fontFamily: fonts["700"],
-  },
-  heroSubtitle: {
-    color: colors.onSurfaceVariant,
-    fontSize: typography.bodySm.fontSize,
-    lineHeight: 20,
-    fontFamily: typography.bodySm.fontFamily,
-  },
-  summaryCard: {
-    borderRadius: 18,
-    padding: 16,
-    backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerHigh,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  summaryTextBlock: {
-    flex: 1,
-    gap: 4,
-  },
-  summaryLabel: {
-    color: colors.onSurfaceVariant,
-    fontSize: 11,
-    fontFamily: fonts["500"],
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  summaryTitle: {
-    color: colors.onSurface,
-    fontSize: 18,
-    fontFamily: fonts["700"],
-  },
-  typeBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceWarm,
-  },
-  typeBadgeText: {
-    color: colors.primaryContainer,
-    fontSize: 12,
-    fontFamily: fonts["700"],
-  },
+  heroIconWrap: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceWarm },
+  heroTextBlock: { flex: 1, gap: 4 },
+  heroTitle: { color: colors.onSurface, fontSize: 16, fontFamily: fonts["700"] },
+  heroSubtitle: { color: colors.onSurfaceVariant, fontSize: typography.bodySm.fontSize, lineHeight: 20, fontFamily: typography.bodySm.fontFamily },
+  summaryCard: { borderRadius: 18, padding: 16, backgroundColor: colors.surfaceContainerLowest, borderWidth: 1, borderColor: colors.surfaceContainerHigh },
+  summaryRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  summaryTextBlock: { flex: 1, gap: 4 },
+  summaryLabel: { color: colors.onSurfaceVariant, fontSize: 11, fontFamily: fonts["500"], textTransform: "uppercase", letterSpacing: 0.8 },
+  summaryTitle: { color: colors.onSurface, fontSize: 18, fontFamily: fonts["700"] },
+  typeBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surfaceWarm },
+  typeBadgeText: { color: colors.primaryContainer, fontSize: 12, fontFamily: fonts["700"] },
   card: {
     borderRadius: 18,
     padding: 16,
@@ -390,13 +304,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 10,
   },
-  label: {
-    color: colors.primaryContainer,
-    fontSize: 12,
-    fontFamily: fonts["700"],
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
+  label: { color: colors.primaryContainer, fontSize: 12, fontFamily: fonts["700"], textTransform: "uppercase", letterSpacing: 0.8 },
   messageInput: {
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
@@ -421,28 +329,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
   },
-  timeIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceWarm,
-  },
-  timeTextBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  timeText: {
-    color: colors.onSurface,
-    fontSize: 34,
-    fontFamily: fonts["700"],
-  },
-  timeHint: {
-    color: colors.onSurfaceVariant,
-    fontSize: typography.bodySm.fontSize,
-    fontFamily: typography.bodySm.fontFamily,
-  },
+  timeIconWrap: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceWarm },
+  timeTextBlock: { flex: 1, gap: 2 },
+  timeText: { color: colors.onSurface, fontSize: 34, fontFamily: fonts["700"] },
+  timeHint: { color: colors.onSurfaceVariant, fontSize: typography.bodySm.fontSize, fontFamily: typography.bodySm.fontFamily },
   saveButton: {
     marginTop: 6,
     flexDirection: "row",
@@ -458,21 +348,8 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 3,
   },
-  saveButtonText: {
-    color: colors.onPrimary,
-    fontSize: 14,
-    fontFamily: fonts["700"],
-  },
-  cardRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  premiumRow: {
-    paddingVertical: 12,
-  },
-  premiumText: {
-    color: colors.onSurfaceVariant,
-  },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: { color: colors.onPrimary, fontSize: 14, fontFamily: fonts["700"] },
   dropdown: {
     flexDirection: "row",
     alignItems: "center",
@@ -485,10 +362,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginTop: 8,
   },
-  dropdownText: {
-    color: colors.onSurface,
-    fontFamily: fonts["500"],
-  },
+  dropdownText: { color: colors.onSurface, fontFamily: fonts["500"] },
   dropdownList: {
     marginTop: 8,
     borderRadius: 12,
@@ -497,35 +371,6 @@ const styles = StyleSheet.create({
     borderColor: colors.surfaceContainerLow,
     overflow: "hidden",
   },
-  dropdownItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  dropdownItemText: {
-    color: colors.onSurface,
-  },
-  freqRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  freqButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerLow,
-  },
-  freqSelected: {
-    backgroundColor: colors.primaryContainer,
-  },
-  freqLabel: {
-    color: colors.onSurfaceVariant,
-    fontFamily: fonts["700"],
-  },
-  freqLabelSelected: {
-    color: colors.onPrimary,
-  },
+  dropdownItem: { paddingHorizontal: 12, paddingVertical: 12 },
+  dropdownItemText: { color: colors.onSurface },
 });

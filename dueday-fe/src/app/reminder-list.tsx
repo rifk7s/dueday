@@ -32,7 +32,7 @@ export default function ReminderListScreen() {
   const { data: tasks = [] } = useTasksQuery();
   const { data: activities = [] } = useActivitiesQuery();
   const currentUserQuery = useCurrentUserQuery({ enabled: true });
-  const isPremium = currentUserQuery.data?.status === "Subscribed";
+  const isPremium = currentUserQuery.data?.status === "subscribed";
 
   const allReminders = React.useMemo<ReminderCardItem[]>(() => {
     const activeTasks = [...tasks]
