@@ -4,7 +4,7 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderRouteType = "task" | "activity";
@@ -15,22 +15,44 @@ function resolveReminderType(value: string | string[] | undefined): ReminderRout
 }
 
 function showFeedback(title: string, text: string): void {
-  if (Platform.OS === "android") {
-    ToastAndroid.show(text, ToastAndroid.SHORT);
-  } else {
-    Alert.alert(title, text);
-  }
+  // Multi-line fire-time info needs a real dialog; toast truncates on Android.
+  Alert.alert(title, text);
 }
 
-function buildFeedback(args: { scheduledCount: number; permissionGranted: boolean; label: string }): { title: string; text: string } {
-  const { scheduledCount, permissionGranted, label } = args;
+function formatFireTime(d: Date, now: Date = new Date()): string {
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  if (sameDay) return `hari ini ${hh}:${mm}`;
+  const day = d.getDate();
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return `${day} ${monthLabels[d.getMonth()]} ${hh}:${mm}`;
+}
+
+function buildFeedback(args: {
+  scheduledCount: number;
+  permissionGranted: boolean;
+  label: string;
+  firstFireAt: Date | null;
+  lastFireAt: Date | null;
+}): { title: string; text: string } {
+  const { scheduledCount, permissionGranted, label, firstFireAt, lastFireAt } = args;
   if (!permissionGranted) {
     return { title: "Izin notifikasi", text: "Pengaturan disimpan tapi izin notifikasi belum diberikan." };
   }
-  if (scheduledCount > 0) {
-    return { title: "Berhasil", text: `${scheduledCount} reminder ${label} dijadwalkan.` };
+  if (scheduledCount === 0) {
+    return {
+      title: "Belum ada yang dijadwalkan",
+      text: `Pengaturan ${label} tersimpan, tapi jamnya udah lewat atau terlalu dekat. Coba set jam beberapa menit ke depan.`,
+    };
   }
-  return { title: "Tersimpan", text: `Pengaturan reminder ${label} tersimpan.` };
+  const first = firstFireAt ? formatFireTime(firstFireAt) : null;
+  const last = lastFireAt ? formatFireTime(lastFireAt) : null;
+  const range = first && last && first !== last ? `${first} → ${last}` : first ?? "";
+  return {
+    title: "Berhasil",
+    text: `${scheduledCount} reminder ${label} dijadwalkan.\nNotif: ${range}.`,
+  };
 }
 
 export default function SetReminderScreen(): React.JSX.Element {
@@ -63,10 +85,13 @@ export default function SetReminderScreen(): React.JSX.Element {
       const result = await mutation.mutateAsync({
         [reminderType]: { time, message: message.trim() || null },
       });
+      const summary = result[reminderType];
       const { title, text } = buildFeedback({
-        scheduledCount: result.scheduledCount,
+        scheduledCount: summary.scheduledCount,
         permissionGranted: result.permissionGranted,
         label: reminderLabel,
+        firstFireAt: summary.firstFireAt,
+        lastFireAt: summary.lastFireAt,
       });
       showFeedback(title, text);
       router.back();

@@ -35,11 +35,21 @@ export function useReminderSettingsQuery() {
   });
 }
 
+export type FireTimeSummary = {
+  scheduledCount: number;
+  firstFireAt: Date | null;
+  lastFireAt: Date | null;
+};
+
 export type SyncResult = {
   settings: AllReminderSettings;
   permissionGranted: boolean;
   scheduledCount: number;
   skippedPastCount: number;
+  firstFireAt: Date | null;
+  lastFireAt: Date | null;
+  task: FireTimeSummary;
+  activity: FireTimeSummary;
 };
 
 const TASK_PREFIX = "reminder:task:";
@@ -166,7 +176,17 @@ export function useUpdateReminderSettingsMutation() {
 
       const permissionGranted = await ensureNotificationPermission();
       if (!permissionGranted) {
-        return { settings, permissionGranted: false, scheduledCount: 0, skippedPastCount: 0 };
+        const empty: FireTimeSummary = { scheduledCount: 0, firstFireAt: null, lastFireAt: null };
+        return {
+          settings,
+          permissionGranted: false,
+          scheduledCount: 0,
+          skippedPastCount: 0,
+          firstFireAt: null,
+          lastFireAt: null,
+          task: empty,
+          activity: empty,
+        };
       }
       await ensureAndroidChannel();
 
@@ -205,10 +225,43 @@ export function useUpdateReminderSettingsMutation() {
           }),
         ),
       );
-      const scheduledCount = results.filter((id) => id != null).length;
-      const skippedPastCount = results.length - scheduledCount;
+      const taskFireTimes: Date[] = [];
+      const activityFireTimes: Date[] = [];
+      const taskJobCount = taskPlan.jobs.length;
+      results.forEach((id, idx) => {
+        if (id == null) return;
+        const fireAt = allJobs[idx].fireAt;
+        if (idx < taskJobCount) taskFireTimes.push(fireAt);
+        else activityFireTimes.push(fireAt);
+      });
 
-      return { settings, permissionGranted: true, scheduledCount, skippedPastCount };
+      const summarize = (fireTimes: Date[]): FireTimeSummary => {
+        const sorted = [...fireTimes].sort((a, b) => a.getTime() - b.getTime());
+        return {
+          scheduledCount: sorted.length,
+          firstFireAt: sorted[0] ?? null,
+          lastFireAt: sorted.at(-1) ?? null,
+        };
+      };
+
+      const task = summarize(taskFireTimes);
+      const activity = summarize(activityFireTimes);
+      const scheduledCount = task.scheduledCount + activity.scheduledCount;
+      const skippedPastCount = results.length - scheduledCount;
+      const allSorted = [...taskFireTimes, ...activityFireTimes].sort(
+        (a, b) => a.getTime() - b.getTime(),
+      );
+
+      return {
+        settings,
+        permissionGranted: true,
+        scheduledCount,
+        skippedPastCount,
+        firstFireAt: allSorted[0] ?? null,
+        lastFireAt: allSorted.at(-1) ?? null,
+        task,
+        activity,
+      };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminder-settings"] });

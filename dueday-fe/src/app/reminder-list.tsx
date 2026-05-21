@@ -4,11 +4,13 @@ import { type Task } from "@/api/tasks";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
+import { useReminderSettingsQuery } from "@/hooks/useReminders";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderCardItem = {
@@ -33,6 +35,8 @@ export default function ReminderListScreen() {
   const { data: activities = [] } = useActivitiesQuery();
   const currentUserQuery = useCurrentUserQuery({ enabled: true });
   const isPremium = currentUserQuery.data?.status === "subscribed";
+  const settingsQuery = useReminderSettingsQuery();
+  const [detailOpen, setDetailOpen] = React.useState<"task" | "activity" | null>(null);
 
   const allReminders = React.useMemo<ReminderCardItem[]>(() => {
     const activeTasks = [...tasks]
@@ -167,8 +171,22 @@ export default function ReminderListScreen() {
           items={allReminders}
           emptyText="Belum ada reminder yang perlu diingat."
           isPremium={isPremium}
+          onCardPress={(type) => setDetailOpen(type)}
         />
       </ScrollView>
+
+      <ReminderDetailModal
+        type={detailOpen}
+        onClose={() => setDetailOpen(null)}
+        onEdit={() => {
+          if (!detailOpen) return;
+          const pathname = isPremium ? "/set-reminder-premium" : "/set-reminder";
+          setDetailOpen(null);
+          router.push({ pathname, params: { type: detailOpen } });
+        }}
+        settings={detailOpen ? settingsQuery.data?.[detailOpen] ?? null : null}
+        isPremium={!!isPremium}
+      />
     </View>
   );
 }
@@ -177,6 +195,7 @@ type ReminderSectionProps = {
   items: ReminderCardItem[];
   emptyText: string;
   isPremium?: boolean | null;
+  onCardPress: (type: "task" | "activity") => void;
 };
 
 type StatsRowProps = {
@@ -231,12 +250,17 @@ function StatCard({ icon, label, value, color }: Readonly<StatCardProps>) {
   );
 }
 
-function ReminderSection({ items, emptyText, isPremium }: Readonly<ReminderSectionProps>) {
+function ReminderSection({ items, emptyText, isPremium, onCardPress }: Readonly<ReminderSectionProps>) {
   return (
     <View style={styles.section}>
       {items.length > 0 ? (
         items.map((item) => (
-          <ReminderSummaryCard key={item.id} item={item} isPremium={!!isPremium} />
+          <ReminderSummaryCard
+            key={item.id}
+            item={item}
+            isPremium={!!isPremium}
+            onPress={() => onCardPress(item.type)}
+          />
         ))
       ) : (
         <View style={styles.emptyState}>
@@ -250,9 +274,10 @@ function ReminderSection({ items, emptyText, isPremium }: Readonly<ReminderSecti
 type ReminderCardProps = {
   item: ReminderCardItem;
   isPremium?: boolean;
+  onPress: () => void;
 };
 
-function ReminderSummaryCard({ item, isPremium }: Readonly<ReminderCardProps>) {
+function ReminderSummaryCard({ item, isPremium, onPress }: Readonly<ReminderCardProps>) {
   const accentColor = item.type === "task" ? colors.primaryContainer : colors.secondaryContainer;
   const icon = item.type === "task" ? "document-text-outline" : "sparkles-outline";
   const router = useRouter();
@@ -277,7 +302,7 @@ function ReminderSummaryCard({ item, isPremium }: Readonly<ReminderCardProps>) {
   };
 
   return (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={onPress} accessibilityRole="button" accessibilityLabel={`Detail reminder ${item.label}`}>
       <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
 
       <View style={styles.cardBody}>
@@ -331,7 +356,197 @@ function ReminderSummaryCard({ item, isPremium }: Readonly<ReminderCardProps>) {
           ) : null}
         </View>
       </View>
-    </View>
+    </Pressable>
+  );
+}
+
+type ReminderSettingsSectionLite = {
+  time: string | null;
+  message: string | null;
+  style: string | null;
+  sound: string | null;
+  vibrate: boolean;
+} | null;
+
+type ReminderDetailModalProps = {
+  type: "task" | "activity" | null;
+  onClose: () => void;
+  onEdit: () => void;
+  settings: ReminderSettingsSectionLite;
+  isPremium: boolean;
+};
+
+function formatFireLine(d: Date, now: Date = new Date()): string {
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  if (sameDay) return `Hari ini ${hh}:${mm}`;
+  return `${d.getDate()} ${months[d.getMonth()]} ${hh}:${mm}`;
+}
+
+type ScheduledItem = {
+  id: string;
+  title: string;
+  body: string;
+  fireAt: Date;
+};
+
+/**
+ * expo-notifications normalizes DATE triggers per platform:
+ * - iOS  → CalendarNotificationTrigger { type:'calendar', dateComponents:{...} }
+ * - Android → DateNotificationTrigger  { type:'date', value:number }
+ * Field `date` on the trigger is INPUT-only and not echoed back here. Handle both
+ * shapes plus the rare legacy `date` field defensively.
+ */
+function extractTriggerDate(trigger: unknown): Date | null {
+  if (!trigger || typeof trigger !== "object") return null;
+  const t = trigger as Record<string, unknown>;
+
+  if (typeof t.value === "number") {
+    const ms = t.value > 1e11 ? t.value : t.value * 1000;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  const components = t.dateComponents as Record<string, number | undefined> | undefined;
+  if (components && typeof components === "object") {
+    const year = components.year ?? new Date().getFullYear();
+    const month = (components.month ?? 1) - 1;
+    const day = components.day ?? 1;
+    const hour = components.hour ?? 0;
+    const minute = components.minute ?? 0;
+    const second = components.second ?? 0;
+    const d = new Date(year, month, day, hour, minute, second);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  if (t.date != null) {
+    const raw = t.date as number | string | Date;
+    const d = raw instanceof Date ? raw : new Date(raw as string | number);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  return null;
+}
+
+function ReminderDetailModal({ type, onClose, onEdit, settings, isPremium }: Readonly<ReminderDetailModalProps>) {
+  const [scheduled, setScheduled] = React.useState<ScheduledItem[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const visible = type !== null;
+  const label = type === "activity" ? "Aktivitas" : "Tugas";
+  const prefix = type === "activity" ? "reminder:activity:" : "reminder:task:";
+
+  React.useEffect(() => {
+    if (!visible) return;
+    let active = true;
+    setLoading(true);
+    Notifications.getAllScheduledNotificationsAsync()
+      .then((list) => {
+        if (!active) return;
+        const now = Date.now();
+        const items: ScheduledItem[] = [];
+        for (const n of list) {
+          if (!n.identifier.startsWith(prefix)) continue;
+          const date = extractTriggerDate(n.trigger);
+          if (!date || date.getTime() <= now) continue;
+          items.push({
+            id: n.identifier,
+            title: typeof n.content.title === "string" ? n.content.title : label,
+            body: typeof n.content.body === "string" ? n.content.body : "",
+            fireAt: date,
+          });
+        }
+        items.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
+        setScheduled(items);
+      })
+      .catch(() => setScheduled([]))
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [visible, prefix, label]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Detail Reminder {label}</Text>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <Ionicons name="close" size={22} color={colors.onSurfaceVariant} />
+            </Pressable>
+          </View>
+
+          <View style={styles.modalSection}>
+            <Text style={styles.modalSectionLabel}>Pengaturan saat ini</Text>
+            <View style={styles.modalRow}>
+              <Ionicons name="time-outline" size={16} color={colors.primaryContainer} />
+              <Text style={styles.modalRowText}>Jam: {settings?.time ?? "belum diatur"}</Text>
+            </View>
+            {settings?.message ? (
+              <View style={styles.modalRow}>
+                <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.primaryContainer} />
+                <Text style={styles.modalRowText}>Pesan manual: {settings.message}</Text>
+              </View>
+            ) : null}
+            {isPremium ? (
+              <>
+                <View style={styles.modalRow}>
+                  <Ionicons name="sparkles-outline" size={16} color={colors.primaryContainer} />
+                  <Text style={styles.modalRowText}>Gaya: {settings?.style ?? "default"}</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Ionicons name="musical-note-outline" size={16} color={colors.primaryContainer} />
+                  <Text style={styles.modalRowText}>Suara: {settings?.sound ?? "default"}</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Ionicons name="phone-portrait-outline" size={16} color={colors.primaryContainer} />
+                  <Text style={styles.modalRowText}>Getaran: {settings?.vibrate ? "ON" : "OFF"}</Text>
+                </View>
+              </>
+            ) : null}
+          </View>
+
+          <View style={styles.modalSection}>
+            <Text style={styles.modalSectionLabel}>
+              Notif terjadwal ({loading ? "..." : scheduled.length})
+            </Text>
+            {!loading && scheduled.length === 0 ? (
+              <Text style={styles.modalEmpty}>
+                Belum ada notif terjadwal. Tap Edit untuk atur ulang jam.
+              </Text>
+            ) : null}
+            <ScrollView style={styles.modalList} nestedScrollEnabled>
+              {scheduled.slice(0, 20).map((item) => (
+                <View key={item.id} style={styles.modalListItem}>
+                  <Text style={styles.modalListTime}>{formatFireLine(item.fireAt)}</Text>
+                  <Text style={styles.modalListTitle} numberOfLines={1}>{item.title}</Text>
+                  {item.body ? (
+                    <Text style={styles.modalListBody} numberOfLines={2}>{item.body}</Text>
+                  ) : null}
+                </View>
+              ))}
+              {scheduled.length > 20 ? (
+                <Text style={styles.modalEmpty}>+{scheduled.length - 20} notif lainnya...</Text>
+              ) : null}
+            </ScrollView>
+          </View>
+
+          <View style={styles.modalActions}>
+            <Pressable style={styles.modalActionSecondary} onPress={onClose}>
+              <Text style={styles.modalActionSecondaryText}>Tutup</Text>
+            </Pressable>
+            <Pressable style={styles.modalActionPrimary} onPress={onEdit}>
+              <Ionicons name="pencil" size={16} color={colors.onPrimary} />
+              <Text style={styles.modalActionPrimaryText}>Edit</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -595,5 +810,123 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     fontFamily: typography.bodySm.fontFamily,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: "100%",
+    maxHeight: "80%",
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 20,
+    padding: 18,
+    gap: 14,
+    shadowColor: colors.onSurface,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modalTitle: {
+    color: colors.onSurface,
+    fontSize: 16,
+    fontFamily: fonts["700"],
+    flex: 1,
+  },
+  modalSection: {
+    gap: 8,
+  },
+  modalSectionLabel: {
+    color: colors.primaryContainer,
+    fontSize: 11,
+    fontFamily: fonts["700"],
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  modalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modalRowText: {
+    color: colors.onSurface,
+    fontSize: 13,
+    fontFamily: typography.bodySm.fontFamily,
+    flex: 1,
+  },
+  modalEmpty: {
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    fontFamily: typography.bodySm.fontFamily,
+    fontStyle: "italic",
+    paddingVertical: 8,
+  },
+  modalList: {
+    maxHeight: 240,
+  },
+  modalListItem: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.surfaceContainerLow,
+    gap: 2,
+  },
+  modalListTime: {
+    color: colors.primaryContainer,
+    fontSize: 12,
+    fontFamily: fonts["700"],
+  },
+  modalListTitle: {
+    color: colors.onSurface,
+    fontSize: 13,
+    fontFamily: fonts["600"],
+  },
+  modalListBody: {
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    fontFamily: typography.bodySm.fontFamily,
+    lineHeight: 16,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
+  },
+  modalActionSecondary: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHigh,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalActionSecondaryText: {
+    color: colors.onSurface,
+    fontSize: 13,
+    fontFamily: fonts["600"],
+  },
+  modalActionPrimary: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: colors.primaryContainer,
+  },
+  modalActionPrimaryText: {
+    color: colors.onPrimary,
+    fontSize: 13,
+    fontFamily: fonts["700"],
   },
 });

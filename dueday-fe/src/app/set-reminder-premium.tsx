@@ -5,7 +5,7 @@ import { useReminderSettingsQuery, useUpdateReminderSettingsMutation } from "@/h
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, ToastAndroid, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderRouteType = "task" | "activity";
@@ -28,11 +28,17 @@ function resolveReminderType(value: string | string[] | undefined): ReminderRout
 }
 
 function showFeedback(title: string, text: string): void {
-  if (Platform.OS === "android") {
-    ToastAndroid.show(text, ToastAndroid.SHORT);
-  } else {
-    Alert.alert(title, text);
-  }
+  Alert.alert(title, text);
+}
+
+function formatFireTime(d: Date, now: Date = new Date()): string {
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = d.getHours().toString().padStart(2, "0");
+  const mm = d.getMinutes().toString().padStart(2, "0");
+  if (sameDay) return `hari ini ${hh}:${mm}`;
+  const day = d.getDate();
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return `${day} ${monthLabels[d.getMonth()]} ${hh}:${mm}`;
 }
 
 export default function SetReminderPremiumScreen(): React.JSX.Element {
@@ -78,12 +84,22 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
           vibrate,
         },
       });
+      const summary = result[reminderType];
       if (!result.permissionGranted) {
         showFeedback("Izin notifikasi", "Pengaturan disimpan tapi izin notifikasi belum diberikan.");
-      } else if (result.scheduledCount > 0) {
-        showFeedback("Berhasil", `${result.scheduledCount} reminder ${reminderLabel} dijadwalkan.`);
+      } else if (summary.scheduledCount === 0) {
+        showFeedback(
+          "Belum ada yang dijadwalkan",
+          `Pengaturan ${reminderLabel} tersimpan, tapi jamnya udah lewat atau terlalu dekat. Coba set jam beberapa menit ke depan.`,
+        );
       } else {
-        showFeedback("Tersimpan", `Pengaturan reminder ${reminderLabel} tersimpan.`);
+        const first = summary.firstFireAt ? formatFireTime(summary.firstFireAt) : null;
+        const last = summary.lastFireAt ? formatFireTime(summary.lastFireAt) : null;
+        const range = first && last && first !== last ? `${first} → ${last}` : first ?? "";
+        showFeedback(
+          "Berhasil",
+          `${summary.scheduledCount} reminder ${reminderLabel} dijadwalkan.\nNotif: ${range}.`,
+        );
       }
       router.back();
     } catch (error) {
@@ -114,6 +130,7 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
       </View>
 
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={[styles.content, { paddingBottom: bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -263,7 +280,8 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.surface },
+  root: { flex: 1, backgroundColor: colors.surfaceContainerLowest },
+  scrollView: { backgroundColor: colors.surface },
   header: {
     minHeight: 56,
     flexDirection: "row",

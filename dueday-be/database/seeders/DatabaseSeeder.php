@@ -19,8 +19,6 @@ class DatabaseSeeder extends Seeder
             TagSeeder::class,
             TaskSeeder::class,
             ActivitySeeder::class,
-            ReminderSeeder::class,
-            NotificationSeeder::class,
             SubscriptionSeeder::class,
             PaymentSeeder::class,
         ]);
