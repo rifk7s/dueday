@@ -26,7 +26,7 @@ class ReminderFactory extends Factory
             'jenis' => fake()->randomElement(['task', 'activity']),
             'waktu' => fake()->time(),
             'suara_notifikasi' => fake()->randomElement(['default', 'chime', 'bell']),
-            'gaya_pesan' => fake()->randomElement(['motivasi', 'tegas', 'humor']),
+            'gaya_pesan' => fake()->randomElement(['tegas', 'ngancam_halus', 'santai']),
             'frekuensi' => fake()->numberBetween(1, 5),
             'getaran' => fake()->boolean(),
             'created_at' => now(),

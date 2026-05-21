@@ -2,35 +2,28 @@
 
 namespace App\Http\Resources;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Carbon\Carbon;
 
 class UserResource extends JsonResource
 {
     /**
-     * Transform the resource into an array.
-     *
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
-        $currentStatus = $this->status;
+        $isSubscribed = (bool) $this->is_subscribed;
 
-        // Dynamic expiration protection check
-        if ($currentStatus === 'subscribed') {
-            // Fetch latest active window context 
+        if ($isSubscribed) {
             $latestActiveSub = $this->subscriptions()
                 ->where('status', 'active')
                 ->latest()
                 ->first();
 
-            // If the expiration time has passed, dynamically fall back to regular status
-            if (!$latestActiveSub || Carbon::parse($latestActiveSub->expired_at)->isPast()) {
-                $currentStatus = 'regular'; // or your default status option
-                
-                // Optional Self-Healing: Silent-persist back into database layer
-                $this->resource->update(['status' => 'regular']);
+            if (! $latestActiveSub || Carbon::parse($latestActiveSub->expired_at)->isPast()) {
+                $isSubscribed = false;
+                $this->resource->update(['is_subscribed' => false]);
             }
         }
 
@@ -42,7 +35,8 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'nim' => $this->nim,
-            'status' => $currentStatus, // Safely adjusted live runtime evaluation
+            'is_subscribed' => $isSubscribed,
+            'status' => $isSubscribed ? 'subscribed' : 'unsubscribed',
             'language' => $this->language,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

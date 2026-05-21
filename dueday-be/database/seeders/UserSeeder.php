@@ -21,7 +21,7 @@ class UserSeeder extends Seeder
             'name' => 'britney',
             'password' => Hash::make('Password123'),
             'nim' => '0806022410020',
-            'status' => 'unsubscribed', 
+            'is_subscribed' => false,
             'language' => 'Indonesia',
         ]);
     }

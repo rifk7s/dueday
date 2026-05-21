@@ -1,7 +1,8 @@
 <?php
 
-use App\Models\User;
 use App\Models\Tag;
+use App\Models\User;
+use Illuminate\Support\Str;
 
 test('authenticated user can create a task', function () {
     $user = User::factory()->create();
@@ -15,9 +16,9 @@ test('authenticated user can create a task', function () {
             'time' => '14:30:00',
             'priority' => 'high',
             'id_tag' => $tag->id_tag,
-            'source' => 'mobile',
+            'source' => 'manual',
             'deskripsi' => 'Buy milk, bread, and eggs',
-               'goals' => "- [+] Buy milk\n- [+] Buy bread\n- [ ] Buy eggs",
+            'goals' => "- [+] Buy milk\n- [+] Buy bread\n- [ ] Buy eggs",
             'status' => 'ongoing',
         ]);
 
@@ -33,11 +34,11 @@ test('authenticated user can create a task', function () {
         'source',
         'deskripsi',
         'progress',
-               'goals',
-               'goal_points',
+        'goals',
+        'goal_points',
         'id_tag',
     ]);
-    
+
     $this->assertDatabaseHas('tasks', [
         'task_name' => 'Buy groceries',
         'date' => '2026-05-20 00:00:00',
@@ -82,23 +83,23 @@ test('unauthenticated user cannot create task', function () {
 test('authenticated user can get all their tasks', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
-    
+
     $task1 = $user->tasks()->create([
-        'id' => \Illuminate\Support\Str::uuid(),
+        'id' => Str::uuid(),
         'task_name' => 'Task 1',
         'date' => '2026-05-20',
         'priority' => 'high',
     ]);
-    
+
     $task2 = $user->tasks()->create([
-        'id' => \Illuminate\Support\Str::uuid(),
+        'id' => Str::uuid(),
         'task_name' => 'Task 2',
         'date' => '2026-05-25',
         'priority' => 'low',
     ]);
-    
+
     $otherUserTask = $otherUser->tasks()->create([
-        'id' => \Illuminate\Support\Str::uuid(),
+        'id' => Str::uuid(),
         'task_name' => 'Other task',
         'date' => '2026-05-30',
         'priority' => 'medium',
@@ -115,9 +116,9 @@ test('authenticated user can get all their tasks', function () {
 
 test('authenticated user can get a specific task', function () {
     $user = User::factory()->create();
-    
+
     $task = $user->tasks()->create([
-        'id' => \Illuminate\Support\Str::uuid(),
+        'id' => Str::uuid(),
         'task_name' => 'My task',
         'date' => '2026-05-20',
         'priority' => 'high',
@@ -137,9 +138,9 @@ test('authenticated user can get a specific task', function () {
 test('user cannot get another users task', function () {
     $user = User::factory()->create();
     $otherUser = User::factory()->create();
-    
+
     $task = $otherUser->tasks()->create([
-        'id' => \Illuminate\Support\Str::uuid(),
+        'id' => Str::uuid(),
         'task_name' => 'Other task',
         'date' => '2026-05-20',
         'priority' => 'high',

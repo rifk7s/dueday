@@ -3,7 +3,6 @@
 use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\User;
-use Illuminate\Support\Str;
 
 test('fake payment checkout and confirm updates payment status', function () {
     $user = User::factory()->create();
@@ -14,7 +13,7 @@ test('fake payment checkout and confirm updates payment status', function () {
         ->postJson('/api/payments', [
             'subscription_id' => $subscription->id,
             'amount' => 50000,
-            'method' => 'bank_transfer',
+            'method' => 'bca',
             'status' => 'pending',
         ]);
 

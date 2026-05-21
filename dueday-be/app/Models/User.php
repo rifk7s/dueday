@@ -12,7 +12,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'status', 'language'])]
+#[Fillable([
+    'photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'is_subscribed', 'language',
+    'reminder_task_time', 'reminder_task_message', 'reminder_task_style', 'reminder_task_sound', 'reminder_task_vibrate',
+    'reminder_activity_time', 'reminder_activity_message', 'reminder_activity_style', 'reminder_activity_sound', 'reminder_activity_vibrate',
+])]
 #[Hidden(['password'])]
 class User extends Authenticatable
 {
@@ -32,6 +36,9 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'is_subscribed' => 'boolean',
+            'reminder_task_vibrate' => 'boolean',
+            'reminder_activity_vibrate' => 'boolean',
         ];
     }
 

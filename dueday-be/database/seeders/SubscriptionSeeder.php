@@ -23,7 +23,7 @@ class SubscriptionSeeder extends Seeder
         Subscription::create([
             'id' => Str::uuid(),
             'user_id' => $user->id,
-            'plan' => 'monthly',
+            'plan' => 'satu_bulan',
             'status' => 'active',
             'started_at' => now()->subDays(10),
             'expired_at' => now()->addDays(20),

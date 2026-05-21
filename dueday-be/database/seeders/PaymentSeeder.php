@@ -32,7 +32,7 @@ class PaymentSeeder extends Seeder
             'user_id' => $user->id,
             'subscription_id' => $subscription->id,
             'amount' => 49000,
-            'method' => 'bank_transfer',
+            'method' => 'bca',
             'status' => 'paid',
             'created_at' => now(),
             'updated_at' => now(),

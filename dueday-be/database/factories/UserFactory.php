@@ -32,10 +32,7 @@ class UserFactory extends Factory
             'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
             'nim' => fake()->numerify('0806#########'),
-            
-            // 🔄 FIXED: Changed to lowercase 'unsubscribed'
-            'status' => 'unsubscribed',
-            
+            'is_subscribed' => false,
             'language' => 'Indonesia',
             'created_at' => now(),
             'updated_at' => now(),

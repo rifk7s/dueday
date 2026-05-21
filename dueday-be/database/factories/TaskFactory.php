@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Task;
 use App\Models\User;
+use App\Services\TaskGoalService;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -22,13 +23,13 @@ class TaskFactory extends Factory
         $goalTexts = [
             "Item 1\nItem 2",
             "Task A\nTask B\nTask C",
-            "Incomplete task",
+            'Incomplete task',
             "Done\nAlso done",
         ];
 
         $goalsText = fake()->randomElement($goalTexts);
-        $goalPoints = \App\Services\TaskGoalService::parseGoals($goalsText);
-        $progress = \App\Services\TaskGoalService::calculateProgress($goalPoints);
+        $goalPoints = TaskGoalService::parseGoals($goalsText);
+        $progress = TaskGoalService::calculateProgress($goalPoints);
 
         return [
             'id' => (string) Str::uuid(),
@@ -39,7 +40,7 @@ class TaskFactory extends Factory
             'time' => fake()->time(),
             'priority' => fake()->randomElement(['low', 'medium', 'high']),
             'status' => $progress >= 100 ? 'completed' : 'ongoing',
-            'source' => fake()->randomElement(['manual', 'imported', 'api']),
+            'source' => fake()->randomElement(['manual', 'elearn']),
             'deskripsi' => fake()->paragraph(),
             'goals' => $goalsText,
             'goal_points' => $goalPoints,

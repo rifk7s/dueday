@@ -2,12 +2,14 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GeminiMessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ReminderController;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\UserReminderSettingsController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -41,7 +43,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/activities/{activity}', [ActivityController::class, 'update']);
     Route::delete('/activities/{activity}', [ActivityController::class, 'destroy']);
 
-    // Reminders
+    // Reminder settings (lite) — FE schedules slots locally from these globals.
+    Route::get('/me/reminder-settings', [UserReminderSettingsController::class, 'show']);
+    Route::put('/me/reminder-settings', [UserReminderSettingsController::class, 'update']);
+    Route::post('/reminders/generate-message', [GeminiMessageController::class, 'generate']);
+
+    // Reminders (legacy CRUD — kept for backward compatibility, FE migrating to settings)
     Route::get('/reminders', [ReminderController::class, 'index']);
     Route::get('/reminders/{reminder}', [ReminderController::class, 'show']);
     Route::post('/reminders', [ReminderController::class, 'store']);
@@ -68,7 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Payments
     // ✅ CRITICAL FIX: Explicit static paths must be declared before wildcards ({payment})
     Route::post('/payments/scan', [PaymentController::class, 'scan']);
-    
+
     Route::get('/payments', [PaymentController::class, 'index']);
     Route::get('/payments/{payment}', [PaymentController::class, 'show']);
     Route::post('/payments', [PaymentController::class, 'store']);

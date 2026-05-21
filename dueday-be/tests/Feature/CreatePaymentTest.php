@@ -14,7 +14,7 @@ test('authenticated user can create a payment', function () {
         ->postJson('/api/payments', [
             'subscription_id' => $subscription->id,
             'amount' => 49000,
-            'method' => 'bank_transfer',
+            'method' => 'bca',
             'status' => 'paid',
         ]);
 

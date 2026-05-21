@@ -22,8 +22,8 @@ class StoreReminderRequest extends FormRequest
             'isi_reminder' => 'nullable|string|max:255',
             'jenis' => 'nullable|in:task,activity',
             'waktu' => 'nullable|date_format:H:i:s',
-            'suara_notifikasi' => 'nullable|string|max:255',
-            'gaya_pesan' => 'nullable|in:motivasi,tegas,humor',
+            'suara_notifikasi' => 'nullable|in:default,chime,bell',
+            'gaya_pesan' => 'nullable|in:tegas,ngancam_halus,santai',
             'frekuensi' => 'nullable|integer|min:0',
             'getaran' => 'nullable|boolean',
         ];

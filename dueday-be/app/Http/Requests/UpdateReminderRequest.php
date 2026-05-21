@@ -22,8 +22,8 @@ class UpdateReminderRequest extends FormRequest
             'isi_reminder' => 'sometimes|nullable|string|max:255',
             'jenis' => 'sometimes|nullable|in:task,activity',
             'waktu' => 'sometimes|nullable|date_format:H:i:s',
-            'suara_notifikasi' => 'sometimes|nullable|string|max:255',
-            'gaya_pesan' => 'sometimes|nullable|in:motivasi,tegas,humor',
+            'suara_notifikasi' => 'sometimes|nullable|in:default,chime,bell',
+            'gaya_pesan' => 'sometimes|nullable|in:tegas,ngancam_halus,santai',
             'frekuensi' => 'sometimes|nullable|integer|min:0',
             'getaran' => 'sometimes|nullable|boolean',
         ];

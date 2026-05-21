@@ -26,7 +26,7 @@ class ReminderSeeder extends Seeder
                 'jenis' => 'activity',
                 'waktu' => '05:45:00',
                 'suara_notifikasi' => 'chime',
-                'gaya_pesan' => 'motivasi',
+                'gaya_pesan' => 'santai',
                 'frekuensi' => 1,
                 'getaran' => true,
             ],

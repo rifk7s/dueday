@@ -13,7 +13,7 @@ test('authenticated user can create a reminder', function () {
             'jenis' => 'task',
             'waktu' => '08:00:00',
             'suara_notifikasi' => 'chime',
-            'gaya_pesan' => 'motivasi',
+            'gaya_pesan' => 'santai',
             'frekuensi' => 3,
             'getaran' => true,
         ]);

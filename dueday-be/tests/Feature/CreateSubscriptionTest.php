@@ -9,7 +9,7 @@ test('authenticated user can create a subscription', function () {
     $response = $this
         ->actingAs($user)
         ->postJson('/api/subscriptions', [
-            'plan' => 'monthly',
+            'plan' => 'satu_bulan',
             'status' => 'active',
             'started_at' => '2026-05-01 00:00:00',
             'expired_at' => '2026-06-01 00:00:00',
@@ -28,7 +28,7 @@ test('authenticated user can create a subscription', function () {
     ]);
 
     $this->assertDatabaseHas('subscriptions', [
-        'plan' => 'monthly',
+        'plan' => 'satu_bulan',
         'user_id' => $user->id,
     ]);
 });
@@ -39,7 +39,7 @@ test('subscription requires a valid status', function () {
     $response = $this
         ->actingAs($user)
         ->postJson('/api/subscriptions', [
-            'plan' => 'monthly',
+            'plan' => 'satu_bulan',
             'status' => 'bogus',
         ]);
 
