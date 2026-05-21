@@ -34,3 +34,31 @@ export function updateReminderSettings(
     body: JSON.stringify(input),
   });
 }
+
+export type GenerateMessageItem = {
+  key: string;
+  entity_name: string;
+  deadline: string | null;
+  style: ReminderStyle;
+  slot_label: string;
+};
+
+export type GenerateMessagesResponse = {
+  messages: Record<string, string>;
+};
+
+/**
+ * Batch reminder-message generator. One HTTP call, one upstream Gemini call
+ * (with cached items served instantly). Items the server couldn't generate
+ * are simply missing from the response map — callers should fall back to a
+ * local template for those keys.
+ */
+export function batchGenerateMessages(
+  items: GenerateMessageItem[],
+  token: string | null,
+): Promise<GenerateMessagesResponse> {
+  return apiFetch<GenerateMessagesResponse>("/reminders/generate-messages", token, {
+    method: "POST",
+    body: JSON.stringify({ items }),
+  });
+}

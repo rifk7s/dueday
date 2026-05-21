@@ -16,7 +16,7 @@ import {
   ensureNotificationPermission,
   scheduleReminder,
 } from "@/lib/notifications";
-import { resolveReminderMessage, type ReminderStyle } from "@/lib/reminderMessages";
+import { resolveReminderMessages, type ReminderStyle, type SlotInput } from "@/lib/reminderMessages";
 import {
   slotsForActivity,
   slotsForTask,
@@ -63,6 +63,93 @@ function asStyle(s: string | null | undefined): ReminderStyle | null {
   return null;
 }
 
+type PendingJob = {
+  identifier: string;
+  title: string;
+  slotKey: string;
+  fireAt: Date;
+  sound: string | null;
+  vibrate: boolean;
+};
+
+function buildTaskJobs(
+  tasks: Task[],
+  settings: AllReminderSettings,
+  isSubscribed: boolean,
+): { jobs: PendingJob[]; slots: SlotInput[] } {
+  const jobs: PendingJob[] = [];
+  const slots: SlotInput[] = [];
+  const style = asStyle(settings.task.style);
+
+  for (const task of tasks.filter(isActiveTask)) {
+    const taskSlots: ReminderSlot[] = slotsForTask(
+      { priority: asPriority(task.priority), date: task.date },
+      settings.task.time,
+    );
+    const title = task.task_name ?? "Tugas";
+    for (const slot of taskSlots) {
+      const slotKey = `${task.id}:${slot.slotLabel}`;
+      slots.push({
+        entityId: task.id,
+        entityName: title,
+        entityDeadline: task.date ?? null,
+        slotLabel: slot.slotLabel,
+        style,
+        manualOverride: settings.task.message,
+        isSubscribed,
+      });
+      jobs.push({
+        identifier: `${TASK_PREFIX}${slotKey}`,
+        title,
+        slotKey,
+        fireAt: slot.fireAt,
+        sound: settings.task.sound,
+        vibrate: settings.task.vibrate,
+      });
+    }
+  }
+  return { jobs, slots };
+}
+
+function buildActivityJobs(
+  activities: Activity[],
+  settings: AllReminderSettings,
+  isSubscribed: boolean,
+): { jobs: PendingJob[]; slots: SlotInput[] } {
+  const jobs: PendingJob[] = [];
+  const slots: SlotInput[] = [];
+  const style = asStyle(settings.activity.style);
+
+  for (const activity of activities.filter(isActiveActivity)) {
+    const activitySlots: ReminderSlot[] = slotsForActivity(
+      { tanggal: activity.tanggal },
+      settings.activity.time,
+    );
+    const title = activity.activity_name ?? "Aktivitas";
+    for (const slot of activitySlots) {
+      const slotKey = `${activity.id}:${slot.slotLabel}`;
+      slots.push({
+        entityId: activity.id,
+        entityName: title,
+        entityDeadline: activity.tanggal ?? null,
+        slotLabel: slot.slotLabel,
+        style,
+        manualOverride: settings.activity.message,
+        isSubscribed,
+      });
+      jobs.push({
+        identifier: `${ACTIVITY_PREFIX}${slotKey}`,
+        title,
+        slotKey,
+        fireAt: slot.fireAt,
+        sound: settings.activity.sound,
+        vibrate: settings.activity.vibrate,
+      });
+    }
+  }
+  return { jobs, slots };
+}
+
 /**
  * PUT reminder settings, then re-schedule all local notifications for active
  * tasks & activities from the new globals. The BE persists nothing per-slot.
@@ -90,67 +177,34 @@ export function useUpdateReminderSettingsMutation() {
       ]);
       const isSubscribed = user?.status === "subscribed";
 
-      // Wipe stale local notifications so re-saves don't accumulate.
       await Promise.all([
         cancelByIdentifierPrefix(TASK_PREFIX),
         cancelByIdentifierPrefix(ACTIVITY_PREFIX),
       ]);
 
-      const taskSlotJobs = tasks.filter(isActiveTask).flatMap((task) => {
-        const slots: ReminderSlot[] = slotsForTask(
-          { priority: asPriority(task.priority), date: task.date },
-          settings.task.time,
-        );
-        return slots.map(async (slot) => {
-          const body = await resolveReminderMessage({
-            entityId: task.id,
-            entityName: task.task_name ?? "Tugas",
-            entityDeadline: task.date ?? null,
-            slotLabel: slot.slotLabel,
-            style: asStyle(settings.task.style),
-            manualOverride: settings.task.message,
-            isSubscribed,
-            token,
-          });
-          return scheduleReminder({
-            id: `${TASK_PREFIX}${task.id}:${slot.slotLabel}`,
-            title: task.task_name ?? "Tugas",
-            body,
-            date: slot.fireAt,
-            sound: settings.task.sound,
-            vibrate: settings.task.vibrate,
-          });
-        });
-      });
+      const taskPlan = buildTaskJobs(tasks, settings, isSubscribed);
+      const activityPlan = buildActivityJobs(activities, settings, isSubscribed);
+      const allJobs = [...taskPlan.jobs, ...activityPlan.jobs];
 
-      const activitySlotJobs = activities.filter(isActiveActivity).flatMap((activity) => {
-        const slots: ReminderSlot[] = slotsForActivity(
-          { tanggal: activity.tanggal },
-          settings.activity.time,
-        );
-        return slots.map(async (slot) => {
-          const body = await resolveReminderMessage({
-            entityId: activity.id,
-            entityName: activity.activity_name ?? "Aktivitas",
-            entityDeadline: activity.tanggal ?? null,
-            slotLabel: slot.slotLabel,
-            style: asStyle(settings.activity.style),
-            manualOverride: settings.activity.message,
-            isSubscribed,
-            token,
-          });
-          return scheduleReminder({
-            id: `${ACTIVITY_PREFIX}${activity.id}:${slot.slotLabel}`,
-            title: activity.activity_name ?? "Aktivitas",
-            body,
-            date: slot.fireAt,
-            sound: settings.activity.sound,
-            vibrate: settings.activity.vibrate,
-          });
-        });
-      });
+      // ONE batched server call resolves all slot bodies (with FE + BE cache,
+      // pulse-2 dedup, and template fallback for misses).
+      const bodyByKey = await resolveReminderMessages(
+        [...taskPlan.slots, ...activityPlan.slots],
+        token,
+      );
 
-      const results = await Promise.all([...taskSlotJobs, ...activitySlotJobs]);
+      const results = await Promise.all(
+        allJobs.map((job) =>
+          scheduleReminder({
+            id: job.identifier,
+            title: job.title,
+            body: bodyByKey[job.slotKey] ?? job.title,
+            date: job.fireAt,
+            sound: job.sound,
+            vibrate: job.vibrate,
+          }),
+        ),
+      );
       const scheduledCount = results.filter((id) => id != null).length;
       const skippedPastCount = results.length - scheduledCount;
 
