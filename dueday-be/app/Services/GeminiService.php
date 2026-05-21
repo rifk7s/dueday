@@ -28,8 +28,63 @@ class GeminiService
         }
 
         $raw = $this->callApi($apiKey, $this->buildPrompt($entityName, $entityDeadline, $style, $slotLabel));
+        if ($raw === null) {
+            return null;
+        }
 
-        return $raw === null ? null : mb_substr(trim($raw), 0, self::MAX_MESSAGE_CHARS);
+        $cleaned = $this->sanitize($raw);
+
+        return mb_strlen($cleaned) >= 10 ? $cleaned : null;
+    }
+
+    /**
+     * Strip leading metadata Gemini sometimes prepends (parenthesized notes,
+     * leading dates, surrounding quotes), collapse whitespace, and cap length.
+     */
+    private const LEADING_LABELS = ['reminder', 'catatan', 'note', 'pengingat', 'info'];
+
+    private const LEADING_TIME_WORDS = [
+        'jan', 'januari', 'feb', 'februari', 'mar', 'maret', 'apr', 'april',
+        'mei', 'may', 'jun', 'juni', 'june', 'jul', 'juli', 'july',
+        'agu', 'agustus', 'aug', 'august', 'sep', 'september',
+        'okt', 'oktober', 'oct', 'october', 'nov', 'november', 'des', 'desember', 'dec', 'december',
+        'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu',
+        'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
+    ];
+
+    private function sanitize(string $raw): string
+    {
+        $value = trim($raw);
+        // Iteratively strip leading metadata: markdown punctuation, parens/brackets,
+        // labels, time words, separators. Gemini stacks these in unpredictable
+        // orders so we loop until nothing more is stripped.
+        for ($i = 0; $i < 6; $i++) {
+            $before = $value;
+            $value = preg_replace('/^\s*[*_`#~>\-–—:]+\s*/u', '', $value) ?? $value;
+            $value = preg_replace('/^\s*[(\[][^)\]]*[)\]]\s*[:,\-–—]?\s*/u', '', $value) ?? $value;
+            $value = $this->stripLeadingWord(self::LEADING_LABELS, $value, '\s*[:\-–—]?\s*');
+            $value = $this->stripLeadingWord(self::LEADING_TIME_WORDS, $value, '[^\p{L}]{0,30}');
+            if ($before === $value) {
+                break;
+            }
+        }
+        // Remove any remaining markdown emphasis chars anywhere (not just leading).
+        $value = preg_replace('/[*_`]{1,3}/u', '', $value) ?? $value;
+        $value = preg_replace('/^["\'`“”‘’]+|["\'`“”‘’]+$/u', '', $value) ?? $value;
+        $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+
+        return mb_substr(trim($value), 0, self::MAX_MESSAGE_CHARS);
+    }
+
+    /**
+     * @param  list<string>  $words
+     */
+    private function stripLeadingWord(array $words, string $value, string $trailingPattern): string
+    {
+        $alternation = implode('|', array_map(preg_quote(...), $words));
+        $pattern = '/^\s*(?:'.$alternation.')\b'.$trailingPattern.'/iu';
+
+        return preg_replace($pattern, '', $value) ?? $value;
     }
 
     private function callApi(string $apiKey, string $prompt): ?string
@@ -46,8 +101,8 @@ class GeminiService
                     ['parts' => [['text' => $prompt]]],
                 ],
                 'generationConfig' => [
-                    'temperature' => 0.9,
-                    'maxOutputTokens' => 80,
+                    'temperature' => 0.85,
+                    'maxOutputTokens' => 160,
                 ],
             ]);
         } catch (Throwable $e) {
@@ -79,10 +134,23 @@ class GeminiService
         };
 
         return <<<PROMPT
-Tulis 1 pesan pengingat singkat dalam Bahasa Indonesia untuk "{$entityName}" dengan deadline {$deadline}.
-Gaya: {$styleHint}. Konteks waktu: {$slotLabel}.
-Maks {$maxChars} karakter. Tanpa emoji. Tanpa salam. Langsung, kontekstual.
-Hanya keluarkan pesan saja, tanpa tanda kutip dan tanpa penjelasan.
+Tulis 1 pesan pengingat singkat untuk mahasiswa Indonesia. Target: "{$entityName}", deadline {$deadline}.
+Gaya nada (jangan disebut/diulang di output): {$styleHint}. Konteks slot: {$slotLabel}.
+Output WAJIB Bahasa Indonesia kasual mahasiswa, 1 baris, maksimal {$maxChars} karakter.
+
+LARANGAN KERAS (kalau dilanggar, output dianggap gagal):
+- DILARANG menulis dalam Bahasa Inggris atau mencampur Bahasa Inggris.
+- DILARANG memakai markdown apapun: tanpa "*", "**", "_", "`", "#", ">".
+- DILARANG mengulang/men-translate kata gaya seperti "tegas", "polite", "pressuring", "santai", "ngancam", dll.
+- DILARANG memberi label/prefix: tanpa "Reminder:", "Catatan:", "Note:", "Pengingat:", "Style:".
+- DILARANG mulai dengan "(", "[", tanda kutip, tanggal, jam, hari, atau bulan.
+- DILARANG menambah penjelasan, salam, atau emoji.
+
+Contoh format yang benar (jangan disalin, hanya pola):
+- "Lanjutin {$entityName} jangan ditunda terus, deadlinenya nempel."
+- "Kerjain {$entityName} sekarang biar ga keteteran besok."
+
+Keluarkan HANYA kalimat pesannya, satu baris saja.
 PROMPT;
     }
 }

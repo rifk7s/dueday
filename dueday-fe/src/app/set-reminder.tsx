@@ -4,7 +4,7 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderRouteType = "task" | "activity";
@@ -168,6 +168,15 @@ export default function SetReminderScreen(): React.JSX.Element {
         onTimeSelect={setTime}
         selectedTime={time}
       />
+
+      <Modal visible={isSaving} transparent animationType="fade" statusBarTranslucent>
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={colors.primaryContainer} />
+            <Text style={styles.loadingText}>Menjadwalkan reminder...</Text>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -270,4 +279,31 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: colors.onPrimary, fontSize: 14, fontFamily: fonts["700"] },
+  loadingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  loadingCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
+    alignItems: "center",
+    gap: 14,
+    minWidth: 220,
+    shadowColor: colors.onSurface,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  loadingText: {
+    color: colors.onSurface,
+    fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["600"],
+    textAlign: "center",
+  },
 });

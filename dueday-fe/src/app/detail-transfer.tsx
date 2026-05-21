@@ -12,6 +12,7 @@ import type { Payment } from "@/api/payments";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
 import { getMe } from "@/api/users";
+import { useQueryClient } from "@tanstack/react-query";
 
 type MethodMeta = {
   name: string;
@@ -88,6 +89,7 @@ const paymentStatusMeta: Record<
 export default function DetailTransferScreen(): React.JSX.Element {
   const router = useRouter();
   const { token, setUser } = useSession();
+  const qc = useQueryClient();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
@@ -176,12 +178,18 @@ export default function DetailTransferScreen(): React.JSX.Element {
     if (paymentStatus !== "paid" || hasNavigatedToSuccess.current) return;
 
     hasNavigatedToSuccess.current = true;
-    getMe(token).then(setUser).catch(() => {});
+    getMe(token)
+      .then((user) => {
+        setUser?.(user);
+        qc.setQueryData(["current-user"], user);
+      })
+      .catch(() => {});
+    qc.invalidateQueries({ queryKey: ["current-user"] });
     router.replace({
       pathname: "/payment-success",
       params: { planName, planPrice, methodName: methodMeta.name },
     });
-  }, [methodMeta.name, paymentStatus, planName, planPrice, router, token, setUser]);
+  }, [methodMeta.name, paymentStatus, planName, planPrice, router, token, setUser, qc]);
 
   const handleCopyVA = async () => {
     await Clipboard.setStringAsync(methodMeta.virtualAccount);

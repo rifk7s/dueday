@@ -96,15 +96,12 @@ export function useUpdateReminderSettingsMutation() {
         cancelByIdentifierPrefix(ACTIVITY_PREFIX),
       ]);
 
-      let scheduledCount = 0;
-      let skippedPastCount = 0;
-
-      const taskJobs = tasks.filter(isActiveTask).map(async (task) => {
+      const taskSlotJobs = tasks.filter(isActiveTask).flatMap((task) => {
         const slots: ReminderSlot[] = slotsForTask(
           { priority: asPriority(task.priority), date: task.date },
           settings.task.time,
         );
-        for (const slot of slots) {
+        return slots.map(async (slot) => {
           const body = await resolveReminderMessage({
             entityId: task.id,
             entityName: task.task_name ?? "Tugas",
@@ -115,7 +112,7 @@ export function useUpdateReminderSettingsMutation() {
             isSubscribed,
             token,
           });
-          const id = await scheduleReminder({
+          return scheduleReminder({
             id: `${TASK_PREFIX}${task.id}:${slot.slotLabel}`,
             title: task.task_name ?? "Tugas",
             body,
@@ -123,17 +120,15 @@ export function useUpdateReminderSettingsMutation() {
             sound: settings.task.sound,
             vibrate: settings.task.vibrate,
           });
-          if (id) scheduledCount += 1;
-          else skippedPastCount += 1;
-        }
+        });
       });
 
-      const activityJobs = activities.filter(isActiveActivity).map(async (activity) => {
+      const activitySlotJobs = activities.filter(isActiveActivity).flatMap((activity) => {
         const slots: ReminderSlot[] = slotsForActivity(
           { tanggal: activity.tanggal },
           settings.activity.time,
         );
-        for (const slot of slots) {
+        return slots.map(async (slot) => {
           const body = await resolveReminderMessage({
             entityId: activity.id,
             entityName: activity.activity_name ?? "Aktivitas",
@@ -144,7 +139,7 @@ export function useUpdateReminderSettingsMutation() {
             isSubscribed,
             token,
           });
-          const id = await scheduleReminder({
+          return scheduleReminder({
             id: `${ACTIVITY_PREFIX}${activity.id}:${slot.slotLabel}`,
             title: activity.activity_name ?? "Aktivitas",
             body,
@@ -152,12 +147,12 @@ export function useUpdateReminderSettingsMutation() {
             sound: settings.activity.sound,
             vibrate: settings.activity.vibrate,
           });
-          if (id) scheduledCount += 1;
-          else skippedPastCount += 1;
-        }
+        });
       });
 
-      await Promise.all([...taskJobs, ...activityJobs]);
+      const results = await Promise.all([...taskSlotJobs, ...activitySlotJobs]);
+      const scheduledCount = results.filter((id) => id != null).length;
+      const skippedPastCount = results.length - scheduledCount;
 
       return { settings, permissionGranted: true, scheduledCount, skippedPastCount };
     },

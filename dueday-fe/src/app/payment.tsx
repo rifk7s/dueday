@@ -10,7 +10,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   createPaymentFlow,
   parseRupiahAmount,
+  planDurationFor,
+  planLabel,
   type PaymentMethod,
+  type PlanValue,
 } from "@/api/payments";
 
 type PaymentMethodItem = {
@@ -35,10 +38,11 @@ export default function PaymentScreen(): React.JSX.Element {
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
-  const planName = (params.planName as string) || "Dueday Premium - 1 Bulan";
+  const plan = ((params.plan as string) || "satu_bulan") as PlanValue;
+  const planName = (params.planName as string) || planLabel(plan);
   const planPrice = (params.planPrice as string) || "Rp20.000";
   const planAmount = Number(params.planAmount ?? "0") || 0;
-  const planDuration = (params.planDuration as string) || "1 bulan";
+  const planDuration = (params.planDuration as string) || planDurationFor(plan);
 
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,6 +60,7 @@ export default function PaymentScreen(): React.JSX.Element {
         methodId: selectedMethodData.id,
         methodName: selectedMethodData.name,
         methodType: selectedMethodData.type, // <-- Makes sure "QRIS" or "VA" gets passed
+        plan,
         planName,
         planPrice,
         planAmount: String(planAmount || parseRupiahAmount(planPrice)),
@@ -69,6 +74,7 @@ export default function PaymentScreen(): React.JSX.Element {
 
     try {
       const payment = await createPaymentFlow(token, {
+        plan,
         planName,
         planPrice,
         planDuration,
@@ -83,6 +89,7 @@ export default function PaymentScreen(): React.JSX.Element {
           paymentStatus: payment.status,
           methodId: selectedMethodData.id,
           methodName: selectedMethodData.name,
+          plan,
           planName,
           planPrice,
           planAmount: String(planAmount || parseRupiahAmount(planPrice)),

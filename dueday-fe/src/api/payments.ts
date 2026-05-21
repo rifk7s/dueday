@@ -5,8 +5,10 @@ export type PaymentMethod = {
   name: string;
 };
 
+export type PlanValue = "satu_bulan" | "tiga_bulan" | "satu_tahun";
+
 export type CreateSubscriptionInput = {
-  plan: string;
+  plan: PlanValue;
   status: "active" | "expired" | "cancelled" | "pending";
   started_at?: string;
   expired_at?: string;
@@ -15,7 +17,7 @@ export type CreateSubscriptionInput = {
 export type Subscription = {
   id: string;
   user_id: string;
-  plan: string | null;
+  plan: PlanValue | null;
   status: "active" | "expired" | "cancelled" | "pending";
   started_at: string | null;
   expired_at: string | null;
@@ -45,6 +47,7 @@ export type PendingPaymentTransferParams = {
   paymentId: string;
   paymentStatus: Payment["status"];
   methodId: string;
+  plan: PlanValue;
   planName: string;
   planPrice: string;
   planAmount: string;
@@ -52,6 +55,7 @@ export type PendingPaymentTransferParams = {
 };
 
 export type PaymentFlowInput = {
+  plan: PlanValue;
   planName: string;
   planPrice: string;
   planDuration: string;
@@ -85,10 +89,10 @@ export async function createPaymentFlow(
 ): Promise<Payment> {
   const startedAt = new Date();
   const expiredAt = new Date(startedAt);
-  expiredAt.setMonth(expiredAt.getMonth() + resolvePlanMonths(input.planDuration));
+  expiredAt.setMonth(expiredAt.getMonth() + planMonths(input.plan));
 
   const subscription = await createSubscription(token, {
-    plan: input.planName,
+    plan: input.plan,
     status: "pending",
     started_at: formatSqlDateTime(startedAt),
     expired_at: formatSqlDateTime(expiredAt),
@@ -116,15 +120,42 @@ export async function getPendingPaymentTransferParams(
   const subscription = subscriptions.find((item) => item.id === pendingPayment.subscription_id);
   const amount = Number(pendingPayment.amount) || 0;
 
+  const plan: PlanValue = subscription?.plan ?? "satu_bulan";
+
   return {
     paymentId: pendingPayment.id,
     paymentStatus: pendingPayment.status,
     methodId: pendingPayment.method || "bca",
-    planName: subscription?.plan || "Dueday Premium 1 Bulan",
+    plan,
+    planName: planLabel(plan),
     planPrice: formatCurrency(amount),
     planAmount: String(amount),
-    planDuration: resolvePlanDuration(subscription?.plan),
+    planDuration: planDurationFor(plan),
   };
+}
+
+export function planLabel(plan: PlanValue): string {
+  switch (plan) {
+    case "satu_bulan": return "Paket 1 Bulan";
+    case "tiga_bulan": return "Paket 3 Bulan";
+    case "satu_tahun": return "Paket 1 Tahun";
+  }
+}
+
+export function planMonths(plan: PlanValue): number {
+  switch (plan) {
+    case "satu_bulan": return 1;
+    case "tiga_bulan": return 3;
+    case "satu_tahun": return 12;
+  }
+}
+
+export function planDurationFor(plan: PlanValue): string {
+  switch (plan) {
+    case "satu_bulan": return "1 bulan";
+    case "tiga_bulan": return "3 bulan";
+    case "satu_tahun": return "12 bulan";
+  }
 }
 
 export function parseRupiahAmount(value: string): number {
@@ -136,27 +167,6 @@ export function formatCurrency(amount: number): string {
   return `Rp${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
 
-export function resolvePlanMonths(duration: string): number {
-  const normalized = duration.toLowerCase();
-
-  if (normalized.includes("12")) return 12;
-  if (normalized.includes("3")) return 3;
-  return 1;
-}
-
-export function resolvePlanDuration(planName?: string | null): string {
-  const normalizedPlanName = planName?.toLowerCase() ?? "";
-
-  if (normalizedPlanName.includes("12") || normalizedPlanName.includes("tah")) {
-    return "12 bulan";
-  }
-
-  if (normalizedPlanName.includes("3")) {
-    return "3 bulan";
-  }
-
-  return "1 bulan";
-}
 
 export function formatSqlDateTime(date: Date): string {
   const year = date.getFullYear();
