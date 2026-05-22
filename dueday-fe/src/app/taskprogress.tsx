@@ -3,7 +3,7 @@ import { PRIORITY_DISPLAY, type GoalPoint, type Task } from "@/api/tasks";
 import GoalsChecklistModal from "@/components/GoalsChecklistModal";
 import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
-import { useTasksQuery, useUpdateTaskMutation } from "@/hooks/useTasks";
+import { useTasksQuery, useUpdateTaskMutation, useDeleteTaskMutation } from "@/hooks/useTasks";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
@@ -12,10 +12,13 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
+  ScrollView,
+  Platform,
+  Alert,
+  ToastAndroid,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -80,6 +83,7 @@ export default function TaskProgressScreen() {
   const { top, bottom } = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const updateTaskMutation = useUpdateTaskMutation();
+  const deleteTaskMutation = useDeleteTaskMutation();
   const [modalVisible, setModalVisible] = useState(false);
   const qc = useQueryClient();
 
@@ -99,12 +103,61 @@ export default function TaskProgressScreen() {
       },
       {
         onSuccess: () => {
-          // ensure task list and dashboard refresh (refetch active and inactive)
           qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "all" });
           setModalVisible(false);
         },
       },
     );
+  };
+
+  const handleDeleteTask = () => {
+    if (!task?.id) return;
+
+    const message = "Apakah Anda yakin ingin menghapus tugas ini?";
+
+    if (Platform.OS === "web") {
+      const confirmDelete = window.confirm(message);
+      if (confirmDelete) {
+        deleteTaskMutation.mutate(task.id, {
+          onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "all" });
+            window.alert("Tugas berhasil dihapus.");
+            router.replace({ pathname: "/list", params: { tab: "tugas" } });
+          },
+          onError: (err) => {
+            console.error(err);
+            window.alert("Gagal menghapus tugas. Silakan coba lagi.");
+          }
+        });
+      }
+    } else {
+      Alert.alert(
+        "Hapus Tugas",
+        message,
+        [
+          { text: "Batal", style: "cancel" },
+          {
+            text: "Hapus",
+            style: "destructive",
+            onPress: () => {
+              deleteTaskMutation.mutate(task.id, {
+                onSuccess: () => {
+                  qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "all" });
+                  if (Platform.OS === "android") {
+                    ToastAndroid.show("Tugas berhasil dihapus", ToastAndroid.SHORT);
+                  }
+                  router.replace({ pathname: "/list", params: { tab: "tugas" } });
+                },
+                onError: (err) => {
+                  console.error(err);
+                  Alert.alert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
+                }
+              });
+            }
+          }
+        ]
+      );
+    }
   };
 
   if (isLoading) {
@@ -144,10 +197,18 @@ export default function TaskProgressScreen() {
           <Pressable onPress={() => goBackOr({ pathname: "/list", params: { tab: "tugas" } })} hitSlop={12}>
             <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
           </Pressable>
+          
           <Text style={styles.headerTitle}>Progress Tugas</Text>
-          <Pressable hitSlop={12} onPress={() => router.push({ pathname: "/edit-task", params: { id: task.id } })}>
-            <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
-          </Pressable>
+          
+          <View style={styles.headerActions}>
+            <Pressable hitSlop={12} onPress={handleDeleteTask} style={styles.headerActionButton}>
+              <Ionicons name="trash-outline" size={24} color={colors.errorStrong} />
+            </Pressable>
+            
+            <Pressable hitSlop={12} onPress={() => router.push({ pathname: "/edit-task", params: { id: task.id } })}>
+              <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
+            </Pressable>
+          </View>
         </View>
 
         <ProgressCard
@@ -218,6 +279,7 @@ export default function TaskProgressScreen() {
           </>
         ) : null}
       </ScrollView>
+      
       <GoalsChecklistModal
         visible={modalVisible}
         goalPoints={goalPoints}
@@ -271,6 +333,13 @@ const styles = StyleSheet.create({
     fontSize: typography.h2.fontSize,
     fontFamily: typography.h2.fontFamily,
     color: colors.onSurface,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerActionButton: {
+    marginRight: 16,
   },
   priorityRow: {
     flexDirection: "row",
