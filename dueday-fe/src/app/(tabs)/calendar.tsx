@@ -1,13 +1,15 @@
+import { fromApiDate, toApiDate } from "@/api/format";
 import DatePickerCalendar from "@/components/DatePickerCalendar";
 import { ScheduleCard } from "@/components/ScheduleCard";
-import { fromApiDate, toApiDate } from "@/api/format";
 import { colors, fonts, typography } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
+import { useTasksQuery } from "@/hooks/useTasks";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ScheduleItem = {
   id: string;
@@ -18,9 +20,17 @@ type ScheduleItem = {
   title: string;
   color: string;
   accent: string;
+  column?: number;
+  columnCount?: number;
 };
-import { useActivitiesQuery } from "@/hooks/useActivities";
-import { useTasksQuery } from "@/hooks/useTasks";
+
+type ScheduleCluster = {
+  id: string;
+  startHour: number;
+  endHour: number;
+  items: ScheduleItem[];
+  summaryItem: ScheduleItem;
+};
 
 // Colors / accents palette used when activity/tag doesn't provide explicit color
 const ACCENT_PALETTE = [
@@ -43,12 +53,14 @@ const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, inde
 export default function CalendarScreen() {
   const { top } = useSafeAreaInsets();
   const bottomBarSpace = useBottomBarSpace();
+  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     const day = today.getDate().toString().padStart(2, "0");
     const month = (today.getMonth() + 1).toString().padStart(2, "0");
     return `${day}/${month}/${today.getFullYear()}`;
   });
+  const [activeCluster, setActiveCluster] = useState<ScheduleCluster | null>(null);
   const selectedDateKey = toApiDate(selectedDate);
   const { data: activities = [] } = useActivitiesQuery();
   const { data: tasks = [] } = useTasksQuery();
@@ -98,7 +110,8 @@ export default function CalendarScreen() {
 
   const markedDays = Array.from(new Set(scheduleItems.map((item) => item.dateKey)));
   const selectedScheduleItems = scheduleItems.filter((item) => item.dateKey === selectedDateKey);
-  const hasSelectedScheduleItems = selectedScheduleItems.length > 0;
+  const scheduleClusters = useMemo(() => groupOverlappingScheduleItems(selectedScheduleItems), [selectedScheduleItems]);
+  const hasSelectedScheduleItems = scheduleClusters.length > 0;
   const selectedDateLabel = selectedDateKey ? fromApiDate(selectedDateKey) : selectedDate;
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
@@ -131,7 +144,7 @@ export default function CalendarScreen() {
               <Text style={styles.schedulePanelTitle}>Jadwal Tanggal Terpilih</Text>
               <Text style={styles.schedulePanelSubtitle}>
                 {hasSelectedScheduleItems
-                  ? `${selectedScheduleItems.length} kegiatan pada ${selectedDateLabel}`
+                  ? `${selectedScheduleItems.length} kegiatan dalam ${scheduleClusters.length} slot pada ${selectedDateLabel}`
                   : `Tidak ada kegiatan pada ${selectedDateLabel}`}
               </Text>
             </View>
@@ -152,20 +165,15 @@ export default function CalendarScreen() {
 
               <View style={styles.cardsColumn}>
                 <View style={styles.cardsLayer}>
-                  {selectedScheduleItems.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={{
-                        pathname: item.kind === "task" ? "/taskprogress" : "/activityprogress",
-                        params:
-                          item.kind === "task"
-                            ? { id: item.id, tab: "tugas" }
-                            : { id: item.id, tab: "aktivitas" },
-                      }}
-                      asChild
-                    >
-                      <ScheduleCard item={item} startHour={START_HOUR} slotHeight={SLOT_HEIGHT} />
-                    </Link>
+                  {scheduleClusters.map((cluster) => (
+                    <ScheduleCard
+                      key={cluster.id}
+                      item={cluster.summaryItem}
+                      startHour={START_HOUR}
+                      slotHeight={SLOT_HEIGHT}
+                      stackCount={cluster.items.length}
+                      onPress={() => setActiveCluster(cluster)}
+                    />
                   ))}
                 </View>
               </View>
@@ -177,6 +185,59 @@ export default function CalendarScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal visible={activeCluster !== null} transparent animationType="fade" onRequestClose={() => setActiveCluster(null)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setActiveCluster(null)} />
+
+          {activeCluster ? (
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>Daftar Jadwal</Text>
+                  <Text style={styles.modalSubtitle}>
+                    {formatHour(activeCluster.startHour)} - {formatHour(activeCluster.endHour)}
+                  </Text>
+                </View>
+
+                <Pressable style={styles.modalCloseButton} accessibilityRole="button" onPress={() => setActiveCluster(null)}>
+                  <Ionicons name="close" size={20} color={colors.onSurface} />
+                </Pressable>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
+                {activeCluster.items.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={styles.modalListItem}
+                    onPress={() => {
+                      setActiveCluster(null);
+                      router.push(
+                        item.kind === "task"
+                          ? { pathname: "/taskprogress", params: { id: item.id, tab: "tugas" } }
+                          : { pathname: "/activityprogress", params: { id: item.id, tab: "aktivitas" } }
+                      );
+                    }}
+                  >
+                    <View style={[styles.modalItemAccent, { backgroundColor: item.accent }]} />
+                    <View style={styles.modalItemBody}>
+                      <Text style={styles.modalItemTitle} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.modalItemMeta}>
+                        {item.kind === "task"
+                          ? `Tugas • ${formatHour(item.startHour)}`
+                          : `Aktivitas • ${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colors.iconSubtle} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -203,6 +264,57 @@ function normalizeDateKey(value: string | null | undefined): string {
   }
 
   return "";
+}
+
+function groupOverlappingScheduleItems(items: ScheduleItem[]): ScheduleCluster[] {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (a.startHour !== b.startHour) return a.startHour - b.startHour;
+    if (a.endHour !== b.endHour) return a.endHour - b.endHour;
+    return a.id.localeCompare(b.id);
+  });
+
+  const clusters: ScheduleItem[][] = [];
+  let currentCluster: ScheduleItem[] = [];
+  let currentClusterEnd = -1;
+
+  for (const item of sortedItems) {
+    if (currentCluster.length === 0 || item.startHour < currentClusterEnd) {
+      currentCluster.push(item);
+      currentClusterEnd = currentCluster.length === 1 ? item.endHour : Math.max(currentClusterEnd, item.endHour);
+      continue;
+    }
+
+    clusters.push(currentCluster);
+    currentCluster = [item];
+    currentClusterEnd = item.endHour;
+  }
+
+  if (currentCluster.length > 0) {
+    clusters.push(currentCluster);
+  }
+
+  return clusters.map((cluster, index) => {
+    const startHour = Math.min(...cluster.map((item) => item.startHour));
+    const endHour = Math.max(...cluster.map((item) => item.endHour));
+
+    return {
+      id: `${cluster[0]?.dateKey ?? "slot"}-${startHour}-${endHour}-${index}`,
+      startHour,
+      endHour,
+      items: cluster,
+      summaryItem: {
+        ...cluster[0],
+        startHour,
+        endHour,
+        column: 0,
+        columnCount: 1,
+      },
+    };
+  });
 }
 
 const styles = StyleSheet.create({
@@ -336,6 +448,78 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: typography.bodyLg.fontSize,
     fontFamily: fonts["600"],
+    color: colors.onSurfaceVariant,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(18, 28, 40, 0.35)",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalSheet: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 24,
+    padding: 16,
+    maxHeight: "78%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: typography.h3.fontSize,
+    fontFamily: typography.h3.fontFamily,
+    color: colors.onSurface,
+  },
+  modalSubtitle: {
+    marginTop: 4,
+    fontSize: typography.bodySm.fontSize,
+    fontFamily: fonts["500"],
+    color: colors.onSurfaceVariant,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  modalList: {
+    gap: 10,
+    paddingBottom: 4,
+  },
+  modalListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  modalItemAccent: {
+    width: 6,
+    alignSelf: "stretch",
+    borderRadius: 999,
+  },
+  modalItemBody: {
+    flex: 1,
+    gap: 4,
+  },
+  modalItemTitle: {
+    fontSize: typography.bodyLg.fontSize,
+    fontFamily: fonts["700"],
+    color: colors.onSurface,
+  },
+  modalItemMeta: {
+    fontSize: typography.bodySm.fontSize,
+    fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
   },
 });
