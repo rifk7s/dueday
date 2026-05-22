@@ -8,9 +8,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useActivityQuery, useUpdateActivityMutation } from "@/hooks/useActivities";
 import type { Activity, UlangiType } from "@/api/activities";
 import Svg, { Circle } from "react-native-svg";
-import DatePickerCalendar from "@/components/DatePickerCalendar";
-import TimePicker from "@/components/TimePicker";
-import { toApiDate, toApiTime, fromApiTime } from "@/api/format";
 
 type ActivityProgressParams = {
   id?: string;
@@ -25,111 +22,12 @@ export default function ActivityProgressScreen() {
   const { data: activity, isLoading, error } = useActivityQuery(id);
   const updateActivityMutation = useUpdateActivityMutation();
   const [activityState, setActivityState] = useState<Activity["status"]>("not_started");
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleStart, setScheduleStart] = useState("");
-  const [scheduleEnd, setScheduleEnd] = useState("");
-  const [scheduleDateError, setScheduleDateError] = useState("");
-  const [scheduleStartError, setScheduleStartError] = useState("");
-  const [scheduleEndError, setScheduleEndError] = useState("");
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showTimePickerStart, setShowTimePickerStart] = useState(false);
-  const [showTimePickerEnd, setShowTimePickerEnd] = useState(false);
 
   useEffect(() => {
     if (activity?.status) {
       setActivityState(activity.status);
     }
   }, [activity?.status]);
-
-  useEffect(() => {
-    if (showScheduleModal && activity) {
-      // Prefill modal fields from server activity
-      setScheduleDate(apiDateToDisplay(activity.tanggal ?? ""));
-      setScheduleStart(fromApiTime(activity.time_start ?? "") || "");
-      setScheduleEnd(fromApiTime(activity.time_end ?? "") || "");
-    }
-  }, [showScheduleModal, activity]);
-
-  function apiDateToDisplay(value: string | null | undefined): string {
-    if (!value) return "";
-    const dateOnly = value.split("T")[0];
-    const parts = dateOnly.split("-");
-    if (parts.length !== 3) return value;
-    const [y, m, d] = parts;
-    return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
-  }
-
-  const handleSaveSchedule = () => {
-    if (!id) return;
-    // reset errors
-    setScheduleDateError("");
-    setScheduleStartError("");
-    setScheduleEndError("");
-
-    let hasError = false;
-    if (!scheduleDate) {
-      setScheduleDateError("Tanggal wajib dipilih.");
-      hasError = true;
-    }
-    if (!scheduleStart) {
-      setScheduleStartError("Waktu mulai wajib diisi.");
-      hasError = true;
-    }
-    if (!scheduleEnd) {
-      setScheduleEndError("Waktu selesai wajib diisi.");
-      hasError = true;
-    }
-
-    const toMinutes = (t: string) => {
-      const [h, m] = t.split(":");
-      const hn = Number(h || 0);
-      const mn = Number(m || 0);
-      if (Number.isNaN(hn) || Number.isNaN(mn)) return NaN;
-      return hn * 60 + mn;
-    };
-
-    if (!hasError) {
-      const s = toMinutes(scheduleStart);
-      const e = toMinutes(scheduleEnd);
-      if (Number.isNaN(s) || Number.isNaN(e)) {
-        setScheduleStartError("Format waktu tidak valid (HH:MM).");
-        setScheduleEndError("Format waktu tidak valid (HH:MM).");
-        hasError = true;
-      } else if (e <= s) {
-        setScheduleEndError("Waktu selesai harus setelah waktu mulai.");
-        hasError = true;
-      }
-    }
-
-    if (hasError) return;
-
-    updateActivityMutation.mutate(
-      {
-        id,
-        data: {
-          tanggal: toApiDate(scheduleDate),
-          time_start: toApiTime(scheduleStart),
-          time_end: toApiTime(scheduleEnd),
-        },
-      },
-      {
-        onSuccess: () => {
-          setShowScheduleModal(false);
-          // show confirmation toast
-          if (Platform.OS === 'android') {
-            ToastAndroid.show('Jadwal berhasil disimpan', ToastAndroid.SHORT);
-          } else {
-            Alert.alert('Berhasil', 'Jadwal berhasil disimpan');
-          }
-        },
-      }
-    );
-  };
-
-  const handleCloseSchedule = () => {
-    setShowScheduleModal(false);
-  };
 
   if (isLoading) {
     return (
@@ -225,10 +123,6 @@ export default function ActivityProgressScreen() {
             <Text style={styles.primaryButtonText}>Mulai</Text>
           </Pressable>
 
-          <Pressable style={styles.secondaryButton} onPress={() => setShowScheduleModal(true)}>
-            <Text style={styles.secondaryButtonText}>Ubah Jadwal</Text>
-          </Pressable>
-
           <Pressable style={styles.ghostButton} onPress={handleCancel}>
             <Text style={styles.ghostButtonText}>Batalkan</Text>
           </Pressable>
@@ -259,10 +153,6 @@ export default function ActivityProgressScreen() {
 
           <Pressable style={styles.secondaryButton} onPress={handleComplete}>
             <Text style={styles.secondaryButtonText}>Selesai</Text>
-          </Pressable>
-
-          <Pressable style={styles.secondaryButton} onPress={() => setShowScheduleModal(true)}>
-            <Text style={styles.secondaryButtonText}>Ubah Jadwal</Text>
           </Pressable>
 
           <Pressable style={styles.ghostButton} onPress={handleCancel}>
@@ -317,7 +207,6 @@ export default function ActivityProgressScreen() {
         >
           <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
         </Pressable>
-
       </View>
 
       <ScrollView
@@ -371,94 +260,15 @@ export default function ActivityProgressScreen() {
           </>
         )}
       </ScrollView>
-
-      {showScheduleModal ? (
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Ubah Jadwal</Text>
-
-            <Text style={styles.label}>Tanggal</Text>
-            <Pressable style={styles.modalDateTime} onPress={() => setShowCalendar(true)}>
-              <Ionicons name="calendar-outline" size={18} color={colors.primaryContainer} style={{ marginRight: 8 }} />
-              <Text style={[styles.dateTimeText, !scheduleDate && styles.dateTimePlaceholder]}>
-                {scheduleDate || "Pilih tanggal"}
-              </Text>
-            </Pressable>
-                {scheduleDateError ? <Text style={styles.errorText}>{scheduleDateError}</Text> : null}
-
-            <Text style={styles.label}>Mulai</Text>
-            <Pressable style={styles.modalDateTime} onPress={() => setShowTimePickerStart(true)}>
-              <Ionicons name="time-outline" size={18} color={colors.primaryContainer} style={{ marginRight: 8 }} />
-              <Text style={[styles.dateTimeText, !scheduleStart && styles.dateTimePlaceholder]}>
-                {scheduleStart || "HH:MM"}
-              </Text>
-            </Pressable>
-              {scheduleStartError ? <Text style={styles.errorText}>{scheduleStartError}</Text> : null}
-
-            <Text style={styles.label}>Selesai</Text>
-            <Pressable style={styles.modalDateTime} onPress={() => setShowTimePickerEnd(true)}>
-              <Ionicons name="time-outline" size={18} color={colors.primaryContainer} style={{ marginRight: 8 }} />
-              <Text style={[styles.dateTimeText, !scheduleEnd && styles.dateTimePlaceholder]}>
-                {scheduleEnd || "HH:MM"}
-              </Text>
-            </Pressable>
-              {scheduleEndError ? <Text style={styles.errorText}>{scheduleEndError}</Text> : null}
-
-            <View style={styles.modalActionRow}>
-              <Pressable style={[styles.secondaryButton, { flex: 1, marginRight: 8 }]} onPress={handleCloseSchedule}>
-                <Text style={styles.secondaryButtonText}>Batal</Text>
-              </Pressable>
-              <Pressable style={[styles.primaryButton, { flex: 1 }]} onPress={handleSaveSchedule}>
-                {updateActivityMutation.isPending ? (
-                  <ActivityIndicator color={colors.onPrimary} />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Simpan</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      <DatePickerCalendar
-        visible={showCalendar}
-        onClose={() => setShowCalendar(false)}
-        onDateSelect={(d) => {
-          setScheduleDate(d);
-          setShowCalendar(false);
-        }}
-        selectedDate={scheduleDate}
-      />
-      <TimePicker
-        visible={showTimePickerStart}
-        onClose={() => setShowTimePickerStart(false)}
-        onTimeSelect={(t) => {
-          setScheduleStart(t);
-          setShowTimePickerStart(false);
-        }}
-        selectedTime={scheduleStart}
-      />
-      <TimePicker
-        visible={showTimePickerEnd}
-        onClose={() => setShowTimePickerEnd(false)}
-        onTimeSelect={(t) => {
-          setScheduleEnd(t);
-          setShowTimePickerEnd(false);
-        }}
-        selectedTime={scheduleEnd}
-      />
     </View>
   );
 }
 
 function CardView({
   title,
-  startHour,
-  endHour,
   progress,
   ringColor,
   accentColor,
-  isComplete,
   children,
 }: Readonly<{
   title: string;
@@ -579,18 +389,8 @@ function formatDateLabel(value: string): string {
   }
 
   const monthNames = [
-    "Januari",
-    "Februari",
-    "Maret",
-    "April",
-    "Mei",
-    "Juni",
-    "Juli",
-    "Agustus",
-    "September",
-    "Oktober",
-    "November",
-    "Desember",
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
   ];
 
   const monthIndex = Number(month) - 1;
@@ -760,12 +560,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 10,
   },
-  cardTimeRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
   singleChipRow: {
     flexDirection: "row",
   },
@@ -811,19 +605,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
   },
-  toggleButton: {
-    backgroundColor: colors.primaryContainer,
-    borderRadius: 999,
-    minHeight: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  toggleButtonText: {
-    color: colors.onPrimary,
-    fontSize: typography.button.fontSize,
-    fontFamily: typography.button.fontFamily,
-  },
   completeMessage: {
     width: "100%",
     alignItems: "center",
@@ -840,60 +621,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: fonts["600"],
     color: colors.primaryContainer,
-  },
-  modalBackdrop: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-  },
-  modalCard: {
-    width: "100%",
-    backgroundColor: colors.surfaceContainerLowest,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerLow,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontFamily: fonts["600"],
-    color: colors.onSurface,
-    marginBottom: 12,
-  },
-  modalDateTime: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerLow,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.surfaceContainerLowest,
-    marginBottom: 12,
-  },
-  modalActionRow: {
-    flexDirection: "row",
-    marginTop: 8,
-  },
-  dateTimeText: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: fonts["400"],
-    color: colors.onSurface,
-  },
-  dateTimePlaceholder: {
-    color: colors.iconMuted,
-  },
-  label: {
-    fontSize: 14,
-    fontFamily: fonts["600"],
-    color: colors.primaryContainer,
-    marginBottom: 8,
   },
 });

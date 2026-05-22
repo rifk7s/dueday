@@ -124,6 +124,43 @@ export default function EditActivityPage() {
   const isTagSelected = (t: TagType): boolean => tag === t;
   const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
 
+  // Extracted core payload preparation and execution out to a helper
+  const executeSave = (ubahAnchor: boolean | null) => {
+    if (!id || !activity) return;
+
+    const payload: any = {};
+    if (namaaktivitas.trim() !== (activity.activity_name ?? "")) payload.activity_name = namaaktivitas.trim();
+    if (tanggal !== formatDisplayDate(activity.tanggal)) payload.tanggal = toApiDate(tanggal);
+    if (jamMulai !== (fromApiTime(activity.time_start ?? "") || "")) payload.time_start = toApiTime(jamMulai);
+    if (jamSelesai !== (fromApiTime(activity.time_end ?? "") || "")) payload.time_end = toApiTime(jamSelesai);
+
+    const selectedTagId = tagId ?? null;
+    if (selectedTagId !== (activity.id_tag ?? null)) payload.id_tag = selectedTagId;
+
+    const ulangi = repeat ? ULANGI_API_MAP[repeat] : undefined;
+    const currentRepeat = activity.ulangi ?? null;
+    if (ulangi !== currentRepeat) payload.ulangi = ulangi;
+
+    if ((deskripsi.trim() || null) !== (activity.deskripsi ?? null)) {
+      payload.deskripsi = deskripsi.trim() || undefined;
+    }
+
+    // Add explicit user preference flag if passed down
+    if (ubahAnchor !== null) {
+      payload.ubah_anchor = ubahAnchor;
+    }
+
+    updateMutation.mutate(
+      {
+        id,
+        data: payload,
+      },
+      {
+        onSuccess: () => router.back(),
+      },
+    );
+  };
+
   const handleSave = () => {
     if (!id || !activity) return;
 
@@ -146,32 +183,43 @@ export default function EditActivityPage() {
     }
     setValidationError("");
 
-    const payload: Parameters<typeof updateMutation.mutate>[0]["data"] = {};
-    if (namaaktivitas.trim() !== (activity.activity_name ?? "")) payload.activity_name = namaaktivitas.trim();
-    if (tanggal !== formatDisplayDate(activity.tanggal)) payload.tanggal = toApiDate(tanggal);
-    if (jamMulai !== (fromApiTime(activity.time_start ?? "") || "")) payload.time_start = toApiTime(jamMulai);
-    if (jamSelesai !== (fromApiTime(activity.time_end ?? "") || "")) payload.time_end = toApiTime(jamSelesai);
+    const isDateChanged = tanggal !== formatDisplayDate(activity.tanggal);
+    const targetRepeat = repeat ? ULANGI_API_MAP[repeat] : undefined;
+    const resolvedRepeat = targetRepeat !== undefined ? targetRepeat : (activity.ulangi ?? null);
 
-    const selectedTagId = tagId ?? null;
-    if (selectedTagId !== (activity.id_tag ?? null)) payload.id_tag = selectedTagId;
+    if (isDateChanged && resolvedRepeat && resolvedRepeat !== "setiap_hari") {
+      // WEB COMPATIBILITY CHECK
+      if (Platform.OS === "web") {
+        const confirmChange = window.confirm(
+          "Ubah Anchor Date?\n\nKlik 'OK' jika Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga.\n\nKlik 'Batal' jika hanya ingin mengubah hari ini saja."
+        );
+        // window.confirm returns true for OK, false for Cancel/Batal
+        executeSave(confirmChange);
+        return;
+      }
 
-    const ulangi = repeat ? ULANGI_API_MAP[repeat] : undefined;
-    const currentRepeat = activity.ulangi ?? null;
-    if (ulangi !== currentRepeat) payload.ulangi = ulangi;
-
-    if ((deskripsi.trim() || null) !== (activity.deskripsi ?? null)) {
-      payload.deskripsi = deskripsi.trim() || undefined;
+      // NATIVE MOBILE FLOW (iOS / Android)
+      Alert.alert(
+        "Ubah Anchor Date?",
+        "Apakah Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga?",
+        [
+          {
+            text: "Hanya Hari Ini",
+            style: "cancel",
+            onPress: () => executeSave(false),
+          },
+          {
+            text: "Ubah Anchor Date",
+            style: "default",
+            onPress: () => executeSave(true),
+          },
+        ],
+        { cancelable: false }
+      );
+      return;
     }
 
-    updateMutation.mutate(
-      {
-        id,
-        data: payload,
-      },
-      {
-        onSuccess: () => router.back(),
-      },
-    );
+    executeSave(null);
   };
 
   const footerAnimatedStyle = useAnimatedStyle(() => ({

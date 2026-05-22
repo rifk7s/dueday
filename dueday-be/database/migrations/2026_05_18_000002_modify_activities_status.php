@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('activities', function (Blueprint $table) {
-            $table->enum('status', ['not_started', 'ongoing', 'pending', 'completed'])->default('not_started')->change();
+            $table->enum('status', ['not_started', 'ongoing', 'pending', 'completed', 'cancelled'])->default('not_started');
         });
     }
 };

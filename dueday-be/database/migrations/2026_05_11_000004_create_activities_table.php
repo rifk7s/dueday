@@ -17,9 +17,10 @@ return new class extends Migration
             $table->integer('id_tag')->nullable();
             $table->string('activity_name');
             $table->date('tanggal')->nullable();
+            $table->date('anchor_date')->nullable(); 
             $table->time('time_start')->nullable();
             $table->time('time_end')->nullable();
-            $table->enum('status', ['not_started', 'ongoing', 'pending', 'completed'])->default('not_started');
+            $table->enum('status', ['not_started', 'ongoing', 'pending', 'completed', 'cancelled'])->default('not_started');
             $table->integer('progress')->default(0);
             $table->text('deskripsi')->nullable();
             $table->enum('ulangi', ['setiap_hari', 'satu_minggu', 'satu_bulan', 'satu_tahun'])->nullable();
