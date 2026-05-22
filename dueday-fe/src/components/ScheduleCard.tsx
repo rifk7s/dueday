@@ -23,13 +23,18 @@ type ScheduleCardProps = {
 
 export function ScheduleCard({ item, startHour, slotHeight, stackCount = 1, onPress }: Readonly<ScheduleCardProps>) {
   const isTask = item.kind === "task";
+  const isStacked = stackCount > 1;
   const durationHeight = (item.endHour - item.startHour) * slotHeight + 28;
   const baseHeight = isTask ? 84 : durationHeight;
-  const height = stackCount > 1 ? Math.max(baseHeight, durationHeight) : baseHeight;
-  const top = isTask
-    ? (item.startHour - startHour) * slotHeight + (slotHeight - height) / 2
-    : (item.startHour - startHour) * slotHeight + 24;
-  const titleLines = stackCount > 1 ? 2 : 2;
+  const height = isStacked ? Math.max(baseHeight, durationHeight) : baseHeight;
+  // A stacked cluster spans multiple hours, so it positions like a time block even
+  // when its summary item happens to be a task — the task centering formula would
+  // otherwise push the card far above its slot.
+  const top =
+    isTask && !isStacked
+      ? (item.startHour - startHour) * slotHeight + (slotHeight - height) / 2
+      : (item.startHour - startHour) * slotHeight + 24;
+  const titleLines = 2;
 
   return (
     <Pressable
@@ -83,11 +88,11 @@ const styles = StyleSheet.create({
   scheduleCard: {
     position: "absolute",
     left: 0,
+    right: 0,
     borderRadius: 28,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
-    paddingRight: 44,
     overflow: "hidden",
     shadowColor: colors.onSurface,
     shadowOffset: {
