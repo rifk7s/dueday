@@ -2,6 +2,7 @@ import { fromApiDate, fromApiTime } from "@/api/format";
 import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
 import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
+import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,18 +10,17 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-    Animated,
-    Image,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Animated,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
-import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 
 export default function App() {
   const { top } = useSafeAreaInsets();
@@ -454,18 +454,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   avatarRing: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     borderWidth: 2,
-    borderColor: colors.primaryContainer,
+    borderColor: colors.surfaceContainerLowest,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarInner: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     overflow: "hidden",
     backgroundColor: colors.surfaceContainerHigh,
   },
