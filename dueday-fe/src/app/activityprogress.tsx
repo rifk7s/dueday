@@ -5,7 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Platform, Alert, ToastAndroid } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useActivityQuery, useUpdateActivityMutation } from "@/hooks/useActivities";
+import { useActivityQuery, useUpdateActivityMutation, useDeleteActivityMutation } from "@/hooks/useActivities";
 import type { Activity, UlangiType } from "@/api/activities";
 import Svg, { Circle } from "react-native-svg";
 
@@ -21,6 +21,8 @@ export default function ActivityProgressScreen() {
 
   const { data: activity, isLoading, error } = useActivityQuery(id);
   const updateActivityMutation = useUpdateActivityMutation();
+  const deleteActivityMutation = useDeleteActivityMutation();
+  
   const [activityState, setActivityState] = useState<Activity["status"]>("not_started");
 
   useEffect(() => {
@@ -68,6 +70,54 @@ export default function ActivityProgressScreen() {
       id,
       data: { status: nextStatus },
     });
+  };
+
+  const handleDelete = () => {
+    if (!id) return;
+
+    const message = "Apakah Anda yakin ingin menghapus aktivitas ini?";
+
+    if (Platform.OS === "web") {
+      const confirmDelete = window.confirm(message);
+      if (confirmDelete) {
+        deleteActivityMutation.mutate(id, {
+          onSuccess: () => {
+            window.alert("Aktivitas berhasil dihapus.");
+            router.replace({ pathname: "/list", params: { tab: "aktivitas" } });
+          },
+          onError: (err) => {
+            console.error(err);
+            window.alert("Gagal menghapus aktivitas. Silakan coba lagi.");
+          }
+        });
+      }
+    } else {
+      Alert.alert(
+        "Hapus Aktivitas",
+        message,
+        [
+          { text: "Batal", style: "cancel" },
+          {
+            text: "Hapus",
+            style: "destructive",
+            onPress: () => {
+              deleteActivityMutation.mutate(id, {
+                onSuccess: () => {
+                  if (Platform.OS === "android") {
+                    ToastAndroid.show("Aktivitas berhasil dihapus", ToastAndroid.SHORT);
+                  }
+                  router.replace({ pathname: "/list", params: { tab: "aktivitas" } });
+                },
+                onError: (err) => {
+                  console.error(err);
+                  Alert.alert("Error", "Gagal menghapus aktivitas. Silakan coba lagi.");
+                }
+              });
+            }
+          }
+        ]
+      );
+    }
   };
 
   const handleStart = () => {
@@ -189,24 +239,32 @@ export default function ActivityProgressScreen() {
         <Pressable onPress={() => goBackOr({ pathname: "/list", params: { tab: "aktivitas" } })} hitSlop={12}>
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
+        
         <Text style={styles.headerTitle}>Activity Progress</Text>
-        <Pressable
-          hitSlop={12}
-          onPress={() => {
-            if (!id) return;
-            if (activity.status === "ongoing") {
-              if (Platform.OS === "android") {
-                ToastAndroid.show("Tidak bisa edit saat aktivitas masih ongoing", ToastAndroid.SHORT);
-              } else {
-                Alert.alert("Tidak bisa edit", "Aktivitas masih ongoing. Selesaikan atau jeda dulu sebelum mengedit.");
+        
+        <View style={styles.headerActions}>
+          <Pressable hitSlop={12} onPress={handleDelete} style={styles.headerActionButton}>
+            <Ionicons name="trash-outline" size={24} color={colors.errorStrong} />
+          </Pressable>
+          
+          <Pressable
+            hitSlop={12}
+            onPress={() => {
+              if (!id) return;
+              if (activity.status === "ongoing") {
+                if (Platform.OS === "android") {
+                  ToastAndroid.show("Tidak bisa edit saat aktivitas masih ongoing", ToastAndroid.SHORT);
+                } else {
+                  Alert.alert("Tidak bisa edit", "Aktivitas masih ongoing. Selesaikan atau jeda dulu sebelum mengedit.");
+                }
+                return;
               }
-              return;
-            }
-            router.push({ pathname: "/edit-activity", params: { id, tab: tab ?? "aktivitas" } });
-          }}
-        >
-          <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
-        </Pressable>
+              router.push({ pathname: "/edit-activity", params: { id, tab: tab ?? "aktivitas" } });
+            }}
+          >
+            <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -432,6 +490,13 @@ const styles = StyleSheet.create({
     fontSize: typography.h2.fontSize,
     fontFamily: typography.h2.fontFamily,
     color: colors.onSurface,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  headerActionButton: {
+    marginRight: 16,
   },
   errorText: {
     fontSize: typography.bodyLg.fontSize,

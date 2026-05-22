@@ -52,4 +52,15 @@ class ActivityRepository
 
         return $activity->load('tag');
     }
+
+    public function delete(string $id): bool
+    {
+        $activity = Activity::find($id);
+        
+        if ($activity) {
+            return (bool) $activity->delete();
+        }
+        
+        return false;
+    }
 }

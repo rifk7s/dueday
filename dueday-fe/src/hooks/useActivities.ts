@@ -4,6 +4,7 @@ import {
   createActivity,
   getActivity,
   updateActivity,
+  deleteActivity,
   type Activity,
   type NewActivity,
   type UpdateActivity,
@@ -109,6 +110,19 @@ export function useUpdateActivityMutation() {
       });
       qc.invalidateQueries({ queryKey: ["activities"] });
       qc.invalidateQueries({ queryKey: ["activity", activity.id] });
+    },
+  });
+}
+
+export function useDeleteActivityMutation() {
+  const { token } = useSession();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteActivity(id, token),
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ["activities"] });
+      qc.invalidateQueries({ queryKey: ["activity", id] });
     },
   });
 }
