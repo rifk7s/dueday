@@ -3,7 +3,7 @@ import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
 import { ULANGI_DISPLAY, type Activity } from "@/api/activities";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useActivitiesQuery, useDeleteActivityMutation } from "@/hooks/useActivities";
-import { useTasksQuery } from "@/hooks/useTasks";
+import { useTasksQuery, useDeleteTaskMutation } from "@/hooks/useTasks"; // Imported our delete hook
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
 import { useFocusEffect } from "@react-navigation/native";
@@ -18,7 +18,7 @@ import {
   Text,
   View,
   Alert,
-  Platform, // Added for platform evaluation checks
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -223,6 +223,7 @@ export default function ListPage() {
   const { data: activities = [], isLoading: activitiesLoading, isError: activitiesError } = useActivitiesQuery();
   
   const deleteActivityMutation = useDeleteActivityMutation();
+  const deleteTaskMutation = useDeleteTaskMutation(); // Instantiated the delete task mutation hook
 
   useFocusEffect(
     React.useCallback(() => {
@@ -296,51 +297,75 @@ export default function ListPage() {
   };
 
   const handleDeleteRequest = (id: string, type: "task" | "activity") => {
-    if (type === "task") {
-      if (Platform.OS === "web") {
-        window.alert("Fitur hapus tugas akan segera datang setelah file backend siap.");
-      } else {
-        Alert.alert("Info", "Fitur hapus tugas akan segera datang setelah file backend siap.");
-      }
-      setActiveMenuId(null);
-      return;
-    }
+    const isTask = type === "task";
+    const title = isTask ? "Hapus Tugas" : "Hapus Aktivitas";
+    const message = isTask 
+      ? "Apakah Anda yakin ingin menghapus tugas ini?" 
+      : "Apakah Anda yakin ingin menghapus aktivitas ini?";
 
-    // Dynamic Multiplatform alert fallback verification logic
+    // --- WEB PLATFORM ENGINE ---
     if (Platform.OS === "web") {
-      const confirmDelete = window.confirm("Apakah Anda yakin ingin menghapus aktivitas ini?");
+      const confirmDelete = window.confirm(message);
       if (confirmDelete) {
-        deleteActivityMutation.mutate(id, {
-          onSuccess: () => {
-            setActiveMenuId(null);
-            window.alert("Aktivitas berhasil dihapus.");
-          },
-          onError: (error) => {
-            console.error(error);
-            window.alert("Gagal menghapus aktivitas. Silakan coba lagi.");
-          }
-        });
+        if (isTask) {
+          deleteTaskMutation.mutate(id, {
+            onSuccess: () => {
+              setActiveMenuId(null);
+              window.alert("Tugas berhasil dihapus.");
+            },
+            onError: (error) => {
+              console.error(error);
+              window.alert("Gagal menghapus tugas. Silakan coba lagi.");
+            }
+          });
+        } else {
+          deleteActivityMutation.mutate(id, {
+            onSuccess: () => {
+              setActiveMenuId(null);
+              window.alert("Aktivitas berhasil dihapus.");
+            },
+            onError: (error) => {
+              console.error(error);
+              window.alert("Gagal menghapus aktivitas. Silakan coba lagi.");
+            }
+          });
+        }
       }
-    } else {
+    } 
+    // --- NATIVE MOBILE APP ENGINE ---
+    else {
       Alert.alert(
-        "Hapus Aktivitas",
-        "Apakah Anda yakin ingin menghapus aktivitas ini?",
+        title,
+        message,
         [
           { text: "Batal", style: "cancel" },
           { 
             text: "Hapus", 
             style: "destructive", 
             onPress: () => {
-              deleteActivityMutation.mutate(id, {
-                onSuccess: () => {
-                  setActiveMenuId(null);
-                  Alert.alert("Sukses", "Aktivitas berhasil dihapus.");
-                },
-                onError: (error) => {
-                  console.error(error);
-                  Alert.alert("Error", "Gagal menghapus aktivitas. Silakan coba lagi.");
-                }
-              });
+              if (isTask) {
+                deleteTaskMutation.mutate(id, {
+                  onSuccess: () => {
+                    setActiveMenuId(null);
+                    Alert.alert("Sukses", "Tugas berhasil dihapus.");
+                  },
+                  onError: (error) => {
+                    console.error(error);
+                    Alert.alert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
+                  }
+                });
+              } else {
+                deleteActivityMutation.mutate(id, {
+                  onSuccess: () => {
+                    setActiveMenuId(null);
+                    Alert.alert("Sukses", "Aktivitas berhasil dihapus.");
+                  },
+                  onError: (error) => {
+                    console.error(error);
+                    Alert.alert("Error", "Gagal menghapus aktivitas. Silakan coba lagi.");
+                  }
+                });
+              }
             } 
           }
         ]

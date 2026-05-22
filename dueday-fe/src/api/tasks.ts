@@ -181,3 +181,21 @@ export async function updateTask(
     body: JSON.stringify(input),
   });
 }
+
+export async function deleteTask(
+  id: string,
+  token: string | null,
+): Promise<void> {
+  if (MOCK_API) {
+    const existing = mockStore.find((task) => task.id === id);
+    if (!existing) {
+      throw new Error(`Task with id ${id} not found`);
+    }
+    mockStore = mockStore.filter((task) => task.id !== id);
+    return;
+  }
+
+  return apiFetch<void>(`/tasks/${id}`, token, {
+    method: "DELETE",
+  });
+}
