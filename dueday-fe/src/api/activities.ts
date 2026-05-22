@@ -180,3 +180,21 @@ export async function updateActivity(
     body: JSON.stringify(input),
   });
 }
+
+export async function deleteActivity(
+  id: string,
+  token: string | null,
+): Promise<void> {
+  if (MOCK_API) {
+    const existing = mockStore.find((activity) => activity.id === id);
+    if (!existing) {
+      throw new Error(`Activity with id ${id} not found`);
+    }
+    mockStore = mockStore.filter((activity) => activity.id !== id);
+    return;
+  }
+
+  return apiFetch<void>(`/activities/${id}`, token, {
+    method: "DELETE",
+  });
+}
