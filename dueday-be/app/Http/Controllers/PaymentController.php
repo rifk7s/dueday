@@ -8,12 +8,14 @@ use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
 use App\Services\PaymentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 
 class PaymentController extends Controller
 {
     public function __construct(private PaymentService $paymentService) {}
 
+    /**
+     * Display a listing of the user's payments.
+     */
     public function index()
     {
         $payments = $this->paymentService->getUserPayments(auth()->id());
@@ -21,6 +23,19 @@ class PaymentController extends Controller
         return PaymentResource::collection($payments);
     }
 
+    /**
+     * Store a newly created payment resource in storage.
+     */
+    public function store(StorePaymentRequest $request)
+    {
+        $payment = $this->paymentService->createPayment(auth()->id(), $request->validated());
+
+        return (new PaymentResource($payment))->response()->setStatusCode(201);
+    }
+
+    /**
+     * Display the specified payment resource if owned by user.
+     */
     public function show(Payment $payment)
     {
         $payment = $this->paymentService->getPaymentForUser(auth()->id(), $payment->{$payment->getKeyName()});
@@ -32,13 +47,9 @@ class PaymentController extends Controller
         return new PaymentResource($payment);
     }
 
-    public function store(StorePaymentRequest $request)
-    {
-        $payment = $this->paymentService->createPayment(auth()->id(), $request->validated());
-
-        return (new PaymentResource($payment))->response()->setStatusCode(201);
-    }
-
+    /**
+     * Update the specified payment resource status/details manually.
+     */
     public function update(UpdatePaymentRequest $request, Payment $payment)
     {
         $payment = $this->paymentService->updatePayment(auth()->id(), $payment->{$payment->getKeyName()}, $request->validated());
@@ -50,6 +61,9 @@ class PaymentController extends Controller
         return new PaymentResource($payment);
     }
 
+    /**
+     * Remove the specified payment resource from storage.
+     */
     public function destroy(Payment $payment)
     {
         $deleted = $this->paymentService->deletePayment(auth()->id(), $payment->{$payment->getKeyName()});
@@ -62,37 +76,24 @@ class PaymentController extends Controller
     }
 
     /**
-     * Decode uploaded screenshot via goqr.me and verify the transaction (Sandbox Mode).
+     * Securely verify a frontend pre-decoded QRIS string.
+     * Replaces file upload streaming with lightweight string checking.
      */
     public function scan(Request $request)
     {
-        // Check if the web simulation string is passed directly
-        $qrText = $request->input('mock_string');
+        // 1. Validate that the string payload data is present
+        $request->validate([
+            'qr_data' => 'required|string',
+        ]);
 
-        if (!$qrText) {
-            $request->validate([
-                'file' => 'required|image|max:4096',
-            ]);
+        $qrText = $request->input('qr_data');
 
-            $file = $request->file('file');
-            $response = Http::attach(
-                'file', 
-                file_get_contents($file->getRealPath()), 
-                $file->getClientOriginalName()
-            )->post('https://api.qrserver.com/v1/read-qr-code/');
-
-            if ($response->failed()) {
-                return response(['message' => 'Gagal terhubung dengan server decoder QRIS.'], 502);
-            }
-
-            $data = $response->json();
-            $qrText = $data[0]['symbol'][0]['data'] ?? null;
+        // 2. Safeguard structural integrity against unexpected QR payloads
+        if (!str_starts_with($qrText, 'DUEDAY_MOCK_PAYMENT')) {
+            return response(['message' => 'Format string QRIS tidak valid atau tidak dikenali oleh sandbox.'], 400);
         }
 
-        if (!$qrText || !str_starts_with($qrText, 'DUEDAY_MOCK_PAYMENT')) {
-            return response(['message' => 'QRIS Code tidak terbaca atau tidak ditujukan untuk sandbox.'], 400);
-        }
-
+        // 3. Extract parameters cleanly out of the decoded string structure
         $parts = explode('|', $qrText);
         $parsedAmount = 0;
         foreach ($parts as $part) {
@@ -101,6 +102,7 @@ class PaymentController extends Controller
             }
         }
 
+        // 4. Verify that a matching transaction record actually exists for the current user
         $payment = Payment::where('user_id', auth()->id())
             ->where('status', 'pending')
             ->where('amount', $parsedAmount)
@@ -108,9 +110,10 @@ class PaymentController extends Controller
             ->first();
 
         if (!$payment) {
-            return response(['message' => 'Tidak ditemukan transaksi tertunda dengan nominal ini.'], 404);
+            return response(['message' => 'Tidak ditemukan transaksi gantung dengan nominal matching.'], 404);
         }
 
+        // 5. Commit transaction updates securely
         $updatedPayment = $this->paymentService->updatePayment(
             auth()->id(), 
             $payment->{$payment->getKeyName()}, 

@@ -16,6 +16,7 @@ class StoreActivityRequest extends FormRequest
         return [
             'activity_name' => 'required|string|max:255',
             'tanggal' => 'nullable|date',
+            'anchor_date' => 'sometimes|nullable|date',
             'time_start' => 'nullable|date_format:H:i:s',
             'time_end' => 'nullable|date_format:H:i:s',
             'id_tag' => 'nullable|integer|exists:tags,id_tag',

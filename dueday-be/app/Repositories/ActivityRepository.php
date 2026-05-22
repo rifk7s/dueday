@@ -11,7 +11,8 @@ class ActivityRepository
     {
         $data['id'] = $data['id'] ?? (string) Str::uuid();
 
-        $activity = Activity::create($data);
+        // Use forceCreate to entirely bypass mass-assignment / Fillable caching bugs
+        $activity = Activity::forceCreate($data);
 
         return $activity->load('tag');
     }
@@ -39,20 +40,16 @@ class ActivityRepository
             return null;
         }
 
+        // 1. Map general fillable values first
         $activity->fill($data);
+
+        // 2. Explicitly force overwrite the anchor date directly on the attribute last
+        if (array_key_exists('anchor_date', $data)) {
+            $activity->anchor_date = $data['anchor_date'];
+        }
+
         $activity->save();
 
         return $activity->load('tag');
-    }
-
-    public function delete(string $id): bool
-    {
-        $activity = $this->findById($id);
-
-        if (! $activity) {
-            return false;
-        }
-
-        return (bool) $activity->delete();
     }
 }

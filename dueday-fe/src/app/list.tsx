@@ -247,10 +247,13 @@ export default function ListPage() {
     return aDone === 1 ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
   }), [tasks]);
 
+  // FIXED: Corrected bDone to evaluate b.status to properly sink finished activities down
   const sortedActivities = useMemo(() => [...activities].sort((a, b) => {
     const aDone = a.status === "completed" || a.status === "cancelled" ? 1 : 0;
-    const bDone = a.status === "completed" || a.status === "cancelled" ? 1 : 0;
+    const bDone = b.status === "completed" || b.status === "cancelled" ? 1 : 0; 
+    
     if (aDone !== bDone) return aDone - bDone;
+    
     const aKey = `${a.tanggal ?? "9999-12-31"}T${a.time_start ?? "23:59:59"}`;
     const bKey = `${b.tanggal ?? "9999-12-31"}T${b.time_start ?? "23:59:59"}`;
     return aKey.localeCompare(bKey);
@@ -338,7 +341,6 @@ export default function ListPage() {
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.title}>List</Text>
-        {/* Push to separate search layout screen */}
         <Pressable 
           style={styles.iconButton} 
           accessibilityRole="button"
@@ -394,7 +396,6 @@ export default function ListPage() {
   );
 }
 
-// Reuse the exact same TaskCard, ProgressRing components and style definitions from your current code base below...
 function TaskCard({
   itemType = "task",
   accentColor = colors.error,

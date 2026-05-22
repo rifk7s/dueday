@@ -20,6 +20,10 @@ class ActivityResource extends JsonResource
             'id_tag' => $this->id_tag,
             'activity_name' => $this->activity_name,
             'tanggal' => $this->tanggal,
+            
+            // CRITICAL FIX: Expose the anchor_date to the frontend response
+            'anchor_date' => $this->anchor_date, 
+            
             'time_start' => $this->time_start,
             'time_end' => $this->time_end,
             'status' => $this->status,

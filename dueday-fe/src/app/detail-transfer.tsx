@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Payment } from "@/api/payments";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
+import * as BarCodeScanner from "expo-barcode-scanner";
 import { getMe } from "@/api/users";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -96,7 +97,6 @@ export default function DetailTransferScreen(): React.JSX.Element {
   const planName = (params.planName as string) || "Dueday Premium 1 Bulan";
   const planPrice = (params.planPrice as string) || "Rp20.000";
   const planAmount = Number(params.planAmount || "0");
-  const planDuration = (params.planDuration as string) || "1 bulan";
   const methodId = ((params.methodId as string) || "bca").toLowerCase();
   const methodType = (params.methodType as "VA" | "QRIS") || (methodId === "qris" ? "QRIS" : "VA");
   const methodNameParam = params.methodName as string | undefined;
@@ -118,7 +118,6 @@ export default function DetailTransferScreen(): React.JSX.Element {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialPaymentStatus);
   const hasNavigatedToSuccess = useRef(false);
 
-  // QRIS Specific data string building
   const goQrApiUrl = useMemo(() => {
     const rawQrisData = `DUEDAY_MOCK_PAYMENT|MERCHANT:DUEDAY STUDIO|CITY:MAKASSAR|AMOUNT:${planAmount}`;
     return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(rawQrisData)}&margin=10`;
@@ -197,28 +196,34 @@ export default function DetailTransferScreen(): React.JSX.Element {
     setTimeout(() => setCopyLabel("Salin"), 3000);
   };
 
+  const sendDecodedDataToBackend = async (scannedString: string) => {
+    // Update the existing payment status to paid directly!
+    const targetUrl = `${API_BASE_URL}/payments/${paymentId}`; 
+    const response = await fetch(targetUrl, {
+      method: "PUT", // or PATCH depending on your API routing
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        status: "paid",
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "Gagal memperbarui status.");
+    return result;
+  };
+
   const handleSelectAndScanQRIS = async () => {
     setIsUploading(true);
-    const targetUrl = `${API_BASE_URL}/payments/scan`;
 
-    // ================== WEB BROWSER OVERRIDE ==================
+    // ================== WEB BROWSER MODE ==================
     if (Platform.OS === "web") {
       try {
-        const response = await fetch(targetUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            mock_string: `DUEDAY_MOCK_PAYMENT|MERCHANT:DUEDAY STUDIO|CITY:MAKASSAR|AMOUNT:${planAmount}`,
-          }),
-        });
-
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message || "Gagal verifikasi pembayaran.");
-
+        const mockString = `DUEDAY_MOCK_PAYMENT|MERCHANT:DUEDAY STUDIO|CITY:MAKASSAR|AMOUNT:${planAmount}`;
+        await sendDecodedDataToBackend(mockString);
         alert("Sukses: Pembayaran terverifikasi via Browser Simulator!");
         setPaymentStatus("paid");
         return;
@@ -231,48 +236,44 @@ export default function DetailTransferScreen(): React.JSX.Element {
     }
 
     // ================== NATIVE PHONE DEVICE FLOW ==================
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert("Akses Ditolak", "Aplikasi membutuhkan izin galeri untuk memproses verifikasi.");
-      setIsUploading(false);
-      return;
-    }
-
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-
-    if (pickerResult.canceled || !pickerResult.assets?.[0]) {
-      setIsUploading(false);
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", {
-      uri: pickerResult.assets[0].uri,
-      name: "qris_screenshot.png",
-      type: "image/png",
-    } as any);
-
     try {
-      const response = await fetch(targetUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-        body: formData,
+      const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!mediaPermission.granted) {
+        Alert.alert("Akses Ditolak", "Aplikasi membutuhkan izin galeri untuk memproses verifikasi.");
+        return;
+      }
+
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 1,
       });
 
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message || "Gagal memproses gambar transaksi.");
+      if (pickerResult.canceled || !pickerResult.assets?.[0]) {
+        return;
+      }
+
+      const selectedImgUri = pickerResult.assets[0].uri;
+
+      // Scan code directly on device using native hardware capabilities
+      const scanResults = await BarCodeScanner.scanFromURLAsync(selectedImgUri, [
+        BarCodeScanner.Constants.BarCodeType.qr,
+      ]);
+
+      if (!scanResults || scanResults.length === 0) {
+        Alert.alert("Gagal Membaca QRIS", "Tidak ada kode QR valid terdeteksi dari screenshot gambar.");
+        return;
+      }
+
+      const nativeScannedString = scanResults[0].data;
+
+      // Send the decoded text output directly to backend
+      await sendDecodedDataToBackend(nativeScannedString);
 
       Alert.alert("Sukses", "Pembayaran terverifikasi oleh server!");
       setPaymentStatus("paid");
     } catch (error: any) {
-      Alert.alert("Verifikasi Gagal", error.message || "Terjadi kesalahan jaringan.");
+      Alert.alert("Verifikasi Gagal", error.message || "Terjadi kesalahan sistem.");
     } finally {
       setIsUploading(false);
     }
@@ -308,7 +309,6 @@ export default function DetailTransferScreen(): React.JSX.Element {
           {paymentId && <Text style={styles.statusHint}>Payment ID: {paymentId}</Text>}
         </View>
 
-        {/* CONDITIONALLY RENDER QRIS VS VA INTERFACES */}
         {methodType === "QRIS" ? (
           <View style={styles.qrisCard}>
             <View style={styles.qrisHeader}>

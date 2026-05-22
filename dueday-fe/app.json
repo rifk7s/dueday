@@ -42,7 +42,8 @@
       "expo-secure-store",
       "expo-dev-client",
       "expo-notifications",
-      "./plugins/remove-push-entitlement"
+      "./plugins/remove-push-entitlement",
+      "expo-barcode-scanner"
     ],
     "experiments": {
       "typedRoutes": true,

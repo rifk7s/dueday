@@ -54,10 +54,14 @@ class ActivitySeeder extends Seeder
         ];
 
         foreach ($activities as $activity) {
+            // Set anchor_date to the same value as tanggal if a repeat rule exists
+            $anchorDate = (!empty($activity['ulangi'])) ? $activity['tanggal'] : null;
+
             Activity::create([
                 'id' => Str::uuid(),
                 'user_id' => $user->id,
                 'id_tag' => fake()->randomElement([1, 2, 3, 4, null]),
+                'anchor_date' => $anchorDate,
                 ...$activity,
                 'created_at' => now(),
                 'updated_at' => now(),
