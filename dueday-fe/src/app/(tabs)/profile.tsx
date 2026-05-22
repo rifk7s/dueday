@@ -1,4 +1,5 @@
 import { updateActivity } from "@/api/activities";
+import { getPendingPaymentTransferParams } from "@/api/payments";
 import { updateTask } from "@/api/tasks";
 import { updateMe } from "@/api/users";
 import type { AuthUser } from "@/auth/api";
@@ -7,7 +8,7 @@ import { setStorageItemAsync } from "@/auth/useStorageState";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useTasksQuery } from "@/hooks/useTasks";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons"; // 👑 Added FontAwesome5 for the crown icons
+import { FontAwesome5, Ionicons } from "@expo/vector-icons"; // 👑 Added FontAwesome5 for the crown icons
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -25,7 +26,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getPendingPaymentTransferParams } from "@/api/payments";
 
 type TaskStat = {
   label: string;
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     height: 84,
     borderRadius: 42,
     borderWidth: 3,
-    borderColor: colors.primaryContainer,
+    borderColor: colors.surfaceContainerLowest,
     padding: 4,
     overflow: "hidden",
   },
