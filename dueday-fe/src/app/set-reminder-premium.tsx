@@ -1,5 +1,5 @@
 import type { ReminderSound, ReminderStyle } from "@/api/reminders";
-import TimePicker from "@/components/TimePicker";
+import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useReminderSettingsQuery, useUpdateReminderSettingsMutation } from "@/hooks/useReminders";
 import { Ionicons } from "@expo/vector-icons";

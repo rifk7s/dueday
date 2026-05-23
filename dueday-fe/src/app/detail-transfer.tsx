@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Payment } from "@/api/payments";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
-import * as BarCodeScanner from "expo-barcode-scanner";
+import { Camera } from "expo-camera";
 import { getMe } from "@/api/users";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -256,9 +256,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
       const selectedImgUri = pickerResult.assets[0].uri;
 
       // Scan code directly on device using native hardware capabilities
-      const scanResults = await BarCodeScanner.scanFromURLAsync(selectedImgUri, [
-        BarCodeScanner.Constants.BarCodeType.qr,
-      ]);
+      const scanResults = await Camera.scanFromURLAsync(selectedImgUri, ["qr"]);
 
       if (!scanResults || scanResults.length === 0) {
         Alert.alert("Gagal Membaca QRIS", "Tidak ada kode QR valid terdeteksi dari screenshot gambar.");

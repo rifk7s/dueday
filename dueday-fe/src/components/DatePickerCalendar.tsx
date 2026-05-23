@@ -206,7 +206,7 @@ export default function DatePickerCalendar({
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" },
-  container: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
+  container: { justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
   content: { width: "100%", maxWidth: 400, backgroundColor: colors.surfaceContainerLowest, borderRadius: 16, paddingBottom: 20 },
   inlineContent: { maxWidth: "100%", width: "100%", borderRadius: 24, paddingBottom: 18 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainerLow },
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   dayHeaderRow: { flexDirection: "row", paddingHorizontal: 16, marginBottom: 8 },
   dayHeaderText: { flex: 1, textAlign: "center", fontSize: 12, fontFamily: fonts["600"], color: colors.onSurfaceVariant },
   calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, marginBottom: 16 },
-  dayCell: { width: "14.28%", aspectRatio: 1, justifyContent: "center", alignItems: "center" },
+  dayCell: { width: "14.28%", height: 48, justifyContent: "center", alignItems: "center" },
   dayButton: { width: 40, height: 40, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   markerDot: { marginTop: 3, width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primaryContainer },
   markerDotActive: { backgroundColor: colors.onPrimary },
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   selectedButton: { backgroundColor: colors.primaryContainer },
   dayText: { fontSize: 14, fontFamily: fonts["500"], color: colors.onSurface },
   dayTextActive: { color: colors.onPrimary },
-  footer: { flexDirection: "row", gap: 12, paddingHorizontal: 16, marginTop: 8 },
+  footer: { flexShrink: 0, flexDirection: "row", gap: 12, paddingHorizontal: 16, marginTop: 8 },
   cancelButton: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.surfaceContainerLow, alignItems: "center" },
   cancelText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onSurface },
   confirmButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: colors.primaryContainer, alignItems: "center" },
