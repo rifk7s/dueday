@@ -31,10 +31,15 @@ export default function TimePickerModal({
   onTimeSelect,
   selectedTime,
 }: Readonly<Props>) {
+  const [initialIso, setInitialIso] = useState<string>(() => parseHHMM(selectedTime).toISOString());
   const [draft, setDraft] = useState<Date>(() => parseHHMM(selectedTime));
 
   useEffect(() => {
-    if (visible) setDraft(parseHHMM(selectedTime));
+    if (visible) {
+      const d = parseHHMM(selectedTime);
+      setInitialIso(d.toISOString());
+      setDraft(d);
+    }
   }, [visible, selectedTime]);
 
   const handleConfirm = () => {
@@ -58,7 +63,7 @@ export default function TimePickerModal({
             <DateTimePicker
               variant="wheel"
               displayedComponents="hourAndMinute"
-              initialDate={draft.toISOString()}
+              initialDate={initialIso}
               onDateSelected={setDraft}
               color={colors.primaryContainer}
             />
