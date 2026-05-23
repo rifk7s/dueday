@@ -1,5 +1,5 @@
-import DatePickerCalendar from "@/components/DatePickerCalendar";
-import TimePicker from "@/components/TimePicker";
+import DatePickerCalendar from "@/components/DatePickerModal";
+import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { useCreateTaskMutation } from "@/hooks/useTasks";

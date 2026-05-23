@@ -1,5 +1,5 @@
 import { useReminderSettingsQuery, useUpdateReminderSettingsMutation } from "@/hooks/useReminders";
-import TimePicker from "@/components/TimePicker";
+import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
