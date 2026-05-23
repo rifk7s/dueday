@@ -27,10 +27,15 @@ export default function DatePickerModal({
   onDateSelect,
   selectedDate,
 }: Readonly<Props>) {
+  const [initialIso, setInitialIso] = useState<string>(() => parseDDMMYYYY(selectedDate).toISOString());
   const [draft, setDraft] = useState<Date>(() => parseDDMMYYYY(selectedDate));
 
   useEffect(() => {
-    if (visible) setDraft(parseDDMMYYYY(selectedDate));
+    if (visible) {
+      const d = parseDDMMYYYY(selectedDate);
+      setInitialIso(d.toISOString());
+      setDraft(d);
+    }
   }, [visible, selectedDate]);
 
   const handleConfirm = () => {
@@ -54,7 +59,7 @@ export default function DatePickerModal({
             <DateTimePicker
               variant="graphical"
               displayedComponents="date"
-              initialDate={draft.toISOString()}
+              initialDate={initialIso}
               onDateSelected={setDraft}
               color={colors.primaryContainer}
             />

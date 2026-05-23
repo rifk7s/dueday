@@ -27,10 +27,15 @@ export default function DatePickerModal({
   onDateSelect,
   selectedDate,
 }: Readonly<Props>) {
+  const [initialIso, setInitialIso] = useState<string>(() => parseDDMMYYYY(selectedDate).toISOString());
   const [draft, setDraft] = useState<Date>(() => parseDDMMYYYY(selectedDate));
 
   useEffect(() => {
-    if (visible) setDraft(parseDDMMYYYY(selectedDate));
+    if (visible) {
+      const d = parseDDMMYYYY(selectedDate);
+      setInitialIso(d.toISOString());
+      setDraft(d);
+    }
   }, [visible, selectedDate]);
 
   const handleConfirm = () => {
@@ -53,9 +58,9 @@ export default function DatePickerModal({
           <DateTimePicker
             style={styles.picker}
             variant="picker"
-            showVariantToggle={false}
+            showVariantToggle={true}
             displayedComponents="date"
-            initialDate={draft.toISOString()}
+            initialDate={initialIso}
             onDateSelected={setDraft}
             color={colors.primaryContainer}
           />
@@ -99,7 +104,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.surfaceContainerLow,
   },
   headerTitle: { fontSize: 18, fontFamily: fonts["600"], color: colors.onSurface },
-  picker: { width: "100%", minHeight: 420, marginHorizontal: 8 },
+  picker: { width: "100%", height: 520 },
   footer: { flexShrink: 0, flexDirection: "row", gap: 12, paddingHorizontal: 16, marginTop: 8 },
   cancelButton: {
     flex: 1,

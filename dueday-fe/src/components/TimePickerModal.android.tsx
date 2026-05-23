@@ -31,10 +31,15 @@ export default function TimePickerModal({
   onTimeSelect,
   selectedTime,
 }: Readonly<Props>) {
+  const [initialIso, setInitialIso] = useState<string>(() => parseHHMM(selectedTime).toISOString());
   const [draft, setDraft] = useState<Date>(() => parseHHMM(selectedTime));
 
   useEffect(() => {
-    if (visible) setDraft(parseHHMM(selectedTime));
+    if (visible) {
+      const d = parseHHMM(selectedTime);
+      setInitialIso(d.toISOString());
+      setDraft(d);
+    }
   }, [visible, selectedTime]);
 
   const handleConfirm = () => {
@@ -60,7 +65,7 @@ export default function TimePickerModal({
             showVariantToggle={false}
             displayedComponents="hourAndMinute"
             is24Hour
-            initialDate={draft.toISOString()}
+            initialDate={initialIso}
             onDateSelected={setDraft}
             color={colors.primaryContainer}
           />
@@ -104,7 +109,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.surfaceContainerLow,
   },
   headerTitle: { fontSize: 16, fontFamily: fonts["600"], color: colors.onSurface },
-  picker: { width: "100%", minHeight: 320, marginHorizontal: 8 },
+  picker: { width: "100%", height: 400 },
   footer: {
     flexShrink: 0,
     flexDirection: "row",
