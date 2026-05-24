@@ -1,8 +1,8 @@
 import { SessionProvider, useSession } from "@/auth/ctx";
 import { SplashScreenController } from "@/auth/splash";
 import { modalScreenOptions, stackScreenOptions, successScreenOptions } from "@/constants/navigation";
-import { ensureAndroidChannel, setupNotificationHandler } from "@/lib/notifications";
 import "@/global.css";
+import { ensureAndroidChannel, setupNotificationHandler } from "@/lib/notifications";
 import {
     Lexend_400Regular,
     Lexend_500Medium,
@@ -13,8 +13,11 @@ import {
     useFonts,
 } from "@expo-google-fonts/lexend";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import React from "react";
+import { Alert } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -45,9 +48,11 @@ export default function RootLayout() {
     Lexend_900Black,
   });
 
-  if (!loaded && !error) {
-    return null;
-  }
+  // Ensure the notification response handler hook is called on every render
+  // (must run before any early returns so hook order stays stable).
+  useNotificationResponseHandler();
+
+  if (!loaded && !error) return null;
 
   return (
     <SafeAreaProvider>
@@ -61,6 +66,29 @@ export default function RootLayout() {
       </KeyboardProvider>
     </SafeAreaProvider>
   );
+}
+
+// Global notification response handler: show popup for payment success notifications
+function useNotificationResponseHandler() {
+  React.useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      try {
+        const data = response.notification.request.content.data as any;
+        if (data?.type === "payment-success") {
+          const planName = data.planName ?? "Paket Premium";
+          const features = data.features ? JSON.parse(data.features) : null;
+          const message = features
+            ? `Kamu mendapatkan: \n- ${features.map((f: any) => f.title).join("\n- ")}`
+            : "Langganan premium sudah aktif.";
+          Alert.alert(planName, message, [{ text: "OK" }], { cancelable: true });
+        }
+      } catch (e) {
+        // ignore malformed payloads
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
 }
 
 function RootNavigator() {
@@ -80,6 +108,7 @@ function RootNavigator() {
         <Stack.Screen name="set-reminder" options={modalScreenOptions} />
         <Stack.Screen name="activityprogress" />
         <Stack.Screen name="list" />
+        <Stack.Screen name="notifications" />
         <Stack.Screen name="reminder-list" />
       </Stack.Protected>
       <Stack.Protected guard={!token}>

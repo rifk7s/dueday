@@ -1,28 +1,28 @@
+import { ULANGI_API_MAP } from "@/api/activities";
+import { toApiDate, toApiTime } from "@/api/format";
 import DatePickerCalendar from "@/components/DatePickerModal";
 import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
-import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { useCreateActivityMutation } from "@/hooks/useActivities";
+import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { useTagIdByName } from "@/hooks/useTags";
-import { toApiDate, toApiTime } from "@/api/format";
-import { ULANGI_API_MAP } from "@/api/activities";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Keyboard,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard-controller";
 import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
+    Extrapolation,
+    interpolate,
+    useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
