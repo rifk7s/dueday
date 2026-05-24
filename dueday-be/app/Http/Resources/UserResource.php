@@ -14,6 +14,7 @@ class UserResource extends JsonResource
     public function toArray(Request $request): array
     {
         $isSubscribed = (bool) $this->is_subscribed;
+        $latestActiveSub = null;
 
         if ($isSubscribed) {
             $latestActiveSub = $this->subscriptions()
@@ -23,6 +24,7 @@ class UserResource extends JsonResource
 
             if (! $latestActiveSub || Carbon::parse($latestActiveSub->expired_at)->isPast()) {
                 $isSubscribed = false;
+                $latestActiveSub = null;
                 $this->resource->update(['is_subscribed' => false]);
             }
         }
@@ -37,6 +39,7 @@ class UserResource extends JsonResource
             'nim' => $this->nim,
             'is_subscribed' => $isSubscribed,
             'status' => $isSubscribed ? 'subscribed' : 'unsubscribed',
+            'subscription_end' => $latestActiveSub?->expired_at,
             'language' => $this->language,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

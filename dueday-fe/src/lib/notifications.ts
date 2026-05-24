@@ -1,7 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
-const REMINDER_CHANNEL_ID = "reminder";
+export const REMINDER_CHANNEL_ID = "reminder";
 
 export async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
