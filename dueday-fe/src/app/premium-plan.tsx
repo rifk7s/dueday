@@ -1,13 +1,20 @@
+import { apiFetch } from "@/api/client";
+import {
+  getPendingPaymentTransferParams,
+  planDurationFor,
+  planLabel,
+  type PlanValue,
+  type Subscription,
+} from "@/api/payments";
+import { useSession } from "@/auth/ctx";
 import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
-import { getPendingPaymentTransferParams, type PlanValue } from "@/api/payments";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useSession } from "@/auth/ctx";
 
 type BenefitItem = {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -66,10 +73,67 @@ const plans: PlanItem[] = [
 
 export default function PremiumPlanScreen(): React.JSX.Element {
   const router = useRouter();
-  const { token } = useSession();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const isViewMode = params.mode === "view";
+  const { token, user } = useSession();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   const { top, bottom } = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<PlanItem>(plans[0]);
+  const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
+  const [loadingActiveSubscription, setLoadingActiveSubscription] = useState(false);
+
+  React.useEffect(() => {
+    if (!isViewMode || !token || MOCK_AUTH) {
+      setActiveSubscription(null);
+      return;
+    }
+
+    let active = true;
+    setLoadingActiveSubscription(true);
+
+    apiFetch<Subscription[]>("/subscriptions", token)
+      .then((subscriptions) => {
+        if (!active) return;
+
+        const current = [...subscriptions]
+          .filter((subscription) => subscription.status === "active" && subscription.plan != null)
+          .sort((left, right) => {
+            const leftTime = new Date(left.updated_at).getTime();
+            const rightTime = new Date(right.updated_at).getTime();
+            return rightTime - leftTime;
+          })[0] ?? null;
+
+        setActiveSubscription(current);
+      })
+      .catch(() => {
+        if (active) setActiveSubscription(null);
+      })
+      .finally(() => {
+        if (active) setLoadingActiveSubscription(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isViewMode, token, MOCK_AUTH]);
+
+  const activePlanItem = React.useMemo<PlanItem | null>(() => {
+    if (!activeSubscription?.plan) return null;
+    return plans.find((plan) => plan.value === activeSubscription.plan) ?? null;
+  }, [activeSubscription]);
+
+  const activePlanName = activePlanItem?.label ?? (activeSubscription?.plan ? planLabel(activeSubscription.plan) : "Premium Aktif");
+  const activePlanDuration = activePlanItem?.duration ?? (activeSubscription?.plan ? planDurationFor(activeSubscription.plan) : "Aktif saat ini");
+  const activeUntil = user?.subscription_end ?? activeSubscription?.expired_at ?? null;
+
+  const formatDateLabel = (value: string | null): string | null => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
 
   const handleStartPremium = async (): Promise<void> => {
     if (token && !MOCK_AUTH) {
@@ -130,11 +194,41 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Text style={styles.heroLabel}>Upgrade ke Premium</Text>
-        <Text style={styles.price}>{selectedPlan.price}</Text>
-        <Text style={styles.subTitle}>Aktif untuk {selectedPlan.duration}</Text>
+        <Text style={styles.heroLabel}>{isViewMode ? "Plan Premium Aktif" : "Upgrade ke Premium"}</Text>
+        <Text style={styles.price}>{isViewMode ? activePlanName : selectedPlan.price}</Text>
+        <Text style={styles.subTitle}>
+          {isViewMode
+            ? `${activePlanDuration}${formatDateLabel(activeUntil) ? ` · Berlaku sampai ${formatDateLabel(activeUntil)}` : ""}`
+            : `Aktif untuk ${selectedPlan.duration}`}
+        </Text>
 
-        <Text style={styles.sectionLabel}>YANG KAMU DAPAT:</Text>
+        {isViewMode ? (
+          <View style={styles.activePlanCard}>
+            <View style={styles.activePlanHeader}>
+              <View style={styles.activePlanBadge}>
+                <Text style={styles.activePlanBadgeText}>{loadingActiveSubscription ? "Memuat" : "Aktif"}</Text>
+              </View>
+              <Text style={styles.activePlanTitle}>{activePlanName}</Text>
+            </View>
+            <View style={styles.activePlanMetaRow}>
+              <Text style={styles.activePlanMetaLabel}>Plan aktif</Text>
+              <Text style={styles.activePlanMetaValue}>{activePlanDuration}</Text>
+            </View>
+            {formatDateLabel(activeUntil) ? (
+              <View style={styles.activePlanMetaRow}>
+                <Text style={styles.activePlanMetaLabel}>Berlaku sampai</Text>
+                <Text style={styles.activePlanMetaValue}>{formatDateLabel(activeUntil)}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.activePlanDescription}>
+              {formatDateLabel(activeUntil)
+                ? `Langganan ini aktif sampai ${formatDateLabel(activeUntil)}.`
+                : "Langganan premium kamu sedang aktif di akun ini."}
+            </Text>
+          </View>
+        ) : null}
+
+        <Text style={styles.sectionLabel}>{isViewMode ? "FITUR YANG KAMU AKSES:" : "YANG KAMU DAPAT:"}</Text>
 
         <View style={styles.benefitList}>
           {benefits.map((item) => (
@@ -157,38 +251,47 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           <Text style={styles.socialProofText}>Bergabung dengan 500+ mahasiswa UC</Text>
         </View>
 
-        <View style={[styles.paymentCard, { marginBottom: 16 }]}>
-          <Text style={styles.paymentLabel}>Pilih Paket</Text>
-          <View style={styles.paymentMethods}>
-            {plans.map((plan) => {
-              const isSelected = selectedPlan.label === plan.label;
+        {isViewMode ? null : (
+          <View style={[styles.paymentCard, { marginBottom: 16 }]}>
+            <Text style={styles.paymentLabel}>Pilih Paket</Text>
+            <View style={styles.paymentMethods}>
+              {plans.map((plan) => {
+                const isSelected = selectedPlan.label === plan.label;
 
-              return (
-                <Pressable
-                  key={plan.label}
-                  style={isSelected ? styles.paymentMethodActive : styles.paymentMethod}
-                  onPress={() => setSelectedPlan(plan)}
-                >
-                  <Text style={isSelected ? styles.paymentMethodActiveText : styles.paymentMethodText}>
-                    {plan.duration}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                return (
+                  <Pressable
+                    key={plan.label}
+                    style={isSelected ? styles.paymentMethodActive : styles.paymentMethod}
+                    onPress={() => setSelectedPlan(plan)}
+                  >
+                    <Text style={isSelected ? styles.paymentMethodActiveText : styles.paymentMethodText}>
+                      {plan.duration}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.paymentNote}>{selectedPlan.note}</Text>
           </View>
-          <Text style={styles.paymentNote}>{selectedPlan.note}</Text>
-        </View>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: bottom + 12 }]}>
         <Pressable
           style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
           accessibilityRole="button"
-          onPress={() => void handleStartPremium()}
+          onPress={() => {
+            if (isViewMode) {
+              goBackOr("/(tabs)/profile");
+              return;
+            }
+
+            void handleStartPremium();
+          }}
         >
-          <Text style={styles.ctaText}>Mulai Premium Sekarang</Text>
+          <Text style={styles.ctaText}>{isViewMode ? "Kembali ke Profil" : "Mulai Premium Sekarang"}</Text>
         </Pressable>
-        <Text style={styles.footerNote}>Batalkan kapan saja</Text>
+        <Text style={styles.footerNote}>{isViewMode ? "Plan aktif kamu sedang ditampilkan" : "Batalkan kapan saja"}</Text>
       </View>
     </View>
   );
@@ -343,6 +446,60 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceContainer,
     padding: 16,
+  },
+  activePlanCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHigh,
+    gap: 8,
+  },
+  activePlanHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  activePlanBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: colors.primaryContainer,
+  },
+  activePlanBadgeText: {
+    color: colors.onPrimary,
+    fontSize: 11,
+    fontFamily: fonts["700"],
+  },
+  activePlanTitle: {
+    flex: 1,
+    color: colors.onSurface,
+    fontSize: 15,
+    fontFamily: fonts["700"],
+  },
+  activePlanDescription: {
+    color: colors.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: typography.bodySm.fontFamily,
+  },
+  activePlanMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  activePlanMetaLabel: {
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    fontFamily: fonts["600"],
+  },
+  activePlanMetaValue: {
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts["700"],
+    textAlign: "right",
   },
   paymentLabel: {
     fontSize: 14,

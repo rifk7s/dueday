@@ -157,6 +157,14 @@ export default function ProfileScreen(): React.JSX.Element {
   };
 
   const handleUpgradeToPremium = async (): Promise<void> => {
+    if (isPremium) {
+      router.push({
+        pathname: "/premium-plan",
+        params: { mode: "view" },
+      });
+      return;
+    }
+
     if (!token || MOCK_AUTH) {
       router.push("/premium-plan");
       return;
@@ -181,7 +189,12 @@ export default function ProfileScreen(): React.JSX.Element {
 
   const settingsWithActions = settings.map((item) =>
     item.label === "Upgrade to Premium"
-      ? { ...item, onPress: () => void handleUpgradeToPremium() }
+      ? {
+          ...item,
+          label: isPremium ? "Kamu sudah Premium" : item.label,
+          value: isPremium ? "Aktif" : item.value,
+          onPress: () => void handleUpgradeToPremium(),
+        }
       : item
   );
 
