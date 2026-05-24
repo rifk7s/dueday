@@ -1,19 +1,22 @@
-import { colors, fonts, typography } from "@/constants/theme";
-import { Ionicons } from "@expo/vector-icons";
 import { exitFlowTo } from "@/constants/navigation";
+import { colors, fonts, typography } from "@/constants/theme";
+import { ensureNotificationPermission } from "@/lib/notifications";
+import { Ionicons } from "@expo/vector-icons";
+import * as Notifications from "expo-notifications";
 import { useLocalSearchParams } from "expo-router";
+import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-    Animated,
-    BackHandler,
-    type DimensionValue,
-    Easing,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Animated,
+  BackHandler,
+  type DimensionValue,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -185,6 +188,43 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
     ],
     []
   );
+
+  useEffect(() => {
+    let active = true;
+
+    async function notify() {
+      if (Platform.OS === "web") return; // skip on web
+
+      try {
+        const granted = await ensureNotificationPermission();
+        if (!granted || !active) return;
+
+        // Use scheduleNotificationAsync to present immediately (consistent typings)
+        // scheduleNotificationAsync typings require a trigger; cast to any to present immediately
+        await (Notifications as any).scheduleNotificationAsync({
+          content: {
+            title: "Pembayaran Berhasil",
+            body: `${planName} sudah aktif. Ketuk untuk melihat fitur yang didapatkan.`,
+            data: {
+              type: "payment-success",
+              planName,
+              features: JSON.stringify(features),
+            },
+          },
+        });
+      } catch (e) {
+        // log error so we can debug why presentNotificationAsync failed
+        // eslint-disable-next-line no-console
+        console.warn("presentNotificationAsync error:", e);
+      }
+    }
+
+    notify();
+
+    return () => {
+      active = false;
+    };
+  }, [planName, features]);
 
   return (
     <View style={[styles.root, { paddingTop: top }]}>

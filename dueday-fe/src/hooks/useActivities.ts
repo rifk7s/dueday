@@ -1,14 +1,15 @@
-import { useSession } from "@/auth/ctx";
 import {
-  listActivities,
-  createActivity,
-  getActivity,
-  updateActivity,
-  deleteActivity,
-  type Activity,
-  type NewActivity,
-  type UpdateActivity,
+    createActivity,
+    deleteActivity,
+    getActivity,
+    listActivities,
+    updateActivity,
+    type Activity,
+    type NewActivity,
+    type UpdateActivity,
 } from "@/api/activities";
+import { useSession } from "@/auth/ctx";
+import { syncReminderNotifications } from "@/hooks/useReminders";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useActivitiesQuery(options?: { enabled?: boolean }) {
@@ -49,6 +50,7 @@ export function useCreateActivityMutation() {
     mutationFn: (input: NewActivity) => createActivity(input, token),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activities"] });
+      void syncReminderNotifications(token).catch(() => null);
     },
   });
 }
@@ -110,6 +112,7 @@ export function useUpdateActivityMutation() {
       });
       qc.invalidateQueries({ queryKey: ["activities"] });
       qc.invalidateQueries({ queryKey: ["activity", activity.id] });
+      void syncReminderNotifications(token).catch(() => null);
     },
   });
 }
@@ -123,6 +126,7 @@ export function useDeleteActivityMutation() {
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: ["activities"] });
       qc.invalidateQueries({ queryKey: ["activity", id] });
+      void syncReminderNotifications(token).catch(() => null);
     },
   });
 }

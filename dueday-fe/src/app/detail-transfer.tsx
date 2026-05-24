@@ -1,19 +1,19 @@
+import { apiFetch } from "@/api/client";
+import type { Payment } from "@/api/payments";
+import { getMe } from "@/api/users";
+import { API_BASE_URL } from "@/auth/api";
+import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useSession } from "@/auth/ctx";
-import { apiFetch } from "@/api/client";
-import { API_BASE_URL } from "@/auth/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { Camera } from "expo-camera";
+import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, Platform } from "react-native";
+import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { Payment } from "@/api/payments";
-import * as ImagePicker from "expo-image-picker";
-import * as Clipboard from "expo-clipboard";
-import { Camera } from "expo-camera";
-import { getMe } from "@/api/users";
-import { useQueryClient } from "@tanstack/react-query";
 
 type MethodMeta = {
   name: string;

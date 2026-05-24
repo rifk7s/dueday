@@ -10,14 +10,14 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-  Animated,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Animated,
+    Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -144,8 +144,8 @@ export default function App() {
             <Pressable
               style={styles.bellButton}
               accessibilityRole="button"
-              accessibilityLabel="Buka pengingat"
-              onPress={() => router.push("/reminder-list")}
+              accessibilityLabel="Buka notifikasi"
+              onPress={() => router.push("/notifications" as never)}
             >
               <Ionicons name="notifications-outline" size={28} color={colors.onSurface} />
             </Pressable>
@@ -182,20 +182,7 @@ export default function App() {
           <Text style={styles.actionButtonText}>Lihat List Aktivitas/Tugas</Text>
         </Pressable>
 
-        <Pressable
-          style={styles.reminderCard}
-          accessibilityRole="button"
-          accessibilityLabel="Buka daftar pengingat"
-          onPress={() => router.push("/reminder-list")}
-        >
-          <View style={styles.reminderLeft}>
-            <View style={styles.reminderIconWrap}>
-              <Ionicons name="notifications-outline" size={18} color={colors.primaryContainer} />
-            </View>
-            <Text style={styles.reminderText}>Pengingat Saya</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.iconSubtle} />
-        </Pressable>
+        {/* Reminder card removed per request */}
       </ScrollView>
 
       <Modal
