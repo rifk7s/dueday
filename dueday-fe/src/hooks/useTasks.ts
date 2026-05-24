@@ -1,6 +1,6 @@
 import { createTask, deleteTask, listTasks, updateTask, type NewTask, type UpdateTask } from "@/api/tasks";
 import { useSession } from "@/auth/ctx";
-import { syncReminderNotifications } from "@/hooks/useReminders";
+import { scheduleSyncReminderNotifications } from "@/hooks/useReminders";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export function useTasksQuery(options?: { enabled?: boolean }) {
@@ -20,7 +20,7 @@ export function useCreateTaskMutation() {
     mutationFn: (input: NewTask) => createTask(input, token),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tasks"] });
-      void syncReminderNotifications(token).catch(() => null);
+      scheduleSyncReminderNotifications(token);
     },
   });
 }
@@ -39,7 +39,7 @@ export function useUpdateTaskMutation() {
         return current.map((task) => (task && typeof task === "object" && "id" in task && task.id === updatedTask.id ? updatedTask : task));
       });
       qc.invalidateQueries({ queryKey: ["tasks"] });
-      void syncReminderNotifications(token).catch(() => null);
+      scheduleSyncReminderNotifications(token);
     },
   });
 }
@@ -57,7 +57,7 @@ export function useDeleteTaskMutation() {
         return current.filter((task) => task && typeof task === "object" && "id" in task && task.id !== deletedId);
       });
       qc.invalidateQueries({ queryKey: ["tasks"] });
-      void syncReminderNotifications(token).catch(() => null);
+      scheduleSyncReminderNotifications(token);
     },
   });
 }

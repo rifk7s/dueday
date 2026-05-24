@@ -182,7 +182,20 @@ export default function App() {
           <Text style={styles.actionButtonText}>Lihat List Aktivitas/Tugas</Text>
         </Pressable>
 
-        {/* Reminder card removed per request */}
+        <Pressable
+          style={styles.reminderCard}
+          accessibilityRole="button"
+          accessibilityLabel="Buka daftar pengingat"
+          onPress={() => router.push("/reminder-list")}
+        >
+          <View style={styles.reminderLeft}>
+            <View style={styles.reminderIconWrap}>
+              <Ionicons name="notifications-outline" size={18} color={colors.primaryContainer} />
+            </View>
+            <Text style={styles.reminderText}>Pengingat Saya</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.iconSubtle} />
+        </Pressable>
       </ScrollView>
 
       <Modal

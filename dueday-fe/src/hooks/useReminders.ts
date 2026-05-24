@@ -14,6 +14,7 @@ import {
     cancelByIdentifierPrefix,
     ensureAndroidChannel,
     ensureNotificationPermission,
+    REMINDER_CHANNEL_ID,
     scheduleReminder,
 } from "@/lib/notifications";
 import { resolveReminderMessages, type ReminderStyle, type SlotInput } from "@/lib/reminderMessages";
@@ -239,11 +240,11 @@ export async function syncReminderNotifications(token: string | null): Promise<S
       // Use deterministic id so we can cancel by prefix later.
       const dailyId = `${PREMIUM_PREFIX}daily`;
 
-      // Build trigger for daily repeating notification
-      const dailyTrigger: Notifications.CalendarTriggerInput = {
+      const dailyTrigger: Notifications.DailyTriggerInput = {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
         hour,
         minute,
-        repeats: true,
+        channelId: REMINDER_CHANNEL_ID,
       };
 
       await Notifications.scheduleNotificationAsync({
@@ -256,8 +257,7 @@ export async function syncReminderNotifications(token: string | null): Promise<S
         trigger: dailyTrigger,
       });
 
-      // If the backend exposes a subscription end date, schedule expiry warnings
-      const subEndRaw = (user as any)?.subscription_end ?? (user as any)?.subscriptionEnds ?? null;
+      const subEndRaw = user?.subscription_end ?? null;
       if (subEndRaw) {
         const subEnd = new Date(subEndRaw);
         if (!isNaN(subEnd.getTime())) {
@@ -311,6 +311,23 @@ export async function syncReminderNotifications(token: string | null): Promise<S
     task,
     activity,
   };
+}
+
+// Coalesces a burst of task/activity CRUDs into a single sync. Each sync
+// re-fetches settings/tasks/activities/me + reschedules everything, so firing
+// it on every keystroke (e.g. toggling 5 tasks done in a row) thrashes the BE.
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingToken: string | null = null;
+
+export function scheduleSyncReminderNotifications(token: string | null, delayMs = 800): void {
+  pendingToken = token;
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    const t = pendingToken;
+    pendingToken = null;
+    void syncReminderNotifications(t).catch(() => null);
+  }, delayMs);
 }
 
 /**

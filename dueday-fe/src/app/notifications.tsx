@@ -41,8 +41,11 @@ function isActivityDone(status: Activity["status"]): boolean {
 function parseDateTime(date: string | null | undefined, time: string | null | undefined): Date | null {
   if (!date) return null;
 
-  const normalizedTime = time ?? "23:59:59";
-  const parsed = new Date(`${date}T${normalizedTime}`);
+  // Laravel 'date' cast returns full ISO datetime (e.g. "2026-05-24T00:00:00.000000Z");
+  // strip to YYYY-MM-DD before concatenating with the time.
+  const datePart = date.substring(0, 10);
+  const timePart = (time ?? "23:59:59").substring(0, 8);
+  const parsed = new Date(`${datePart}T${timePart}`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
@@ -235,86 +238,86 @@ export default function NotificationsScreen(): React.JSX.Element {
           <SectionHeader title="Langganan Premium" subtitle="Peringatan kedaluwarsa" />
           <View style={styles.cardList}>
             <View style={styles.scheduledCard}>
-              <View style={styles.scheduledIconWrap}>
-                <Ionicons name="time-outline" size={16} color={colors.primaryContainer} />
+              <View style={styles.scheduledRow}>
+                <View style={styles.scheduledIconWrap}>
+                  <Ionicons name="time-outline" size={16} color={colors.primaryContainer} />
+                </View>
+
+                <View style={styles.scheduledBody}>
+                  {user?.status === "subscribed" ? (
+                    (user.subscription_end ? (
+                      <>
+                        <Text style={styles.scheduledTitle}>Berakhir pada</Text>
+                        <Text style={styles.scheduledBodyText}>{formatScheduledTime(new Date(user.subscription_end))}</Text>
+                        <Text style={styles.scheduledMeta}>{Math.max(0, Math.ceil((new Date(user.subscription_end).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))} hari lagi</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.scheduledTitle}>Tanggal berakhir tidak tersedia</Text>
+                        <Text style={styles.scheduledBodyText}>Server belum mengembalikan tanggal akhir langganan.</Text>
+                      </>
+                    ))) : (
+                    <>
+                      <Text style={styles.scheduledTitle}>Belum berlangganan</Text>
+                      <Text style={styles.scheduledBodyText}>Dapatkan reminder eksklusif dan fitur premium dengan berlangganan.</Text>
+                    </>
+                  )}
+                </View>
               </View>
 
-              <View style={styles.scheduledBody}>
-                {user?.status === "subscribed" ? (
-                  ((user as any)?.subscription_end ? (
-                    <>
-                      <Text style={styles.scheduledTitle}>Berakhir pada</Text>
-                      <Text style={styles.scheduledBodyText}>{formatScheduledTime(new Date((user as any).subscription_end))}</Text>
-                      <Text style={styles.scheduledMeta}>{Math.max(0, Math.ceil((new Date((user as any).subscription_end).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))} hari lagi</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.scheduledTitle}>Tanggal berakhir tidak tersedia</Text>
-                      <Text style={styles.scheduledBodyText}>Server belum mengembalikan tanggal akhir langganan.</Text>
-                    </>
-                  ))) : (
-                  <>
-                    <Text style={styles.scheduledTitle}>Belum berlangganan</Text>
-                    <Text style={styles.scheduledBodyText}>Dapatkan reminder eksklusif dan fitur premium dengan berlangganan.</Text>
-                  </>
-                )}
-
-                <View style={{ marginTop: 8 }} />
-
-                {user?.status === "subscribed" ? (
-                  premiumScheduled ? (
-                    <Pressable
-                      style={styles.footerButton}
-                      onPress={async () => {
-                        setScheduling(true);
-                        await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-                        setPremiumScheduled(false);
-                        setScheduling(false);
-                      }}
-                    >
-                      <Text style={styles.footerButtonText}>Batalkan Peringatan Kadaluarsa</Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      style={styles.footerButton}
-                      onPress={async () => {
-                        setScheduling(true);
-                        const granted = await ensureNotificationPermission();
-                        if (!granted) {
-                          setScheduling(false);
-                          return;
-                        }
-
-                        await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-
-                        const offsets = (user as any)?.subscription_end ? [7, 1] : [7, 1];
-                        const subEnd = (user as any)?.subscription_end ? new Date((user as any).subscription_end) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
-
-                        for (const daysBefore of offsets) {
-                          const when = new Date(subEnd.getTime() - daysBefore * 24 * 60 * 60 * 1000);
-                          if (when.getTime() <= Date.now()) continue;
-                          const id = `${PREMIUM_PREFIX}expiry:${subEnd.toISOString().slice(0, 10)}:${daysBefore}`;
-                          await scheduleReminder({
-                            id,
-                            title: "Peringatan Langganan",
-                            body: `Langgananmu berakhir dalam ${daysBefore} hari.`,
-                            date: when,
-                          });
-                        }
-
-                        setPremiumScheduled(true);
-                        setScheduling(false);
-                      }}
-                    >
-                      <Text style={styles.footerButtonText}>{scheduling ? "Menjadwalkan..." : "Jadwalkan Peringatan Kadaluarsa"}</Text>
-                    </Pressable>
-                  )
-                ) : (
-                  <Pressable style={styles.footerButton} onPress={() => router.push("/premium-plan")}>
-                    <Text style={styles.footerButtonText}>Lihat Paket Premium</Text>
+              {user?.status === "subscribed" ? (
+                premiumScheduled ? (
+                  <Pressable
+                    style={styles.footerButton}
+                    onPress={async () => {
+                      setScheduling(true);
+                      await cancelByIdentifierPrefix(PREMIUM_PREFIX);
+                      setPremiumScheduled(false);
+                      setScheduling(false);
+                    }}
+                  >
+                    <Text style={styles.footerButtonText}>Batalkan Peringatan Kadaluarsa</Text>
                   </Pressable>
-                )}
-              </View>
+                ) : (
+                  <Pressable
+                    style={styles.footerButton}
+                    onPress={async () => {
+                      setScheduling(true);
+                      const granted = await ensureNotificationPermission();
+                      if (!granted) {
+                        setScheduling(false);
+                        return;
+                      }
+
+                      await cancelByIdentifierPrefix(PREMIUM_PREFIX);
+
+                      const offsets = [7, 1];
+                      const subEnd = user?.subscription_end ? new Date(user.subscription_end) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
+
+                      for (const daysBefore of offsets) {
+                        const when = new Date(subEnd.getTime() - daysBefore * 24 * 60 * 60 * 1000);
+                        if (when.getTime() <= Date.now()) continue;
+                        const id = `${PREMIUM_PREFIX}expiry:${subEnd.toISOString().slice(0, 10)}:${daysBefore}`;
+                        await scheduleReminder({
+                          id,
+                          title: "Peringatan Langganan",
+                          body: `Langgananmu berakhir dalam ${daysBefore} hari.`,
+                          date: when,
+                        });
+                      }
+
+                      setPremiumScheduled(true);
+                      setScheduling(false);
+                    }}
+                  >
+                    <Text style={styles.footerButtonText}>{scheduling ? "Menjadwalkan..." : "Jadwalkan Peringatan Kadaluarsa"}</Text>
+                  </Pressable>
+                )
+              ) : (
+                <Pressable style={styles.footerButton} onPress={() => router.push("/premium-plan")}>
+                  <Text style={styles.footerButtonText}>Lihat Paket Premium</Text>
+                </Pressable>
+              )}
             </View>
           </View>
         </>
@@ -655,13 +658,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: colors.surfaceContainerLowest,
     padding: 14,
-    flexDirection: "row",
+    flexDirection: "column",
     gap: 12,
     shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 2,
+  },
+  scheduledRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
   },
   scheduledIconWrap: {
     width: 34,
