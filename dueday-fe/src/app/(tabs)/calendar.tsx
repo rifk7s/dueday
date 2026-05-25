@@ -359,9 +359,9 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
   },
   calendarSection: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingHorizontal: 8,
+    paddingTop: 4,
+    paddingBottom: 4,
     backgroundColor: colors.surfaceContainerLowest,
     zIndex: 2,
     elevation: 2,
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   schedulePanel: {
     marginHorizontal: 12,
     borderRadius: 28,
-    backgroundColor: colors.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLowest,
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 16,
