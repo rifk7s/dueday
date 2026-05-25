@@ -9,6 +9,8 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   createPaymentFlow,
+  createExtendPaymentFlow,
+  getActiveSubscription,
   parseRupiahAmount,
   planDurationFor,
   planLabel,
@@ -37,6 +39,8 @@ export default function PaymentScreen(): React.JSX.Element {
   const { token } = useSession();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
+  const mode = (params.mode as string) || "upgrade";
+  const isExtendMode = mode === "extend";
 
   const plan = ((params.plan as string) || "satu_bulan") as PlanValue;
   const planName = (params.planName as string) || planLabel(plan);
@@ -59,12 +63,13 @@ export default function PaymentScreen(): React.JSX.Element {
       params: {
         methodId: selectedMethodData.id,
         methodName: selectedMethodData.name,
-        methodType: selectedMethodData.type, // <-- Makes sure "QRIS" or "VA" gets passed
+        methodType: selectedMethodData.type,
         plan,
         planName,
         planPrice,
         planAmount: String(planAmount || parseRupiahAmount(planPrice)),
         planDuration,
+        mode,
       },
     });
     return;
@@ -73,6 +78,41 @@ export default function PaymentScreen(): React.JSX.Element {
     setIsSubmitting(true);
 
     try {
+      if (isExtendMode) {
+        const currentSubscription = await getActiveSubscription(token);
+
+        if (!currentSubscription) {
+          throw new Error("Tidak ada langganan aktif untuk diperpanjang.");
+        }
+
+        const payment = await createExtendPaymentFlow(token, {
+          subscriptionId: currentSubscription.id,
+          plan,
+          planName,
+          planPrice,
+          planDuration,
+          amount: planAmount || parseRupiahAmount(planPrice),
+          method: selectedMethodData as PaymentMethod,
+        });
+
+        router.replace({
+          pathname: "/detail-transfer",
+          params: {
+            paymentId: payment.id,
+            paymentStatus: payment.status,
+            methodId: selectedMethodData.id,
+            methodName: selectedMethodData.name,
+            plan,
+            planName,
+            planPrice,
+            planAmount: String(planAmount || parseRupiahAmount(planPrice)),
+            planDuration,
+            mode,
+          },
+        });
+        return;
+      }
+
       const payment = await createPaymentFlow(token, {
         plan,
         planName,
@@ -94,6 +134,7 @@ export default function PaymentScreen(): React.JSX.Element {
           planPrice,
           planAmount: String(planAmount || parseRupiahAmount(planPrice)),
           planDuration,
+          mode,
         },
       });
     } catch (error) {
@@ -135,7 +176,7 @@ export default function PaymentScreen(): React.JSX.Element {
         <View style={styles.summaryCard}>
           <View>
             <Text style={styles.summaryLabel}>{planName}</Text>
-            <Text style={styles.summaryDuration}>Langganan Individual</Text>
+            <Text style={styles.summaryDuration}>{isExtendMode ? "Perpanjangan Langganan" : "Langganan Individual"}</Text>
           </View>
           <Text style={styles.summaryPrice}>{planPrice}</Text>
         </View>
@@ -197,7 +238,7 @@ export default function PaymentScreen(): React.JSX.Element {
           disabled={!selectedMethod || isSubmitting}
         >
           <Text style={styles.ctaText}>
-            {isSubmitting ? "Menyiapkan Pembayaran..." : "Lanjutkan Pembayaran"}
+            {isSubmitting ? "Menyiapkan Pembayaran..." : isExtendMode ? "Lanjutkan Perpanjangan" : "Lanjutkan Pembayaran"}
           </Text>
         </Pressable>
 

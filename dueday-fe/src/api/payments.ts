@@ -63,6 +63,10 @@ export type PaymentFlowInput = {
   method: PaymentMethod;
 };
 
+export type SubscriptionFlowInput = PaymentFlowInput & {
+  subscriptionId: string;
+};
+
 export async function createSubscription(
   token: string,
   input: CreateSubscriptionInput,
@@ -104,6 +108,23 @@ export async function createPaymentFlow(
     method: input.method.id,
     status: "pending",
   });
+}
+
+export async function createExtendPaymentFlow(
+  token: string,
+  input: SubscriptionFlowInput,
+): Promise<Payment> {
+  return createPayment(token, {
+    subscription_id: input.subscriptionId,
+    amount: input.amount,
+    method: input.method.id,
+    status: "pending",
+  });
+}
+
+export async function getActiveSubscription(token: string): Promise<Subscription | null> {
+  const subscriptions = await apiFetch<Subscription[]>('/subscriptions', token);
+  return subscriptions.find((subscription) => subscription.status === 'active' && subscription.plan != null) ?? null;
 }
 
 export async function getPendingPaymentTransferParams(

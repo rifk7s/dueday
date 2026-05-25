@@ -67,6 +67,9 @@ class PaymentService
             };
 
             $this->subscriptionService->activateOrExtendUserSubscription($userId, $plan, $months);
+        } elseif (in_array($updatedPayment->status, ['failed', 'refunded', 'cancelled'], true)) {
+            // Explicitly do nothing for terminal non-paid statuses.
+            // The subscription must remain unchanged when payment fails.
         }
 
         return $updatedPayment;
