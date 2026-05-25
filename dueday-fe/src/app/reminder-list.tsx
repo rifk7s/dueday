@@ -91,43 +91,23 @@ export default function ReminderListScreen() {
   }, [tasks, activities]);
 
   const stats = React.useMemo(() => {
+    // Target counts for today only
     const today = new Date().toISOString().split("T")[0];
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
 
-    const completedToday = [
-      ...tasks.filter((t) => (t.status === "completed" || t.status === "completed_late") && t.date === today),
-      ...activities.filter((a) => a.status === "completed" && a.tanggal === today),
-    ].length;
+    const tasksToday = tasks.filter(
+      (t) =>
+        t.date === today &&
+        t.status !== "completed" &&
+        t.status !== "completed_late"
+    ).length;
 
-    const scheduledThisWeek = [
-      ...tasks.filter(
-        (t) =>
-          t.status !== "completed" &&
-          t.status !== "completed_late" &&
-          t.date &&
-          t.date >= today &&
-          t.date <= weekEnd.toISOString().split("T")[0]
-      ),
-      ...activities.filter(
-        (a) =>
-          a.status !== "completed" &&
-          a.status !== "cancelled" &&
-          a.tanggal &&
-          a.tanggal >= today &&
-          a.tanggal <= weekEnd.toISOString().split("T")[0]
-      ),
-    ].length;
+    const activitiesToday = activities.filter(
+      (a) => a.tanggal === today && a.status !== "completed" && a.status !== "cancelled"
+    ).length;
 
-    const totalCompleted = [
-      ...tasks.filter((task) => task.status === "completed" || task.status === "completed_late"),
-      ...activities.filter((activity) => activity.status === "completed"),
-    ].length;
+    const totalToday = tasksToday + activitiesToday;
 
-    return { completedToday, scheduledThisWeek, totalCompleted };
+    return { tasksToday, activitiesToday, totalToday };
   }, [tasks, activities]);
 
   return (
@@ -200,9 +180,9 @@ type ReminderSectionProps = {
 
 type StatsRowProps = {
   stats: {
-    completedToday: number;
-    scheduledThisWeek: number;
-    totalCompleted: number;
+    tasksToday: number;
+    activitiesToday: number;
+    totalToday: number;
   };
 };
 
@@ -210,21 +190,21 @@ function StatsRow({ stats }: Readonly<StatsRowProps>) {
   return (
     <View style={styles.statsRow}>
       <StatCard
-        icon="checkmark-circle-outline"
-        label="Selesai Hari Ini"
-        value={stats.completedToday}
+        icon="document-text-outline"
+        label="Tugas Hari Ini"
+        value={stats.tasksToday}
         color={colors.primaryContainer}
       />
       <StatCard
-        icon="calendar-outline"
-        label="Minggu Ini"
-        value={stats.scheduledThisWeek}
+        icon="sparkles-outline"
+        label="Aktivitas Hari Ini"
+        value={stats.activitiesToday}
         color={colors.secondaryContainer}
       />
       <StatCard
-        icon="trending-up-outline"
-        label="Total Selesai"
-        value={stats.totalCompleted}
+        icon="notifications-outline"
+        label="Total Hari Ini"
+        value={stats.totalToday}
         color={colors.tertiaryContainer}
       />
     </View>

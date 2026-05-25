@@ -1,13 +1,22 @@
+import { apiFetch } from "@/api/client";
+import {
+  formatDateLabel,
+  getPendingPaymentTransferParams,
+  planDurationFor,
+  planLabel,
+  type PlanValue,
+  type Subscription,
+} from "@/api/payments";
+import { useSession } from "@/auth/ctx";
 import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
-import { getPendingPaymentTransferParams, type PlanValue } from "@/api/payments";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useSession } from "@/auth/ctx";
 
 type BenefitItem = {
   icon: React.ComponentProps<typeof Ionicons>["name"];
@@ -66,10 +75,51 @@ const plans: PlanItem[] = [
 
 export default function PremiumPlanScreen(): React.JSX.Element {
   const router = useRouter();
-  const { token } = useSession();
+  const params = useLocalSearchParams<{ mode?: string }>();
+  const isViewMode = params.mode === "view";
+  const { token, user } = useSession();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   const { top, bottom } = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<PlanItem>(plans[0]);
+
+  const subscriptionsQuery = useQuery({
+    queryKey: ["subscriptions", token],
+    queryFn: async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      try {
+        return await apiFetch<Subscription[]>("/subscriptions", token!, {
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    enabled: isViewMode && !!token && !MOCK_AUTH,
+    staleTime: 30_000,
+    retry: 0,
+  });
+
+  const activeSubscription = React.useMemo<Subscription | null>(() => {
+    const list = subscriptionsQuery.data;
+    if (!list) return null;
+    return [...list]
+      .filter((s) => s.status === "active" && s.plan != null)
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0] ?? null;
+  }, [subscriptionsQuery.data]);
+
+  const activePlanItem = React.useMemo<PlanItem | null>(() => {
+    if (!activeSubscription?.plan) return null;
+    return plans.find((plan) => plan.value === activeSubscription.plan) ?? null;
+  }, [activeSubscription]);
+
+  const isLoadingActive = subscriptionsQuery.isFetching && !activePlanItem;
+  const hasFetchError = subscriptionsQuery.isError && !activeSubscription;
+
+  const activePlanName = activePlanItem?.label ?? (activeSubscription?.plan ? planLabel(activeSubscription.plan) : null);
+  const activePlanDuration = activePlanItem?.duration ?? (activeSubscription?.plan ? planDurationFor(activeSubscription.plan) : null);
+  const activeUntil = activeSubscription?.expired_at ?? user?.subscription_end ?? null;
+  const activeUntilLabel = formatDateLabel(activeUntil);
 
   const handleStartPremium = async (): Promise<void> => {
     if (token && !MOCK_AUTH) {
@@ -130,11 +180,86 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Text style={styles.heroLabel}>Upgrade ke Premium</Text>
-        <Text style={styles.price}>{selectedPlan.price}</Text>
-        <Text style={styles.subTitle}>Aktif untuk {selectedPlan.duration}</Text>
+        <Text style={styles.heroLabel}>{isViewMode ? "Plan Premium Aktif" : "Upgrade ke Premium"}</Text>
+        {isViewMode ? (
+          activePlanName ? (
+            <Text style={styles.price}>{activePlanName}</Text>
+          ) : isLoadingActive ? (
+            <View style={[styles.skeletonBar, styles.skeletonPrice]} />
+          ) : (
+            <Text style={styles.price}>Premium Aktif</Text>
+          )
+        ) : (
+          <Text style={styles.price}>{selectedPlan.price}</Text>
+        )}
+        {isViewMode ? (
+          activePlanDuration ? (
+            <Text style={styles.subTitle}>
+              {activePlanDuration}
+              {activeUntilLabel ? ` · Berlaku sampai ${activeUntilLabel}` : ""}
+            </Text>
+          ) : isLoadingActive ? (
+            <View style={[styles.skeletonBar, styles.skeletonSubtitle]} />
+          ) : (
+            <Text style={styles.subTitle}>
+              {activeUntilLabel ? `Berlaku sampai ${activeUntilLabel}` : "Aktif saat ini"}
+            </Text>
+          )
+        ) : (
+          <Text style={styles.subTitle}>{`Aktif untuk ${selectedPlan.duration}`}</Text>
+        )}
 
-        <Text style={styles.sectionLabel}>YANG KAMU DAPAT:</Text>
+        {isViewMode ? (
+          <View style={styles.activePlanCard}>
+            <View style={styles.activePlanHeader}>
+              <View style={styles.activePlanBadge}>
+                <Text style={styles.activePlanBadgeText}>{isLoadingActive ? "Memuat" : "Aktif"}</Text>
+              </View>
+              {activePlanName ? (
+                <Text style={styles.activePlanTitle}>{activePlanName}</Text>
+              ) : isLoadingActive ? (
+                <View style={[styles.skeletonBar, styles.skeletonTitle]} />
+              ) : (
+                <Text style={styles.activePlanTitle}>Premium Aktif</Text>
+              )}
+            </View>
+            <View style={styles.activePlanMetaRow}>
+              <Text style={styles.activePlanMetaLabel}>Plan aktif</Text>
+              {activePlanDuration ? (
+                <Text style={styles.activePlanMetaValue}>{activePlanDuration}</Text>
+              ) : isLoadingActive ? (
+                <View style={[styles.skeletonBar, styles.skeletonMeta]} />
+              ) : (
+                <Text style={styles.activePlanMetaValue}>—</Text>
+              )}
+            </View>
+            {activeUntilLabel ? (
+              <View style={styles.activePlanMetaRow}>
+                <Text style={styles.activePlanMetaLabel}>Berlaku sampai</Text>
+                <Text style={styles.activePlanMetaValue}>{activeUntilLabel}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.activePlanDescription}>
+              {activeUntilLabel
+                ? `Langganan ini aktif sampai ${activeUntilLabel}.`
+                : "Langganan premium kamu sedang aktif di akun ini."}
+            </Text>
+          </View>
+        ) : null}
+
+        {isViewMode && hasFetchError ? (
+          <Pressable
+            style={({ pressed }) => [styles.retryRow, pressed && styles.retryRowPressed]}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => void subscriptionsQuery.refetch()}
+          >
+            <Ionicons name="refresh-outline" size={16} color={colors.onErrorContainer} />
+            <Text style={styles.retryText}>Gagal memuat detail plan · Coba lagi</Text>
+          </Pressable>
+        ) : null}
+
+        <Text style={styles.sectionLabel}>{isViewMode ? "FITUR YANG KAMU AKSES:" : "YANG KAMU DAPAT:"}</Text>
 
         <View style={styles.benefitList}>
           {benefits.map((item) => (
@@ -157,38 +282,47 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           <Text style={styles.socialProofText}>Bergabung dengan 500+ mahasiswa UC</Text>
         </View>
 
-        <View style={[styles.paymentCard, { marginBottom: 16 }]}>
-          <Text style={styles.paymentLabel}>Pilih Paket</Text>
-          <View style={styles.paymentMethods}>
-            {plans.map((plan) => {
-              const isSelected = selectedPlan.label === plan.label;
+        {isViewMode ? null : (
+          <View style={[styles.paymentCard, { marginBottom: 16 }]}>
+            <Text style={styles.paymentLabel}>Pilih Paket</Text>
+            <View style={styles.paymentMethods}>
+              {plans.map((plan) => {
+                const isSelected = selectedPlan.label === plan.label;
 
-              return (
-                <Pressable
-                  key={plan.label}
-                  style={isSelected ? styles.paymentMethodActive : styles.paymentMethod}
-                  onPress={() => setSelectedPlan(plan)}
-                >
-                  <Text style={isSelected ? styles.paymentMethodActiveText : styles.paymentMethodText}>
-                    {plan.duration}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                return (
+                  <Pressable
+                    key={plan.label}
+                    style={isSelected ? styles.paymentMethodActive : styles.paymentMethod}
+                    onPress={() => setSelectedPlan(plan)}
+                  >
+                    <Text style={isSelected ? styles.paymentMethodActiveText : styles.paymentMethodText}>
+                      {plan.duration}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.paymentNote}>{selectedPlan.note}</Text>
           </View>
-          <Text style={styles.paymentNote}>{selectedPlan.note}</Text>
-        </View>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: bottom + 12 }]}>
         <Pressable
           style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
           accessibilityRole="button"
-          onPress={() => void handleStartPremium()}
+          onPress={() => {
+            if (isViewMode) {
+              goBackOr("/(tabs)/profile");
+              return;
+            }
+
+            void handleStartPremium();
+          }}
         >
-          <Text style={styles.ctaText}>Mulai Premium Sekarang</Text>
+          <Text style={styles.ctaText}>{isViewMode ? "Kembali ke Profil" : "Mulai Premium Sekarang"}</Text>
         </Pressable>
-        <Text style={styles.footerNote}>Batalkan kapan saja</Text>
+        <Text style={styles.footerNote}>{isViewMode ? "Plan aktif kamu sedang ditampilkan" : "Batalkan kapan saja"}</Text>
       </View>
     </View>
   );
@@ -343,6 +477,103 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceContainer,
     padding: 16,
+  },
+  activePlanCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHigh,
+    gap: 8,
+  },
+  activePlanHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  activePlanBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: colors.primaryContainer,
+  },
+  activePlanBadgeText: {
+    color: colors.onPrimary,
+    fontSize: 11,
+    fontFamily: fonts["700"],
+  },
+  activePlanTitle: {
+    flex: 1,
+    color: colors.onSurface,
+    fontSize: 15,
+    fontFamily: fonts["700"],
+  },
+  activePlanDescription: {
+    color: colors.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: typography.bodySm.fontFamily,
+  },
+  activePlanMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  activePlanMetaLabel: {
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    fontFamily: fonts["600"],
+  },
+  activePlanMetaValue: {
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts["700"],
+    textAlign: "right",
+  },
+  skeletonBar: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: 6,
+    alignSelf: "center",
+  },
+  skeletonPrice: {
+    marginTop: 4,
+    width: 160,
+    height: 26,
+  },
+  skeletonSubtitle: {
+    marginTop: 8,
+    width: 220,
+    height: typography.bodyLg.fontSize,
+  },
+  skeletonTitle: {
+    alignSelf: "flex-start",
+    width: 120,
+    height: 15,
+  },
+  skeletonMeta: {
+    width: 80,
+    height: 12,
+  },
+  retryRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: colors.errorContainer,
+  },
+  retryRowPressed: {
+    opacity: 0.7,
+  },
+  retryText: {
+    fontSize: 12,
+    fontFamily: fonts["600"],
+    color: colors.onErrorContainer,
   },
   paymentLabel: {
     fontSize: 14,

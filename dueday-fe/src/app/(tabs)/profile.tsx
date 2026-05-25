@@ -1,5 +1,5 @@
 import { updateActivity } from "@/api/activities";
-import { getPendingPaymentTransferParams } from "@/api/payments";
+import { formatDateLabel, getPendingPaymentTransferParams } from "@/api/payments";
 import { updateTask } from "@/api/tasks";
 import { updateMe } from "@/api/users";
 import type { AuthUser } from "@/auth/api";
@@ -157,6 +157,14 @@ export default function ProfileScreen(): React.JSX.Element {
   };
 
   const handleUpgradeToPremium = async (): Promise<void> => {
+    if (isPremium) {
+      router.push({
+        pathname: "/premium-plan",
+        params: { mode: "view" },
+      });
+      return;
+    }
+
     if (!token || MOCK_AUTH) {
       router.push("/premium-plan");
       return;
@@ -179,9 +187,18 @@ export default function ProfileScreen(): React.JSX.Element {
     router.push("/premium-plan");
   };
 
+  const premiumExpiryLabel = isPremium ? formatDateLabel(user?.subscription_end) : null;
+
   const settingsWithActions = settings.map((item) =>
     item.label === "Upgrade to Premium"
-      ? { ...item, onPress: () => void handleUpgradeToPremium() }
+      ? {
+          ...item,
+          label: isPremium ? "Premium" : item.label,
+          value: isPremium
+            ? (premiumExpiryLabel ? `Sampai ${premiumExpiryLabel}` : "Aktif")
+            : item.value,
+          onPress: () => void handleUpgradeToPremium(),
+        }
       : item
   );
 
