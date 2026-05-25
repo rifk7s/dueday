@@ -49,6 +49,10 @@ class ActivityController extends Controller
             return response(['message' => 'Activity not found or not owned by user'], 404);
         }
 
+        if ($activity->status === 'completed' && $activity->ulangi) {
+            $this->activityService->handleRecurringActivityResets();
+        }
+
         return new ActivityResource($activity);
     }
 

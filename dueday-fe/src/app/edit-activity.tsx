@@ -81,7 +81,7 @@ export default function EditActivityPage() {
   const tagId = useTagIdByName(tag);
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan"];
+  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tahunan"];
 
   useEffect(() => {
     if (!activity || initialized) return;

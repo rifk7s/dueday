@@ -30,7 +30,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
-type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan";
+type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
 
 export default function CreateActivityPage() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function CreateActivityPage() {
   const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan"];
+  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tahunan"];
 
   const mutation = useCreateActivityMutation();
   const tagId = useTagIdByName(tag);
