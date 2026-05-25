@@ -8,4 +8,6 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Removed scheduled activities progress sync; progress is computed on clients now.
+// Progress is computed on clients now; the server only rolls completed
+// recurring activities into their next scheduled cycle.
+Schedule::command('activities:reset-recurring')->everyMinute();

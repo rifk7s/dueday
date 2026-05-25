@@ -26,7 +26,7 @@ import Animated, { Extrapolation, interpolate, useAnimatedStyle } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
-type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan";
+type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
 
 function formatDisplayDate(value: string | null | undefined): string {
   if (!value) return "";
@@ -45,6 +45,8 @@ function repeatToUi(value: UlangiType | null | undefined): RepeatType | null {
       return "Mingguan";
     case "satu_bulan":
       return "Bulanan";
+    case "satu_tahun":
+      return "Tahunan";
     default:
       return null;
   }
@@ -135,9 +137,12 @@ export default function EditActivityPage() {
     const selectedTagId = tagId ?? null;
     if (selectedTagId !== (activity.id_tag ?? null)) payload.id_tag = selectedTagId;
 
-    const ulangi = repeat ? ULANGI_API_MAP[repeat] : undefined;
-    const currentRepeat = activity.ulangi ?? null;
-    if (ulangi !== currentRepeat) payload.ulangi = ulangi;
+    const isLegacyRepeat = repeat !== null && !repeatOptions.includes(repeat);
+    if (!isLegacyRepeat) {
+      const ulangi = repeat ? ULANGI_API_MAP[repeat] : undefined;
+      const currentRepeat = activity.ulangi ?? null;
+      if (ulangi !== currentRepeat) payload.ulangi = ulangi;
+    }
 
     if ((deskripsi.trim() || null) !== (activity.deskripsi ?? null)) {
       payload.deskripsi = deskripsi.trim() || undefined;

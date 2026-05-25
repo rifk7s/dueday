@@ -388,7 +388,13 @@ function DashboardTaskCard({
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/taskprogress", params: { id: task.id, tab: "tugas" } })}
+      onPress={() => {
+        if (isMenuOpen) {
+          onToggleMenu();
+          return;
+        }
+        router.push({ pathname: "/taskprogress", params: { id: task.id, tab: "tugas" } });
+      }}
       accessibilityRole="button"
       style={[styles.taskCard, isDone && styles.taskCardDone]}
     >

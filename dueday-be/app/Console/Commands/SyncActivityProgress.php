@@ -7,9 +7,9 @@ use Illuminate\Console\Command;
 
 class SyncActivityProgress extends Command
 {
-    protected $signature = 'activities:sync-progress';
+    protected $signature = 'activities:reset-recurring';
 
-    protected $description = 'Sync database progress for ongoing activities';
+    protected $description = 'Roll completed recurring activities into their next scheduled cycle';
 
     public function __construct(private ActivityService $activityService)
     {
@@ -18,9 +18,9 @@ class SyncActivityProgress extends Command
 
     public function handle(): int
     {
-        $updated = $this->activityService->syncOngoingProgress();
+        $this->activityService->handleRecurringActivityResets();
 
-        $this->info("Updated {$updated} ongoing activities.");
+        $this->info('Recurring activity reset pass complete.');
 
         return self::SUCCESS;
     }

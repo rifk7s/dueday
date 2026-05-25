@@ -182,3 +182,22 @@ export function formatSqlDateTime(date: Date): string {
 export function getBackendOrigin(apiBaseUrl: string): string {
   return apiBaseUrl.replace(/\/api$/, "");
 }
+
+const MONTH_LABELS_ID = [
+  "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+  "Jul", "Agt", "Sep", "Okt", "Nov", "Des",
+];
+
+export function formatDateLabel(value: string | null | undefined): string {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const day = date.getDate();
+  const month = MONTH_LABELS_ID[date.getMonth()];
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
+}

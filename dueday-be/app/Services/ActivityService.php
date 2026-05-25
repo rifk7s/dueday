@@ -14,9 +14,9 @@ class ActivityService
     {
         $data['user_id'] = $userId;
         $data['status'] = $data['status'] ?? 'not_started';
-        
+
         // Set anchor_date to the same value as tanggal if a repeat rule exists
-        if (!empty($data['ulangi']) && isset($data['tanggal'])) {
+        if (! empty($data['ulangi']) && isset($data['tanggal'])) {
             $data['anchor_date'] = $data['tanggal'];
         }
 
@@ -55,7 +55,7 @@ class ActivityService
 
         // 2. BROAD SPECTRUM LOOKUP: Accept any naming style or type from the frontend
         $ubahAnchorRaw = $data['ubah_anchor'] ?? $data['ubahAnchor'] ?? $data['change_anchor'] ?? false;
-        
+
         // Force string 'true', int 1, or boolean true into a strict true boolean primitive
         $ubahAnchorExplicitly = filter_var($ubahAnchorRaw, FILTER_VALIDATE_BOOLEAN);
 
@@ -64,7 +64,7 @@ class ActivityService
             if (array_key_exists('tanggal', $data)) {
                 $data['anchor_date'] = $data['tanggal'];
             }
-        } elseif (!empty($currentRepeatType) && $ubahAnchorExplicitly === true) {
+        } elseif (! empty($currentRepeatType) && $ubahAnchorExplicitly === true) {
             // Rule B: Weekly/Monthly/Yearly tasks align anchor ONLY if the frontend prompt was accepted
             // Use the newly changed date if provided; otherwise, fall back to the activity's current date
             $data['anchor_date'] = $data['tanggal'] ?? ($activity->tanggal?->format('Y-m-d'));
@@ -101,7 +101,7 @@ class ActivityService
     /**
      * Scan and push completed recurring tasks into their upcoming scheduled calendars.
      */
-    private function handleRecurringActivityResets(): void
+    public function handleRecurringActivityResets(): void
     {
         $completedRecurring = Activity::where('status', 'completed')
             ->whereNotNull('ulangi')
@@ -110,7 +110,7 @@ class ActivityService
         foreach ($completedRecurring as $activity) {
             // Using getRawOriginal ensures we get the clean 'YYYY-MM-DD' string directly from the DB
             $baseDateString = $activity->getRawOriginal('anchor_date') ?? $activity->getRawOriginal('tanggal');
-            
+
             if (! $baseDateString) {
                 continue;
             }
@@ -144,21 +144,21 @@ class ActivityService
 
                 // Completely isolating the array from Laravel's auto-serialization anomalies
                 $newCycleData = [
-                    'user_id'             => $activity->user_id,
-                    'id_tag'              => $activity->id_tag,
-                    'activity_name'       => $activity->activity_name,
-                    'deskripsi'           => $activity->deskripsi,
-                    'ulangi'              => $activity->ulangi,
-                    'time_start'          => $activity->time_start,
-                    'time_end'            => $activity->time_end,
-                    'tanggal'             => $targetDateString,
-                    'anchor_date'         => $targetDateString, // Explicit plain string injection
-                    'status'              => 'not_started',
-                    'progress'            => 0,
+                    'user_id' => $activity->user_id,
+                    'id_tag' => $activity->id_tag,
+                    'activity_name' => $activity->activity_name,
+                    'deskripsi' => $activity->deskripsi,
+                    'ulangi' => $activity->ulangi,
+                    'time_start' => $activity->time_start,
+                    'time_end' => $activity->time_end,
+                    'tanggal' => $targetDateString,
+                    'anchor_date' => $targetDateString, // Explicit plain string injection
+                    'status' => 'not_started',
+                    'progress' => 0,
                     'progress_started_at' => null,
                 ];
 
-                // 1. Create the new clean card entry 
+                // 1. Create the new clean card entry
                 $this->activityRepository->create($newCycleData);
 
                 // 2. Clear out the repetition flag on the old card so it acts as static history
@@ -197,6 +197,7 @@ class ActivityService
                     $data['progress'] = (int) $data['progress'];
                     // If client explicitly provided progress_started_at, respect it; otherwise clear it
                     $data['progress_started_at'] = array_key_exists('progress_started_at', $data) ? $data['progress_started_at'] : null;
+
                     return $data;
                 }
 

@@ -158,8 +158,11 @@ export default function CreateTaskPage() {
         keyboardShouldPersistTaps="handled"
         bottomOffset={footerHeight + 16}
       >
-        {/* validationError removed: we show per-field errors instead */}
-        {/* server errors suppressed in favor of field-level errors */}
+        {mutation.isError ? (
+          <Text style={styles.errorText}>
+            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan tugas."}
+          </Text>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.label}>Nama Tugas</Text>
