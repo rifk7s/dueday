@@ -1,5 +1,5 @@
 import { updateActivity } from "@/api/activities";
-import { getPendingPaymentTransferParams } from "@/api/payments";
+import { formatDateLabel, getPendingPaymentTransferParams } from "@/api/payments";
 import { updateTask } from "@/api/tasks";
 import { updateMe } from "@/api/users";
 import type { AuthUser } from "@/auth/api";
@@ -8,7 +8,7 @@ import { setStorageItemAsync } from "@/auth/useStorageState";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useTasksQuery } from "@/hooks/useTasks";
-import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons"; // 👑 Added FontAwesome5 for the crown icons
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -40,6 +40,24 @@ type SettingItem = {
   accent?: string;
   onPress?: () => void;
 };
+
+const settings: SettingItem[] = [
+  {
+    icon: "globe-outline",
+    label: "Bahasa",
+    value: "Indonesia",
+  },
+  {
+    icon: "moon-outline",
+    label: "Tema",
+    value: "Terang",
+  },
+  {
+    icon: "star-outline",
+    label: "Upgrade to Premium",
+    accent: colors.primaryContainer,
+  },
+];
 
 export default function ProfileScreen(): React.JSX.Element {
   const { top } = useSafeAreaInsets();
@@ -138,7 +156,15 @@ export default function ProfileScreen(): React.JSX.Element {
     );
   };
 
-  const handleUpgradeOrPlan = async (): Promise<void> => {
+  const handleUpgradeToPremium = async (): Promise<void> => {
+    if (isPremium) {
+      router.push({
+        pathname: "/premium-plan",
+        params: { mode: "view" },
+      });
+      return;
+    }
+
     if (!token || MOCK_AUTH) {
       router.push("/premium-plan");
       return;
@@ -161,25 +187,20 @@ export default function ProfileScreen(): React.JSX.Element {
     router.push("/premium-plan");
   };
 
-  // Dynamically assemble settings matching the user's tier
-  const settingsWithActions: SettingItem[] = [
-    {
-      icon: "globe-outline",
-      label: "Bahasa",
-      value: "Indonesia",
-    },
-    {
-      icon: "moon-outline",
-      label: "Tema",
-      value: "Terang",
-    },
-    {
-      icon: isPremium ? "diamond-outline" : "star-outline",
-      label: isPremium ? "Premium Plan" : "Upgrade to Premium",
-      accent: isPremium ? "#D48C2A" : colors.primaryContainer,
-      onPress: () => void handleUpgradeOrPlan(),
-    },
-  ];
+  const premiumExpiryLabel = isPremium ? formatDateLabel(user?.subscription_end) : null;
+
+  const settingsWithActions = settings.map((item) =>
+    item.label === "Upgrade to Premium"
+      ? {
+          ...item,
+          label: isPremium ? "Premium" : item.label,
+          value: isPremium
+            ? (premiumExpiryLabel ? `Sampai ${premiumExpiryLabel}` : "Aktif")
+            : item.value,
+          onPress: () => void handleUpgradeToPremium(),
+        }
+      : item
+  );
 
   // Developer-only setup
   if (MOCK_AUTH && user) {
@@ -327,6 +348,7 @@ export default function ProfileScreen(): React.JSX.Element {
               />
             </View>
 
+            {/* 👑 Dynamic Profile Pic Badge: Shows a Crown if Premium, Camera if normal */}
             <View style={[styles.avatarBadge, isPremium && { backgroundColor: "#D48C2A" }]}>
               {isPremium ? (
                 <FontAwesome5 name="crown" size={10} color="#FFFFFF" />
@@ -346,6 +368,7 @@ export default function ProfileScreen(): React.JSX.Element {
           {user?.nim ? <Text style={styles.profileMeta}>NIM: {user.nim}</Text> : null}
           <Text style={styles.profileMeta}>{user?.email ?? "—"}</Text>
 
+          {/* 👑 Guaranteed Premium Badge with FontAwesome5 Crown */}
           {isPremium && (
             <View style={styles.premiumBadgeContainer}>
               <FontAwesome5 name="crown" size={12} color="#784A1A" style={{ marginRight: 6 }} />
@@ -392,7 +415,7 @@ export default function ProfileScreen(): React.JSX.Element {
           </Text>
         </Pressable>
       </ScrollView>
-
+      
       {editingNickname ? (
         <View style={styles.modalBackdrop} pointerEvents="box-none">
           <View style={styles.modalCard}>
@@ -730,17 +753,17 @@ const styles = StyleSheet.create({
   premiumBadgeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FDF3E7",
+    backgroundColor: "#FDF3E7", 
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 999,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: "rgba(120, 74, 26, 0.1)",
+    borderColor: "rgba(120, 74, 26, 0.1)", 
   },
   premiumBadgeText: {
-    color: "#784A1A",
+    color: "#784A1A", 
     fontSize: 15,
-    fontFamily: fonts["700"] ?? "System",
+    fontFamily: fonts["700"] ?? "System", 
   },
 });
