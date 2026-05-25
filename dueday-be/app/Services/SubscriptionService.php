@@ -21,7 +21,7 @@ class SubscriptionService
     public function activateOrExtendUserSubscription(string $userId, string $planName, int $months): Subscription
     {
         $subscriptions = $this->subscriptionRepository->getByUserId($userId);
-        $latestSubscription = $subscriptions->first();
+        $latestSubscription = $subscriptions->firstWhere('status', 'active') ?? $subscriptions->first();
 
         $baseDate = ($latestSubscription && $latestSubscription->status === 'active' && $latestSubscription->expired_at)
             ? Carbon::parse($latestSubscription->expired_at)

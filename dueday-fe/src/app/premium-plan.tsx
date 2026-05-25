@@ -77,6 +77,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string }>();
   const isViewMode = params.mode === "view";
+  const isExtendMode = params.mode === "extend";
   const { token, user } = useSession();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   const { top, bottom } = useSafeAreaInsets();
@@ -141,6 +142,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
     router.push({
       pathname: "/payment",
       params: {
+        mode: isExtendMode ? "extend" : "upgrade",
         plan: selectedPlan.value,
         planName: selectedPlan.label,
         planPrice: selectedPlan.price,
@@ -180,7 +182,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Text style={styles.heroLabel}>{isViewMode ? "Plan Premium Aktif" : "Upgrade ke Premium"}</Text>
+        <Text style={styles.heroLabel}>{isViewMode ? "Plan Premium Aktif" : isExtendMode ? "Perpanjang Premium" : "Upgrade ke Premium"}</Text>
         {isViewMode ? (
           activePlanName ? (
             <Text style={styles.price}>{activePlanName}</Text>
@@ -206,14 +208,14 @@ export default function PremiumPlanScreen(): React.JSX.Element {
             </Text>
           )
         ) : (
-          <Text style={styles.subTitle}>{`Aktif untuk ${selectedPlan.duration}`}</Text>
+          <Text style={styles.subTitle}>{isExtendMode ? `Tambah durasi premium selama ${selectedPlan.duration}` : `Aktif untuk ${selectedPlan.duration}`}</Text>
         )}
 
-        {isViewMode ? (
+        {isViewMode || isExtendMode ? (
           <View style={styles.activePlanCard}>
             <View style={styles.activePlanHeader}>
               <View style={styles.activePlanBadge}>
-                <Text style={styles.activePlanBadgeText}>{isLoadingActive ? "Memuat" : "Aktif"}</Text>
+                <Text style={styles.activePlanBadgeText}>{isLoadingActive ? "Memuat" : isExtendMode ? "Perpanjang" : "Aktif"}</Text>
               </View>
               {activePlanName ? (
                 <Text style={styles.activePlanTitle}>{activePlanName}</Text>
@@ -223,27 +225,12 @@ export default function PremiumPlanScreen(): React.JSX.Element {
                 <Text style={styles.activePlanTitle}>Premium Aktif</Text>
               )}
             </View>
-            <View style={styles.activePlanMetaRow}>
-              <Text style={styles.activePlanMetaLabel}>Plan aktif</Text>
-              {activePlanDuration ? (
-                <Text style={styles.activePlanMetaValue}>{activePlanDuration}</Text>
-              ) : isLoadingActive ? (
-                <View style={[styles.skeletonBar, styles.skeletonMeta]} />
-              ) : (
-                <Text style={styles.activePlanMetaValue}>—</Text>
-              )}
-            </View>
             {activeUntilLabel ? (
               <View style={styles.activePlanMetaRow}>
                 <Text style={styles.activePlanMetaLabel}>Berlaku sampai</Text>
                 <Text style={styles.activePlanMetaValue}>{activeUntilLabel}</Text>
               </View>
             ) : null}
-            <Text style={styles.activePlanDescription}>
-              {activeUntilLabel
-                ? `Langganan ini aktif sampai ${activeUntilLabel}.`
-                : "Langganan premium kamu sedang aktif di akun ini."}
-            </Text>
           </View>
         ) : null}
 
@@ -259,7 +246,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           </Pressable>
         ) : null}
 
-        <Text style={styles.sectionLabel}>{isViewMode ? "FITUR YANG KAMU AKSES:" : "YANG KAMU DAPAT:"}</Text>
+        <Text style={styles.sectionLabel}>{isViewMode ? "FITUR YANG KAMU AKSES:" : isExtendMode ? "PILIH DURASI PERPANJANGAN:" : "YANG KAMU DAPAT:"}</Text>
 
         <View style={styles.benefitList}>
           {benefits.map((item) => (
@@ -284,7 +271,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
 
         {isViewMode ? null : (
           <View style={[styles.paymentCard, { marginBottom: 16 }]}>
-            <Text style={styles.paymentLabel}>Pilih Paket</Text>
+            <Text style={styles.paymentLabel}>{isExtendMode ? "Pilih Paket Perpanjangan" : "Pilih Paket"}</Text>
             <View style={styles.paymentMethods}>
               {plans.map((plan) => {
                 const isSelected = selectedPlan.label === plan.label;
@@ -320,9 +307,9 @@ export default function PremiumPlanScreen(): React.JSX.Element {
             void handleStartPremium();
           }}
         >
-          <Text style={styles.ctaText}>{isViewMode ? "Kembali ke Profil" : "Mulai Premium Sekarang"}</Text>
+          <Text style={styles.ctaText}>{isViewMode ? "Kembali ke Profil" : isExtendMode ? "Perpanjang Premium Sekarang" : "Mulai Premium Sekarang"}</Text>
         </Pressable>
-        <Text style={styles.footerNote}>{isViewMode ? "Plan aktif kamu sedang ditampilkan" : "Batalkan kapan saja"}</Text>
+        <Text style={styles.footerNote}>{isViewMode ? "Plan aktif kamu sedang ditampilkan" : isExtendMode ? "Durasi akan ditambahkan ke plan aktif kamu" : "Batalkan kapan saja"}</Text>
       </View>
     </View>
   );

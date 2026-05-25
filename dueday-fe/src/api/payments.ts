@@ -63,6 +63,10 @@ export type PaymentFlowInput = {
   method: PaymentMethod;
 };
 
+export type SubscriptionFlowInput = PaymentFlowInput & {
+  subscriptionId: string;
+};
+
 export async function createSubscription(
   token: string,
   input: CreateSubscriptionInput,
@@ -104,6 +108,23 @@ export async function createPaymentFlow(
     method: input.method.id,
     status: "pending",
   });
+}
+
+export async function createExtendPaymentFlow(
+  token: string,
+  input: SubscriptionFlowInput,
+): Promise<Payment> {
+  return createPayment(token, {
+    subscription_id: input.subscriptionId,
+    amount: input.amount,
+    method: input.method.id,
+    status: "pending",
+  });
+}
+
+export async function getActiveSubscription(token: string): Promise<Subscription | null> {
+  const subscriptions = await apiFetch<Subscription[]>('/subscriptions', token);
+  return subscriptions.find((subscription) => subscription.status === 'active' && subscription.plan != null) ?? null;
 }
 
 export async function getPendingPaymentTransferParams(
@@ -190,23 +211,4 @@ export function formatSqlDateTime(date: Date): string {
 
 export function getBackendOrigin(apiBaseUrl: string): string {
   return apiBaseUrl.replace(/\/api$/, "");
-}
-
-const MONTH_LABELS_ID = [
-  "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
-  "Jul", "Agt", "Sep", "Okt", "Nov", "Des",
-];
-
-export function formatDateLabel(value: string | null | undefined): string {
-  if (!value) {
-    return "";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const day = date.getDate();
-  const month = MONTH_LABELS_ID[date.getMonth()];
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
 }

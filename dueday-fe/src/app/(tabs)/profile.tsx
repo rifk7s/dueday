@@ -160,7 +160,7 @@ export default function ProfileScreen(): React.JSX.Element {
     if (isPremium) {
       router.push({
         pathname: "/premium-plan",
-        params: { mode: "view" },
+        params: { mode: "extend" },
       });
       return;
     }
@@ -193,7 +193,7 @@ export default function ProfileScreen(): React.JSX.Element {
     item.label === "Upgrade to Premium"
       ? {
           ...item,
-          label: isPremium ? "Premium" : item.label,
+          label: isPremium ? "Extend Premium" : item.label,
           value: isPremium
             ? (premiumExpiryLabel ? `Sampai ${premiumExpiryLabel}` : "Aktif")
             : item.value,

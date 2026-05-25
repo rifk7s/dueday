@@ -55,6 +55,7 @@ export const ULANGI_API_MAP: Partial<Record<string, UlangiType>> = {
   Harian: "setiap_hari",
   Mingguan: "satu_minggu",
   Bulanan: "satu_bulan",
+  Tahunan: "satu_tahun",
 };
 
 export const ULANGI_DISPLAY: Record<UlangiType, string> = {

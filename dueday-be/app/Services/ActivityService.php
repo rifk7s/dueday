@@ -99,7 +99,7 @@ class ActivityService
     }
 
     /**
-     * Scan and push completed recurring tasks into their upcoming scheduled calendars.
+     * Create the next occurrence for completed recurring activities.
      */
     public function handleRecurringActivityResets(): void
     {
@@ -116,54 +116,60 @@ class ActivityService
             }
 
             $baseDate = Carbon::parse($baseDateString);
-            $now = Carbon::now();
-            $shouldReset = false;
             $nextAnchorDate = $baseDate->copy();
 
             switch ($activity->ulangi) {
                 case 'setiap_hari':
-                    $shouldReset = $now->startOfDay()->greaterThan($baseDate->startOfDay());
                     $nextAnchorDate->addDay();
                     break;
                 case 'satu_minggu':
-                    $shouldReset = $now->startOfDay()->greaterThanOrEqualTo($baseDate->copy()->addWeek()->startOfDay());
                     $nextAnchorDate->addWeek();
                     break;
                 case 'satu_bulan':
-                    $shouldReset = $now->startOfDay()->greaterThanOrEqualTo($baseDate->copy()->addMonth()->startOfDay());
                     $nextAnchorDate->addMonth();
                     break;
                 case 'satu_tahun':
-                    $shouldReset = $now->startOfDay()->greaterThanOrEqualTo($baseDate->copy()->addYear()->startOfDay());
                     $nextAnchorDate->addYear();
                     break;
             }
 
-            if ($shouldReset) {
-                $targetDateString = $nextAnchorDate->format('Y-m-d');
+            $targetDateString = $nextAnchorDate->format('Y-m-d');
 
-                // Completely isolating the array from Laravel's auto-serialization anomalies
-                $newCycleData = [
-                    'user_id' => $activity->user_id,
-                    'id_tag' => $activity->id_tag,
-                    'activity_name' => $activity->activity_name,
-                    'deskripsi' => $activity->deskripsi,
-                    'ulangi' => $activity->ulangi,
-                    'time_start' => $activity->time_start,
-                    'time_end' => $activity->time_end,
-                    'tanggal' => $targetDateString,
-                    'anchor_date' => $targetDateString, // Explicit plain string injection
-                    'status' => 'not_started',
-                    'progress' => 0,
-                    'progress_started_at' => null,
-                ];
+            $alreadyExists = Activity::query()
+                ->where('user_id', $activity->user_id)
+                ->where('activity_name', $activity->activity_name)
+                ->where('tanggal', $targetDateString)
+                ->where('time_start', $activity->time_start)
+                ->where('time_end', $activity->time_end)
+                ->where('ulangi', $activity->ulangi)
+                ->exists();
 
-                // 1. Create the new clean card entry
-                $this->activityRepository->create($newCycleData);
-
-                // 2. Clear out the repetition flag on the old card so it acts as static history
+            if ($alreadyExists) {
                 $this->activityRepository->update($activity->id, ['ulangi' => null]);
+                continue;
             }
+
+            // Completely isolating the array from Laravel's auto-serialization anomalies
+            $newCycleData = [
+                'user_id' => $activity->user_id,
+                'id_tag' => $activity->id_tag,
+                'activity_name' => $activity->activity_name,
+                'deskripsi' => $activity->deskripsi,
+                'ulangi' => $activity->ulangi,
+                'time_start' => $activity->time_start,
+                'time_end' => $activity->time_end,
+                'tanggal' => $targetDateString,
+                'anchor_date' => $targetDateString, // Explicit plain string injection
+                'status' => 'not_started',
+                'progress' => 0,
+                'progress_started_at' => null,
+            ];
+
+            // 1. Create the new clean card entry
+            $this->activityRepository->create($newCycleData);
+
+            // 2. Clear out the repetition flag on the old card so it acts as static history
+            $this->activityRepository->update($activity->id, ['ulangi' => null]);
         }
     }
 
