@@ -1,5 +1,6 @@
 import { apiFetch } from "@/api/client";
 import {
+  formatDateLabel,
   getPendingPaymentTransferParams,
   planDurationFor,
   planLabel,
@@ -10,6 +11,7 @@ import { useSession } from "@/auth/ctx";
 import { goBackOr } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -79,61 +81,45 @@ export default function PremiumPlanScreen(): React.JSX.Element {
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   const { top, bottom } = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<PlanItem>(plans[0]);
-  const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
-  const [loadingActiveSubscription, setLoadingActiveSubscription] = useState(false);
 
-  React.useEffect(() => {
-    if (!isViewMode || !token || MOCK_AUTH) {
-      setActiveSubscription(null);
-      return;
-    }
+  const subscriptionsQuery = useQuery({
+    queryKey: ["subscriptions", token],
+    queryFn: async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      try {
+        return await apiFetch<Subscription[]>("/subscriptions", token!, {
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    enabled: isViewMode && !!token && !MOCK_AUTH,
+    staleTime: 30_000,
+    retry: 0,
+  });
 
-    let active = true;
-    setLoadingActiveSubscription(true);
-
-    apiFetch<Subscription[]>("/subscriptions", token)
-      .then((subscriptions) => {
-        if (!active) return;
-
-        const current = [...subscriptions]
-          .filter((subscription) => subscription.status === "active" && subscription.plan != null)
-          .sort((left, right) => {
-            const leftTime = new Date(left.updated_at).getTime();
-            const rightTime = new Date(right.updated_at).getTime();
-            return rightTime - leftTime;
-          })[0] ?? null;
-
-        setActiveSubscription(current);
-      })
-      .catch(() => {
-        if (active) setActiveSubscription(null);
-      })
-      .finally(() => {
-        if (active) setLoadingActiveSubscription(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [isViewMode, token, MOCK_AUTH]);
+  const activeSubscription = React.useMemo<Subscription | null>(() => {
+    const list = subscriptionsQuery.data;
+    if (!list) return null;
+    return [...list]
+      .filter((s) => s.status === "active" && s.plan != null)
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0] ?? null;
+  }, [subscriptionsQuery.data]);
 
   const activePlanItem = React.useMemo<PlanItem | null>(() => {
     if (!activeSubscription?.plan) return null;
     return plans.find((plan) => plan.value === activeSubscription.plan) ?? null;
   }, [activeSubscription]);
 
-  const activePlanName = activePlanItem?.label ?? (activeSubscription?.plan ? planLabel(activeSubscription.plan) : "Premium Aktif");
-  const activePlanDuration = activePlanItem?.duration ?? (activeSubscription?.plan ? planDurationFor(activeSubscription.plan) : "Aktif saat ini");
-  const activeUntil = user?.subscription_end ?? activeSubscription?.expired_at ?? null;
+  const isLoadingActive = subscriptionsQuery.isFetching && !activePlanItem;
+  const hasFetchError = subscriptionsQuery.isError && !activeSubscription;
 
-  const formatDateLabel = (value: string | null): string | null => {
-    if (!value) return null;
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-
-    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
+  const activePlanName = activePlanItem?.label ?? (activeSubscription?.plan ? planLabel(activeSubscription.plan) : null);
+  const activePlanDuration = activePlanItem?.duration ?? (activeSubscription?.plan ? planDurationFor(activeSubscription.plan) : null);
+  const activeUntil = activeSubscription?.expired_at ?? user?.subscription_end ?? null;
+  const activeUntilLabel = formatDateLabel(activeUntil);
 
   const handleStartPremium = async (): Promise<void> => {
     if (token && !MOCK_AUTH) {
@@ -195,37 +181,82 @@ export default function PremiumPlanScreen(): React.JSX.Element {
         </View>
 
         <Text style={styles.heroLabel}>{isViewMode ? "Plan Premium Aktif" : "Upgrade ke Premium"}</Text>
-        <Text style={styles.price}>{isViewMode ? activePlanName : selectedPlan.price}</Text>
-        <Text style={styles.subTitle}>
-          {isViewMode
-            ? `${activePlanDuration}${formatDateLabel(activeUntil) ? ` · Berlaku sampai ${formatDateLabel(activeUntil)}` : ""}`
-            : `Aktif untuk ${selectedPlan.duration}`}
-        </Text>
+        {isViewMode ? (
+          activePlanName ? (
+            <Text style={styles.price}>{activePlanName}</Text>
+          ) : isLoadingActive ? (
+            <View style={[styles.skeletonBar, styles.skeletonPrice]} />
+          ) : (
+            <Text style={styles.price}>Premium Aktif</Text>
+          )
+        ) : (
+          <Text style={styles.price}>{selectedPlan.price}</Text>
+        )}
+        {isViewMode ? (
+          activePlanDuration ? (
+            <Text style={styles.subTitle}>
+              {activePlanDuration}
+              {activeUntilLabel ? ` · Berlaku sampai ${activeUntilLabel}` : ""}
+            </Text>
+          ) : isLoadingActive ? (
+            <View style={[styles.skeletonBar, styles.skeletonSubtitle]} />
+          ) : (
+            <Text style={styles.subTitle}>
+              {activeUntilLabel ? `Berlaku sampai ${activeUntilLabel}` : "Aktif saat ini"}
+            </Text>
+          )
+        ) : (
+          <Text style={styles.subTitle}>{`Aktif untuk ${selectedPlan.duration}`}</Text>
+        )}
 
         {isViewMode ? (
           <View style={styles.activePlanCard}>
             <View style={styles.activePlanHeader}>
               <View style={styles.activePlanBadge}>
-                <Text style={styles.activePlanBadgeText}>{loadingActiveSubscription ? "Memuat" : "Aktif"}</Text>
+                <Text style={styles.activePlanBadgeText}>{isLoadingActive ? "Memuat" : "Aktif"}</Text>
               </View>
-              <Text style={styles.activePlanTitle}>{activePlanName}</Text>
+              {activePlanName ? (
+                <Text style={styles.activePlanTitle}>{activePlanName}</Text>
+              ) : isLoadingActive ? (
+                <View style={[styles.skeletonBar, styles.skeletonTitle]} />
+              ) : (
+                <Text style={styles.activePlanTitle}>Premium Aktif</Text>
+              )}
             </View>
             <View style={styles.activePlanMetaRow}>
               <Text style={styles.activePlanMetaLabel}>Plan aktif</Text>
-              <Text style={styles.activePlanMetaValue}>{activePlanDuration}</Text>
+              {activePlanDuration ? (
+                <Text style={styles.activePlanMetaValue}>{activePlanDuration}</Text>
+              ) : isLoadingActive ? (
+                <View style={[styles.skeletonBar, styles.skeletonMeta]} />
+              ) : (
+                <Text style={styles.activePlanMetaValue}>—</Text>
+              )}
             </View>
-            {formatDateLabel(activeUntil) ? (
+            {activeUntilLabel ? (
               <View style={styles.activePlanMetaRow}>
                 <Text style={styles.activePlanMetaLabel}>Berlaku sampai</Text>
-                <Text style={styles.activePlanMetaValue}>{formatDateLabel(activeUntil)}</Text>
+                <Text style={styles.activePlanMetaValue}>{activeUntilLabel}</Text>
               </View>
             ) : null}
             <Text style={styles.activePlanDescription}>
-              {formatDateLabel(activeUntil)
-                ? `Langganan ini aktif sampai ${formatDateLabel(activeUntil)}.`
+              {activeUntilLabel
+                ? `Langganan ini aktif sampai ${activeUntilLabel}.`
                 : "Langganan premium kamu sedang aktif di akun ini."}
             </Text>
           </View>
+        ) : null}
+
+        {isViewMode && hasFetchError ? (
+          <Pressable
+            style={({ pressed }) => [styles.retryRow, pressed && styles.retryRowPressed]}
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => void subscriptionsQuery.refetch()}
+          >
+            <Ionicons name="refresh-outline" size={16} color={colors.onErrorContainer} />
+            <Text style={styles.retryText}>Gagal memuat detail plan · Coba lagi</Text>
+          </Pressable>
         ) : null}
 
         <Text style={styles.sectionLabel}>{isViewMode ? "FITUR YANG KAMU AKSES:" : "YANG KAMU DAPAT:"}</Text>
@@ -500,6 +531,49 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts["700"],
     textAlign: "right",
+  },
+  skeletonBar: {
+    backgroundColor: colors.surfaceContainerHigh,
+    borderRadius: 6,
+    alignSelf: "center",
+  },
+  skeletonPrice: {
+    marginTop: 4,
+    width: 160,
+    height: 26,
+  },
+  skeletonSubtitle: {
+    marginTop: 8,
+    width: 220,
+    height: typography.bodyLg.fontSize,
+  },
+  skeletonTitle: {
+    alignSelf: "flex-start",
+    width: 120,
+    height: 15,
+  },
+  skeletonMeta: {
+    width: 80,
+    height: 12,
+  },
+  retryRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: colors.errorContainer,
+  },
+  retryRowPressed: {
+    opacity: 0.7,
+  },
+  retryText: {
+    fontSize: 12,
+    fontFamily: fonts["600"],
+    color: colors.onErrorContainer,
   },
   paymentLabel: {
     fontSize: 14,

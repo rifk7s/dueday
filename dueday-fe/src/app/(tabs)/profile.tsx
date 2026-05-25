@@ -1,5 +1,5 @@
 import { updateActivity } from "@/api/activities";
-import { getPendingPaymentTransferParams } from "@/api/payments";
+import { formatDateLabel, getPendingPaymentTransferParams } from "@/api/payments";
 import { updateTask } from "@/api/tasks";
 import { updateMe } from "@/api/users";
 import type { AuthUser } from "@/auth/api";
@@ -187,12 +187,16 @@ export default function ProfileScreen(): React.JSX.Element {
     router.push("/premium-plan");
   };
 
+  const premiumExpiryLabel = isPremium ? formatDateLabel(user?.subscription_end) : null;
+
   const settingsWithActions = settings.map((item) =>
     item.label === "Upgrade to Premium"
       ? {
           ...item,
-          label: isPremium ? "Kamu sudah Premium" : item.label,
-          value: isPremium ? "Aktif" : item.value,
+          label: isPremium ? "Premium" : item.label,
+          value: isPremium
+            ? (premiumExpiryLabel ? `Sampai ${premiumExpiryLabel}` : "Aktif")
+            : item.value,
           onPress: () => void handleUpgradeToPremium(),
         }
       : item

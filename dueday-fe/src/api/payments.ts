@@ -168,6 +168,15 @@ export function formatCurrency(amount: number): string {
 }
 
 
+const SHORT_MONTHS_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+export function formatDateLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getDate()} ${SHORT_MONTHS_ID[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 export function formatSqlDateTime(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
