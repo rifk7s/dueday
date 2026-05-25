@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Platf
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useActivityQuery, useUpdateActivityMutation, useDeleteActivityMutation } from "@/hooks/useActivities";
 import type { Activity, UlangiType } from "@/api/activities";
+import { calculateActivityProgress } from "@/lib/calculateActivityProgress";
 import Svg, { Circle } from "react-native-svg";
 
 type ActivityProgressParams = {
@@ -64,7 +65,6 @@ export default function ActivityProgressScreen() {
 
   const updateStatus = (nextStatus: Activity["status"]) => {
     if (!id) return;
-
     setActivityState(nextStatus);
     updateActivityMutation.mutate({
       id,
@@ -125,7 +125,15 @@ export default function ActivityProgressScreen() {
   };
 
   const handlePause = () => {
-    updateStatus("pending");
+    if (!activity) return;
+
+    // Compute current progress and persist it when pausing
+    const computed = calculateActivityProgress(activity);
+    setActivityState("pending");
+    updateActivityMutation.mutate({
+      id: id!,
+      data: { status: "pending", progress: computed, progress_started_at: null },
+    });
   };
 
   const handleResume = () => {

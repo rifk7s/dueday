@@ -18,6 +18,7 @@ export type Activity = {
   time_end: string | null;
   status: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
   progress: number;
+  progress_started_at?: string | null;
   deskripsi: string | null;
   reminder_message: string | null;
   reminder_style?: string | null;
@@ -44,6 +45,8 @@ export type NewActivity = {
   reminder_frequency?: "once" | "daily" | "weekly" | null;
   reminder_vibrate?: boolean | null;
   status?: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
+  progress?: number;
+  progress_started_at?: string | null;
 };
 
 export type UpdateActivity = Partial<NewActivity>;

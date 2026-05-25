@@ -82,61 +82,20 @@ class ActivityService
 
     public function syncOngoingProgress(): int
     {
-        $updated = 0;
-
-        foreach ($this->activityRepository->getOngoingActivities() as $activity) {
-            if (! $activity->progress_started_at) {
-                $activity->progress_started_at = $this->inferProgressStartedAt($activity);
-            }
-
-            $nextProgress = $this->calculateProgress($activity);
-
-            $updates = [];
-
-            if ($activity->progress_started_at && $activity->isDirty('progress_started_at')) {
-                $updates['progress_started_at'] = $activity->progress_started_at;
-            }
-
-            if ($activity->progress !== $nextProgress) {
-                $updates['progress'] = $nextProgress;
-            }
-
-            if ($updates !== []) {
-                $this->activityRepository->update($activity->id, $updates);
-                $updated++;
-            }
-        }
-
-        $this->handleRecurringActivityResets();
-
-        return $updated;
+        // Disabled server-side progress sync — progress is computed on clients now.
+        return 0;
     }
 
     public function syncActivityProgress(Activity $activity): Activity
     {
-        if ($activity->status !== 'ongoing') {
-            return $activity;
-        }
-
-        if (! $activity->progress_started_at) {
-            $activity->progress_started_at = $this->inferProgressStartedAt($activity);
-        }
-
-        $activity->progress = $this->calculateProgress($activity);
-        $activity->save();
-
+        // Do not update progress on the server; clients compute progress instead.
         return $activity->load('tag');
     }
 
     public function calculateProgress(Activity $activity, ?Carbon $now = null): int
     {
-        return $this->calculateProgressFromStartAt(
-            $activity->tanggal?->format('Y-m-d'),
-            $activity->time_start,
-            $activity->time_end,
-            $activity->progress_started_at?->copy(),
-            $now,
-        );
+        // Return stored progress only. Progress calculation moved to frontend clients.
+        return (int) ($activity->progress ?? 0);
     }
 
     /**
@@ -233,6 +192,14 @@ class ActivityService
             }
 
             if ($status === 'pending' && $existingActivity) {
+                // If the client provided an explicit progress value, respect it (e.g., when pausing)
+                if (array_key_exists('progress', $data)) {
+                    $data['progress'] = (int) $data['progress'];
+                    // If client explicitly provided progress_started_at, respect it; otherwise clear it
+                    $data['progress_started_at'] = array_key_exists('progress_started_at', $data) ? $data['progress_started_at'] : null;
+                    return $data;
+                }
+
                 $data['progress'] = $this->calculateProgress($existingActivity);
                 $data['progress_started_at'] = null;
 

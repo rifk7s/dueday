@@ -16,8 +16,7 @@ class ActivityController extends Controller
 
     public function index()
     {
-        $this->activityService->syncOngoingProgress();
-
+        // Progress is now calculated on the frontend to avoid heavy server-side work.
         $activities = $this->activityService->getUserActivities(auth()->id());
 
         return ActivityResource::collection($activities);
@@ -31,8 +30,7 @@ class ActivityController extends Controller
             return response(['message' => 'Activity not found'], 404);
         }
 
-        $activity = $this->activityService->syncActivityProgress($activity);
-
+        // Do not sync progress on read; frontend computes progress instead.
         return new ActivityResource($activity);
     }
 

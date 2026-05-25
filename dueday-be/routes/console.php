@@ -8,4 +8,4 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('activities:sync-progress')->everyMinute();
+// Removed scheduled activities progress sync; progress is computed on clients now.
