@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         DB::table('payments')
-            ->whereNotIn('status', ['pending', 'paid', 'failed', 'refunded'])
+            ->whereNotIn('status', ['pending', 'paid', 'failed'])
             ->update(['status' => 'pending']);
 
         DB::table('payments')
@@ -19,7 +19,7 @@ return new class extends Migration
             ->update(['method' => null]);
 
         Schema::table('payments', function (Blueprint $table) {
-            $table->enum('status', ['pending', 'paid', 'failed', 'refunded'])
+            $table->enum('status', ['pending', 'paid', 'failed'])
                 ->default('pending')
                 ->change();
             $table->enum('method', ['qris', 'gopay', 'ovo', 'dana', 'bca', 'bri', 'mandiri'])

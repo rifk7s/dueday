@@ -10,13 +10,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Keyboard,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  Platform,
+  Alert,
+  ToastAndroid,
 } from "react-native";
 import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard-controller";
 import Animated, {
@@ -27,7 +30,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
-type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tanggal Tertentu";
+type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan";
 
 export default function CreateActivityPage() {
   const router = useRouter();
@@ -50,11 +53,12 @@ export default function CreateActivityPage() {
   const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tanggal Tertentu"];
+  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan"];
 
   const mutation = useCreateActivityMutation();
   const tagId = useTagIdByName(tag);
   const [validationError, setValidationError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
 
   const isTagSelected = (t: TagType): boolean => tag === t;
@@ -68,19 +72,34 @@ export default function CreateActivityPage() {
       return;
     }
 
+    const missing: string[] = [];
+    const errs: Record<string, string> = {};
     if (!namaaktivitas.trim()) {
-      setValidationError("Nama aktivitas wajib diisi.");
-      return;
+      missing.push("Nama aktivitas");
+      errs["namaaktivitas"] = "Nama aktivitas wajib diisi.";
     }
     if (!tanggal) {
-      setValidationError("Tanggal wajib dipilih.");
+      missing.push("Tanggal");
+      errs["tanggal"] = "Tanggal wajib dipilih.";
+    }
+    if (!jamMulai) {
+      missing.push("Jam mulai");
+      errs["jamMulai"] = "Jam mulai wajib diisi.";
+    }
+    if (!jamSelesai) {
+      missing.push("Jam selesai");
+      errs["jamSelesai"] = "Jam selesai wajib diisi.";
+    }
+
+    if (missing.length > 0) {
+      setFieldErrors(errs);
+      // scroll to top so user sees field-level errors
+      scrollRef.current?.scrollTo?.({ y: 0, animated: true });
       return;
     }
-    if (!jamMulai || !jamSelesai) {
-      setValidationError("Waktu mulai dan selesai wajib diisi.");
-      return;
-    }
+    setFieldErrors({});
     setValidationError("");
+    setFieldErrors({});
 
     const payload: Parameters<typeof mutation.mutate>[0] = {
       activity_name: namaaktivitas.trim(),
@@ -128,14 +147,8 @@ export default function CreateActivityPage() {
         keyboardShouldPersistTaps="handled"
         bottomOffset={footerHeight + 16}
       >
-        {validationError ? (
-          <Text style={styles.errorText}>{validationError}</Text>
-        ) : null}
-        {mutation.isError ? (
-          <Text style={styles.errorText}>
-            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan aktivitas."}
-          </Text>
-        ) : null}
+        {/* validationError removed: we show per-field errors instead */}
+        {/* server errors suppressed in favor of field-level errors */}
 
         <View style={styles.section}>
           <Text style={styles.label}>Nama Aktivitas</Text>
@@ -146,6 +159,9 @@ export default function CreateActivityPage() {
             value={namaaktivitas}
             onChangeText={setNamaaktivitas}
           />
+          {fieldErrors["namaaktivitas"] ? (
+            <Text style={styles.fieldError}>{fieldErrors["namaaktivitas"]}</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -156,29 +172,42 @@ export default function CreateActivityPage() {
               {tanggal || "Pilih tanggal"}
             </Text>
           </Pressable>
+          {fieldErrors["tanggal"] ? (
+            <Text style={styles.fieldError}>{fieldErrors["tanggal"]}</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>Waktu</Text>
           <View style={styles.timeRow}>
-            <Pressable
-              style={[styles.dateTimeContainer, styles.timeContainer]}
-              onPress={() => setShowTimePickerMulai(true)}
-            >
-              <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
-              <Text style={[styles.dateTimeText, !jamMulai && styles.dateTimePlaceholder]}>
-                {jamMulai || "Mulai"}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[styles.dateTimeContainer, styles.timeContainer]}
-              onPress={() => setShowTimePickerSelesai(true)}
-            >
-              <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
-              <Text style={[styles.dateTimeText, !jamSelesai && styles.dateTimePlaceholder]}>
-                {jamSelesai || "Selesai"}
-              </Text>
-            </Pressable>
+            <View style={styles.timeColumn}>
+              <Pressable
+                style={[styles.dateTimeContainer, styles.timeContainer]}
+                onPress={() => setShowTimePickerMulai(true)}
+              >
+                <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
+                <Text style={[styles.dateTimeText, !jamMulai && styles.dateTimePlaceholder]}>
+                  {jamMulai || "Mulai"}
+                </Text>
+              </Pressable>
+              {fieldErrors["jamMulai"] ? (
+                <Text style={styles.fieldError}>{fieldErrors["jamMulai"]}</Text>
+              ) : null}
+            </View>
+            <View style={styles.timeColumn}>
+              <Pressable
+                style={[styles.dateTimeContainer, styles.timeContainer]}
+                onPress={() => setShowTimePickerSelesai(true)}
+              >
+                <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
+                <Text style={[styles.dateTimeText, !jamSelesai && styles.dateTimePlaceholder]}>
+                  {jamSelesai || "Selesai"}
+                </Text>
+              </Pressable>
+              {fieldErrors["jamSelesai"] ? (
+                <Text style={styles.fieldError}>{fieldErrors["jamSelesai"]}</Text>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -348,7 +377,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     backgroundColor: colors.surfaceContainerLowest,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   dateIcon: {
     marginRight: 8,
@@ -370,6 +399,9 @@ const styles = StyleSheet.create({
   timeContainer: {
     flex: 1,
     marginBottom: 0,
+  },
+  timeColumn: {
+    flex: 1,
   },
   chipsRow: {
     flexDirection: "row",
@@ -402,6 +434,12 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginBottom: 16,
     paddingHorizontal: 4,
+  },
+  fieldError: {
+    marginTop: 2,
+    color: colors.error,
+    fontSize: 13,
+    fontFamily: fonts["500"],
   },
   saveButton: {
     backgroundColor: colors.primaryContainer,

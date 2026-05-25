@@ -22,7 +22,7 @@ class StorePaymentRequest extends FormRequest
             'subscription_id' => 'required|uuid|exists:subscriptions,id',
             'amount' => 'nullable|numeric|min:0',
             'method' => 'nullable|string|max:255',
-            'status' => 'required|in:pending,paid,failed,refunded',
+            'status' => 'required|in:pending,paid,failed',
         ];
     }
 }

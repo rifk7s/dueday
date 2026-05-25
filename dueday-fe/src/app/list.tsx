@@ -781,5 +781,9 @@ const styles = StyleSheet.create({
     minWidth: 100,
     ...Platform.select({ web: { cursor: "pointer" } })
   },
-  deleteDropdownText: { color: colors.errorStrong, fontFamily: fonts["700"], fontSize: 14 },
+  deleteDropdownText: { 
+    color: colors.errorStrong, 
+    fontFamily: fonts["700"], 
+    fontSize: 14 
+  }
 });

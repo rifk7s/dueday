@@ -53,6 +53,7 @@ export default function CreateTaskPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [validationError, setValidationError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
 
@@ -75,14 +76,33 @@ export default function CreateTaskPage() {
       return;
     }
 
+    const missing: string[] = [];
+    const errs: Record<string, string> = {};
     if (!namatugas.trim()) {
-      setValidationError("Nama tugas wajib diisi.");
-      return;
+      missing.push("Nama tugas");
+      errs["namatugas"] = "Nama tugas wajib diisi.";
     }
     if (!tanggal) {
-      setValidationError("Tenggat waktu wajib dipilih.");
+      missing.push("Tenggat waktu");
+      errs["tanggal"] = "Tenggat waktu wajib dipilih.";
+    }
+    if (!jam) {
+      missing.push("Jam");
+      errs["jam"] = "Jam wajib dipilih.";
+    }
+    if (!goals.trim()) {
+      missing.push("Goals");
+      errs["goals"] = "Goals wajib diisi.";
+    }
+
+    if (missing.length > 0) {
+      setFieldErrors(errs);
+      // scroll to top so user sees errors
+      scrollRef.current?.scrollTo?.({ y: 0, animated: true });
       return;
     }
+    // clear field errors on successful validation
+    setFieldErrors({});
     setValidationError("");
 
     mutation.mutate(
@@ -92,7 +112,7 @@ export default function CreateTaskPage() {
         ...(jam ? { time: toApiTime(jam) } : {}),
         ...(prioritas ? { priority: PRIORITY_API_MAP[prioritas] } : {}),
         ...(tagId !== undefined ? { id_tag: tagId } : {}),
-        ...(goals.trim() ? { goals: goals.trim() } : {}),
+        goals: goals.trim(),
         ...(deskripsi.trim() ? { deskripsi: deskripsi.trim() } : {}),
         status: "ongoing",
       },
@@ -138,14 +158,8 @@ export default function CreateTaskPage() {
         keyboardShouldPersistTaps="handled"
         bottomOffset={footerHeight + 16}
       >
-        {validationError ? (
-          <Text style={styles.errorText}>{validationError}</Text>
-        ) : null}
-        {mutation.isError ? (
-          <Text style={styles.errorText}>
-            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan tugas."}
-          </Text>
-        ) : null}
+        {/* validationError removed: we show per-field errors instead */}
+        {/* server errors suppressed in favor of field-level errors */}
 
         <View style={styles.section}>
           <Text style={styles.label}>Nama Tugas</Text>
@@ -156,22 +170,32 @@ export default function CreateTaskPage() {
             value={namatugas}
             onChangeText={setNamaTugas}
           />
+          {fieldErrors["namatugas"] ? (
+            <Text style={styles.fieldError}>{fieldErrors["namatugas"]}</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.label}>Tenggat Waktu</Text>
-          <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
+          <Pressable style={[styles.dateTimeContainer, styles.dateOnlyContainer]} onPress={() => setShowCalendar(true)}>
             <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
               {tanggal || "Pilih tanggal"}
             </Text>
           </Pressable>
-          <Pressable style={styles.dateTimeContainer} onPress={() => setShowTimePicker(true)}>
+          {fieldErrors["tanggal"] ? (
+            <Text style={styles.fieldError}>{fieldErrors["tanggal"]}</Text>
+          ) : null}
+
+          <Pressable style={[styles.dateTimeContainer, styles.timeSpacing]} onPress={() => setShowTimePicker(true)}>
             <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !jam && styles.dateTimePlaceholder]}>
               {jam || "Pilih waktu"}
             </Text>
           </Pressable>
+          {fieldErrors["jam"] ? (
+            <Text style={styles.fieldError}>{fieldErrors["jam"]}</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -244,6 +268,9 @@ export default function CreateTaskPage() {
               prevGoalsHeight.current = newHeight;
             }}
           />
+          {fieldErrors["goals"] ? (
+            <Text style={styles.fieldError}>{fieldErrors["goals"]}</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -383,7 +410,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
     backgroundColor: colors.surfaceContainerLowest,
-    marginBottom: 12,
+    marginBottom: 4,
+  },
+  dateOnlyContainer: {
+    marginBottom: 2,
+  },
+  timeSpacing: {
+    marginTop: 8,
   },
   dateIcon: {
     marginRight: 8,
@@ -403,6 +436,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
+  
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -438,5 +472,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts["600"],
     color: colors.onPrimary,
+  },
+  fieldError: {
+    marginTop: 2,
+    color: colors.error,
+    fontSize: 13,
+    fontFamily: fonts["500"],
   },
 });

@@ -26,7 +26,7 @@ import Animated, { Extrapolation, interpolate, useAnimatedStyle } from "react-na
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
-type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tanggal Tertentu";
+type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan";
 
 function formatDisplayDate(value: string | null | undefined): string {
   if (!value) return "";
@@ -45,8 +45,6 @@ function repeatToUi(value: UlangiType | null | undefined): RepeatType | null {
       return "Mingguan";
     case "satu_bulan":
       return "Bulanan";
-    case "satu_tahun":
-      return "Tanggal Tertentu";
     default:
       return null;
   }
@@ -81,7 +79,7 @@ export default function EditActivityPage() {
   const tagId = useTagIdByName(tag);
 
   const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tanggal Tertentu"];
+  const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan"];
 
   useEffect(() => {
     if (!activity || initialized) return;

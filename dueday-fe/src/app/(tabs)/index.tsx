@@ -4,13 +4,14 @@ import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
-import { useTasksQuery } from "@/hooks/useTasks";
+import { useDeleteTaskMutation, useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
     Animated,
+  Alert,
     Image,
     Modal,
     Pressable,
@@ -18,6 +19,7 @@ import {
     StyleSheet,
     Text,
     View,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
@@ -29,8 +31,10 @@ export default function App() {
   const { user: sessionUser } = useSession();
   const { data: currentUser } = useCurrentUserQuery();
   const { data: tasks = [] } = useTasksQuery();
+  const deleteTaskMutation = useDeleteTaskMutation();
   const fabBottom = bottomBarSpace + 12;
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [activeTaskMenuOpen, setActiveTaskMenuOpen] = useState(false);
   const backdropOpacity = React.useRef(new Animated.Value(0)).current;
   const actionOneProgress = React.useRef(new Animated.Value(0)).current;
   const actionTwoProgress = React.useRef(new Animated.Value(0)).current;
@@ -50,6 +54,51 @@ export default function App() {
   const activeTask = sortedTasks[0] ?? null;
   const greetingName =
     currentUser?.nickname ?? sessionUser?.nickname ?? currentUser?.name ?? sessionUser?.name ?? currentUser?.username ?? sessionUser?.username ?? "Mahasiswa";
+
+  function handleDeleteTask(): void {
+    if (!activeTask || deleteTaskMutation.isPending) {
+      return;
+    }
+
+    const title = "Hapus Tugas";
+    const message = "Apakah Anda yakin ingin menghapus tugas ini?";
+
+    if (Platform.OS === "web") {
+      if (!window.confirm(message)) {
+        return;
+      }
+
+      deleteTaskMutation.mutate(activeTask.id, {
+        onSuccess: () => {
+          setActiveTaskMenuOpen(false);
+          window.alert("Tugas berhasil dihapus.");
+        },
+        onError: () => {
+          window.alert("Gagal menghapus tugas. Silakan coba lagi.");
+        },
+      });
+      return;
+    }
+
+    Alert.alert(title, message, [
+      { text: "Batal", style: "cancel" },
+      {
+        text: "Hapus",
+        style: "destructive",
+        onPress: () => {
+          deleteTaskMutation.mutate(activeTask.id, {
+            onSuccess: () => {
+              setActiveTaskMenuOpen(false);
+              Alert.alert("Sukses", "Tugas berhasil dihapus.");
+            },
+            onError: () => {
+              Alert.alert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
+            },
+          });
+        },
+      },
+    ]);
+  }
 
   React.useEffect(() => {
     if (overlayOpen) {
@@ -176,7 +225,16 @@ export default function App() {
           <Text style={styles.sectionCaption}>Diurutkan berdasarkan tenggat waktu</Text>
         </View>
 
-        {activeTask ? <DashboardTaskCard task={activeTask} /> : <EmptyTaskCard />}
+        {activeTask ? (
+          <DashboardTaskCard
+            task={activeTask}
+            isMenuOpen={activeTaskMenuOpen}
+            onToggleMenu={() => setActiveTaskMenuOpen((current) => !current)}
+            onDelete={handleDeleteTask}
+          />
+        ) : (
+          <EmptyTaskCard />
+        )}
 
         <Pressable style={styles.actionButton} accessibilityRole="button" onPress={() => router.push('/list')}>
           <Text style={styles.actionButtonText}>Lihat List Aktivitas/Tugas</Text>
@@ -292,7 +350,17 @@ function SummaryCard({ accent, icon, title, value, background }: Readonly<Summar
   );
 }
 
-function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
+function DashboardTaskCard({
+  task,
+  isMenuOpen,
+  onToggleMenu,
+  onDelete,
+}: Readonly<{
+  task: Task;
+  isMenuOpen: boolean;
+  onToggleMenu: () => void;
+  onDelete: () => void;
+}>) {
   const router = useRouter();
   const isDone = task.status === "completed" || task.status === "completed_late";
   const datePart = fromApiDate(task.date);
@@ -334,7 +402,31 @@ function DashboardTaskCard({ task }: Readonly<{ task: Task }>) {
           />
           <Text style={[styles.deadlineText, isDone && styles.deadlineTextDone]}>{deadline}</Text>
         </View>
-        <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
+        <View style={styles.menuContainer}>
+          <Pressable
+            hitSlop={12}
+            style={styles.menuTrigger}
+            onPress={(event) => {
+              event.stopPropagation();
+              onToggleMenu();
+            }}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
+          </Pressable>
+
+          {isMenuOpen ? (
+            <Pressable
+              style={styles.deleteDropdown}
+              onPress={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Ionicons name="trash-outline" size={14} color={colors.errorStrong} />
+              <Text style={styles.deleteDropdownText}>Hapus</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.taskMainRow}>
@@ -589,6 +681,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 10,
+  },
+  menuContainer: {
+    position: "relative",
+    alignItems: "flex-end",
+  },
+  menuTrigger: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteDropdown: {
+    position: "absolute",
+    top: 30,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerLow,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+    zIndex: 5,
+  },
+  deleteDropdownText: {
+    fontSize: 12,
+    fontFamily: fonts["700"],
+    color: colors.errorStrong,
   },
   deadlineRow: {
     flexDirection: "row",
