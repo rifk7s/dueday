@@ -17,7 +17,7 @@ return new class extends Migration
             $table->uuid('subscription_id');
             $table->decimal('amount', 12, 2)->nullable();
             $table->string('method')->nullable();
-            $table->string('status');
+            $table->enum('status', ['pending', 'paid', 'failed'])->default('pending');
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();
 

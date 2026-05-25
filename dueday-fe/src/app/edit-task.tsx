@@ -368,30 +368,147 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  backButtonIcon: { padding: 8, marginLeft: -8 },
-  headerTitle: { fontSize: 20, fontFamily: fonts["600"], color: colors.onBackground, flex: 1, textAlign: "center" },
-  headerSpacer: { width: 44 },
-  container: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 20 },
-  errorText: { fontSize: 13, fontFamily: fonts["500"], color: colors.error, marginBottom: 16, paddingHorizontal: 4 },
-  section: { marginBottom: 24 },
-  label: { fontSize: 14, fontFamily: fonts["600"], color: colors.primaryContainer, marginBottom: 10 },
-  input: { borderWidth: 1, borderColor: colors.surfaceContainerLow, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, fontFamily: fonts["400"], color: colors.onSurface, backgroundColor: colors.surfaceContainerLowest },
-  goalsInput: { minHeight: 120, paddingTop: 12 },
-  descriptionInput: { minHeight: 100, paddingTop: 12 },
-  dateTimeContainer: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.surfaceContainerLow, borderRadius: 8, paddingHorizontal: 12, backgroundColor: colors.surfaceContainerLowest, marginBottom: 12 },
-  dateIcon: { marginRight: 8 },
-  dateTimeText: { flex: 1, paddingVertical: 12, fontSize: 14, fontFamily: fonts["400"], color: colors.onSurface },
-  dateTimePlaceholder: { color: colors.iconMuted },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, marginBottom: 8 },
-  chipText: { fontSize: 13, fontFamily: fonts["500"] },
-  footer: { position: "absolute", left: 0, right: 0, paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.surfaceContainerLow },
-  saveButton: { backgroundColor: colors.primaryContainer, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 999, alignItems: "center", justifyContent: "center" },
-  saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { fontSize: 16, fontFamily: fonts["600"], color: colors.onPrimary },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.surfaceContainerLowest },
-  emptyText: { fontSize: 14, fontFamily: fonts["500"], color: colors.onSurfaceVariant, textAlign: "center", marginBottom: 12 },
-  backLink: { paddingVertical: 8, paddingHorizontal: 16 },
-  backLinkText: { color: colors.primaryContainer, fontFamily: fonts["700"], fontSize: 14 },
+  backButtonIcon: { 
+    padding: 8, 
+    marginLeft: -8 
+  },
+  headerTitle: { 
+    fontSize: 20, 
+    fontFamily: fonts["600"], 
+    color: colors.onBackground, 
+    flex: 1, 
+    textAlign: "center" 
+  },
+  headerSpacer: { 
+    width: 44 
+  },
+  container: { 
+    flex: 1 
+  },
+  content: { 
+    paddingHorizontal: 16, 
+    paddingTop: 20 
+  },
+  errorText: { 
+    fontSize: 13, 
+    fontFamily: fonts["500"], 
+    color: colors.error, 
+    marginBottom: 16, 
+    paddingHorizontal: 4 
+  },
+  section: { 
+    marginBottom: 24 
+  },
+  label: { 
+    fontSize: 14, 
+    fontFamily: fonts["600"], 
+    color: colors.primaryContainer, 
+    marginBottom: 10 
+  },
+  input: { 
+    borderWidth: 1, 
+    borderColor: colors.surfaceContainerLow, 
+    borderRadius: 8, 
+    paddingHorizontal: 16, 
+    paddingVertical: 12, 
+    fontSize: 14, 
+    fontFamily: fonts["400"], 
+    color: colors.onSurface, 
+    backgroundColor: colors.surfaceContainerLowest 
+  },
+  goalsInput: { 
+    minHeight: 120, 
+    paddingTop: 12 
+  },
+  descriptionInput: { 
+    minHeight: 100, 
+    paddingTop: 12 
+  },
+  dateTimeContainer: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    borderWidth: 1, 
+    borderColor: colors.surfaceContainerLow, 
+    borderRadius: 8, 
+    paddingHorizontal: 12, 
+    backgroundColor: colors.surfaceContainerLowest, 
+    marginBottom: 12 
+  },
+  dateIcon: { 
+    marginRight: 8 
+  },
+  dateTimeText: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    fontSize: 14, 
+    fontFamily: fonts["400"], 
+    color: colors.onSurface 
+  },
+  dateTimePlaceholder: { 
+    color: colors.iconMuted 
+  },
+  chipRow: { 
+    flexDirection: "row", 
+    flexWrap: "wrap", 
+    gap: 8 
+  },
+  chip: { 
+    paddingHorizontal: 14, 
+    paddingVertical: 8, 
+    borderRadius: 999, 
+    marginBottom: 8 
+  },
+  chipText: { 
+    fontSize: 13, 
+    fontFamily: fonts["500"] 
+  },
+  footer: { 
+    position: "absolute", 
+    left: 0, 
+    right: 0, 
+    paddingHorizontal: 16, 
+    paddingTop: 12, 
+    backgroundColor: colors.background, 
+    borderTopWidth: 1, 
+    borderTopColor: colors.surfaceContainerLow 
+  },
+  saveButton: { 
+    backgroundColor: colors.primaryContainer, 
+    paddingVertical: 14, 
+    paddingHorizontal: 24, 
+    borderRadius: 999, 
+    alignItems: "center", 
+    justifyContent: "center" 
+  },
+  saveButtonDisabled: { 
+    opacity: 0.6 
+  },
+  saveButtonText: { 
+    fontSize: 16, 
+    fontFamily: fonts["600"], 
+    color: colors.onPrimary 
+  },
+  centered: { 
+    flex: 1, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    padding: 24, 
+    backgroundColor: colors.surfaceContainerLowest 
+  },
+  emptyText: { 
+    fontSize: 14, 
+    fontFamily: fonts["500"], 
+    color: colors.onSurfaceVariant, 
+    textAlign: "center", 
+    marginBottom: 12 
+  },
+  backLink: { 
+    paddingVertical: 8, 
+    paddingHorizontal: 16 
+  },
+  backLinkText: { 
+    color: colors.primaryContainer, 
+    fontFamily: fonts["700"], 
+    fontSize: 14 
+  },
 });

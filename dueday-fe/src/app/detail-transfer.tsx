@@ -4,6 +4,7 @@ import { getMe } from "@/api/users";
 import { API_BASE_URL } from "@/auth/api";
 import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
+import { exitFlowTo } from "@/constants/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { Camera } from "expo-camera";
@@ -115,6 +116,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
   const [copyLabel, setCopyLabel] = useState("Salin");
   const [refreshing, setRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialPaymentStatus);
   const hasNavigatedToSuccess = useRef(false);
 
@@ -195,6 +197,28 @@ export default function DetailTransferScreen(): React.JSX.Element {
     setCopyLabel("Disalin");
     setTimeout(() => setCopyLabel("Salin"), 3000);
   };
+
+  const handleCancelPayment = useCallback(async () => {
+    if (isCancelling) return;
+
+    if (!paymentId || !token) {
+      exitFlowTo("/profile");
+      return;
+    }
+
+    setIsCancelling(true);
+
+    try {
+      await apiFetch<void>(`/payments/${paymentId}`, token, {
+        method: "DELETE",
+      });
+      exitFlowTo("/profile");
+    } catch {
+      Alert.alert("Gagal membatalkan pembayaran", "Silakan coba lagi.");
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [isCancelling, paymentId, token]);
 
   const sendDecodedDataToBackend = async (scannedString: string) => {
     // Update the existing payment status to paid directly!
@@ -284,7 +308,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel="Kembali" onPress={() => router.back()}>
+        <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel="Kembali" onPress={() => exitFlowTo("/profile")}>
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
         <Text style={styles.headerTitle}>Detail Transfer</Text>
@@ -386,8 +410,8 @@ export default function DetailTransferScreen(): React.JSX.Element {
             </Text>
           </Pressable>
 
-          <Pressable style={styles.cancelButton} accessibilityRole="button" onPress={() => router.back()}>
-            <Text style={styles.cancelButtonText}>Kembali ke Menu Utama</Text>
+          <Pressable style={styles.cancelButton} accessibilityRole="button" onPress={() => void handleCancelPayment()} disabled={isCancelling}>
+            <Text style={styles.cancelButtonText}>{isCancelling ? "Membatalkan..." : "Batalkan Pembayaran"}</Text>
           </Pressable>
         </View>
       </ScrollView>

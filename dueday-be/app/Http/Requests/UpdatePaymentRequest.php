@@ -22,7 +22,7 @@ class UpdatePaymentRequest extends FormRequest
             'subscription_id' => 'sometimes|required|uuid|exists:subscriptions,id',
             'amount' => 'sometimes|nullable|numeric|min:0',
             'method' => 'sometimes|nullable|string|max:255',
-            'status' => 'sometimes|required|in:pending,paid,failed,refunded',
+            'status' => 'sometimes|required|in:pending,paid,failed',
         ];
     }
 }

@@ -14,9 +14,9 @@ class ActivityService
     {
         $data['user_id'] = $userId;
         $data['status'] = $data['status'] ?? 'not_started';
-        
+
         // Set anchor_date to the same value as tanggal if a repeat rule exists
-        if (!empty($data['ulangi']) && isset($data['tanggal'])) {
+        if (! empty($data['ulangi']) && isset($data['tanggal'])) {
             $data['anchor_date'] = $data['tanggal'];
         }
 
@@ -55,7 +55,7 @@ class ActivityService
 
         // 2. BROAD SPECTRUM LOOKUP: Accept any naming style or type from the frontend
         $ubahAnchorRaw = $data['ubah_anchor'] ?? $data['ubahAnchor'] ?? $data['change_anchor'] ?? false;
-        
+
         // Force string 'true', int 1, or boolean true into a strict true boolean primitive
         $ubahAnchorExplicitly = filter_var($ubahAnchorRaw, FILTER_VALIDATE_BOOLEAN);
 
@@ -64,7 +64,7 @@ class ActivityService
             if (array_key_exists('tanggal', $data)) {
                 $data['anchor_date'] = $data['tanggal'];
             }
-        } elseif (!empty($currentRepeatType) && $ubahAnchorExplicitly === true) {
+        } elseif (! empty($currentRepeatType) && $ubahAnchorExplicitly === true) {
             // Rule B: Weekly/Monthly/Yearly tasks align anchor ONLY if the frontend prompt was accepted
             // Use the newly changed date if provided; otherwise, fall back to the activity's current date
             $data['anchor_date'] = $data['tanggal'] ?? ($activity->tanggal?->format('Y-m-d'));
@@ -82,67 +82,26 @@ class ActivityService
 
     public function syncOngoingProgress(): int
     {
-        $updated = 0;
-
-        foreach ($this->activityRepository->getOngoingActivities() as $activity) {
-            if (! $activity->progress_started_at) {
-                $activity->progress_started_at = $this->inferProgressStartedAt($activity);
-            }
-
-            $nextProgress = $this->calculateProgress($activity);
-
-            $updates = [];
-
-            if ($activity->progress_started_at && $activity->isDirty('progress_started_at')) {
-                $updates['progress_started_at'] = $activity->progress_started_at;
-            }
-
-            if ($activity->progress !== $nextProgress) {
-                $updates['progress'] = $nextProgress;
-            }
-
-            if ($updates !== []) {
-                $this->activityRepository->update($activity->id, $updates);
-                $updated++;
-            }
-        }
-
-        $this->handleRecurringActivityResets();
-
-        return $updated;
+        // Disabled server-side progress sync — progress is computed on clients now.
+        return 0;
     }
 
     public function syncActivityProgress(Activity $activity): Activity
     {
-        if ($activity->status !== 'ongoing') {
-            return $activity;
-        }
-
-        if (! $activity->progress_started_at) {
-            $activity->progress_started_at = $this->inferProgressStartedAt($activity);
-        }
-
-        $activity->progress = $this->calculateProgress($activity);
-        $activity->save();
-
+        // Do not update progress on the server; clients compute progress instead.
         return $activity->load('tag');
     }
 
     public function calculateProgress(Activity $activity, ?Carbon $now = null): int
     {
-        return $this->calculateProgressFromStartAt(
-            $activity->tanggal?->format('Y-m-d'),
-            $activity->time_start,
-            $activity->time_end,
-            $activity->progress_started_at?->copy(),
-            $now,
-        );
+        // Return stored progress only. Progress calculation moved to frontend clients.
+        return (int) ($activity->progress ?? 0);
     }
 
     /**
      * Scan and push completed recurring tasks into their upcoming scheduled calendars.
      */
-    private function handleRecurringActivityResets(): void
+    public function handleRecurringActivityResets(): void
     {
         $completedRecurring = Activity::where('status', 'completed')
             ->whereNotNull('ulangi')
@@ -151,7 +110,7 @@ class ActivityService
         foreach ($completedRecurring as $activity) {
             // Using getRawOriginal ensures we get the clean 'YYYY-MM-DD' string directly from the DB
             $baseDateString = $activity->getRawOriginal('anchor_date') ?? $activity->getRawOriginal('tanggal');
-            
+
             if (! $baseDateString) {
                 continue;
             }
@@ -185,21 +144,21 @@ class ActivityService
 
                 // Completely isolating the array from Laravel's auto-serialization anomalies
                 $newCycleData = [
-                    'user_id'             => $activity->user_id,
-                    'id_tag'              => $activity->id_tag,
-                    'activity_name'       => $activity->activity_name,
-                    'deskripsi'           => $activity->deskripsi,
-                    'ulangi'              => $activity->ulangi,
-                    'time_start'          => $activity->time_start,
-                    'time_end'            => $activity->time_end,
-                    'tanggal'             => $targetDateString,
-                    'anchor_date'         => $targetDateString, // Explicit plain string injection
-                    'status'              => 'not_started',
-                    'progress'            => 0,
+                    'user_id' => $activity->user_id,
+                    'id_tag' => $activity->id_tag,
+                    'activity_name' => $activity->activity_name,
+                    'deskripsi' => $activity->deskripsi,
+                    'ulangi' => $activity->ulangi,
+                    'time_start' => $activity->time_start,
+                    'time_end' => $activity->time_end,
+                    'tanggal' => $targetDateString,
+                    'anchor_date' => $targetDateString, // Explicit plain string injection
+                    'status' => 'not_started',
+                    'progress' => 0,
                     'progress_started_at' => null,
                 ];
 
-                // 1. Create the new clean card entry 
+                // 1. Create the new clean card entry
                 $this->activityRepository->create($newCycleData);
 
                 // 2. Clear out the repetition flag on the old card so it acts as static history
@@ -233,6 +192,15 @@ class ActivityService
             }
 
             if ($status === 'pending' && $existingActivity) {
+                // If the client provided an explicit progress value, respect it (e.g., when pausing)
+                if (array_key_exists('progress', $data)) {
+                    $data['progress'] = (int) $data['progress'];
+                    // If client explicitly provided progress_started_at, respect it; otherwise clear it
+                    $data['progress_started_at'] = array_key_exists('progress_started_at', $data) ? $data['progress_started_at'] : null;
+
+                    return $data;
+                }
+
                 $data['progress'] = $this->calculateProgress($existingActivity);
                 $data['progress_started_at'] = null;
 
