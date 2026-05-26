@@ -11,13 +11,13 @@ test('authenticated user can create a task', function () {
     $response = $this
         ->actingAs($user)
         ->postJson('/api/tasks', [
-            'task_name' => 'Buy groceries',
-            'date' => '2026-05-20',
-            'time' => '14:30:00',
+            'name' => 'Buy groceries',
+            'due_date' => '2026-05-20',
+            'due_time' => '14:30:00',
             'priority' => 'high',
-            'id_tag' => $tag->id_tag,
+            'tag_id' => $tag->id,
             'source' => 'manual',
-            'deskripsi' => 'Buy milk, bread, and eggs',
+            'description' => 'Buy milk, bread, and eggs',
             'goals' => "- [+] Buy milk\n- [+] Buy bread\n- [ ] Buy eggs",
             'status' => 'ongoing',
         ]);
@@ -26,22 +26,22 @@ test('authenticated user can create a task', function () {
     $response->assertJsonStructure([
         'id',
         'user_id',
-        'task_name',
-        'date',
-        'time',
+        'name',
+        'due_date',
+        'due_time',
         'priority',
         'status',
         'source',
-        'deskripsi',
+        'description',
         'progress',
         'goals',
         'goal_points',
-        'id_tag',
+        'tag',
     ]);
 
     $this->assertDatabaseHas('tasks', [
-        'task_name' => 'Buy groceries',
-        'date' => '2026-05-20 00:00:00',
+        'name' => 'Buy groceries',
+        'due_date' => '2026-05-20 00:00:00',
     ]);
 });
 
@@ -51,11 +51,11 @@ test('task requires task_name', function () {
     $response = $this
         ->actingAs($user)
         ->postJson('/api/tasks', [
-            'date' => '2026-05-20',
+            'due_date' => '2026-05-20',
         ]);
 
     $response->assertStatus(422);
-    $response->assertJsonValidationErrors('task_name');
+    $response->assertJsonValidationErrors('name');
 });
 
 test('task requires deadline date', function () {
@@ -64,17 +64,17 @@ test('task requires deadline date', function () {
     $response = $this
         ->actingAs($user)
         ->postJson('/api/tasks', [
-            'task_name' => 'My task',
+            'name' => 'My task',
         ]);
 
     $response->assertStatus(422);
-    $response->assertJsonValidationErrors('date');
+    $response->assertJsonValidationErrors('due_date');
 });
 
 test('unauthenticated user cannot create task', function () {
     $response = $this->postJson('/api/tasks', [
-        'task_name' => 'My task',
-        'date' => '2026-05-20',
+        'name' => 'My task',
+        'due_date' => '2026-05-20',
     ]);
 
     $response->assertStatus(401);
@@ -86,22 +86,22 @@ test('authenticated user can get all their tasks', function () {
 
     $task1 = $user->tasks()->create([
         'id' => Str::uuid(),
-        'task_name' => 'Task 1',
-        'date' => '2026-05-20',
+        'name' => 'Task 1',
+        'due_date' => '2026-05-20',
         'priority' => 'high',
     ]);
 
     $task2 = $user->tasks()->create([
         'id' => Str::uuid(),
-        'task_name' => 'Task 2',
-        'date' => '2026-05-25',
+        'name' => 'Task 2',
+        'due_date' => '2026-05-25',
         'priority' => 'low',
     ]);
 
     $otherUserTask = $otherUser->tasks()->create([
         'id' => Str::uuid(),
-        'task_name' => 'Other task',
-        'date' => '2026-05-30',
+        'name' => 'Other task',
+        'due_date' => '2026-05-30',
         'priority' => 'medium',
     ]);
 
@@ -111,7 +111,7 @@ test('authenticated user can get all their tasks', function () {
 
     $response->assertStatus(200);
     expect($response->json())->toHaveCount(2);
-    expect($response->json('*.task_name'))->toContain('Task 1', 'Task 2');
+    expect($response->json('*.name'))->toContain('Task 1', 'Task 2');
 });
 
 test('authenticated user can get a specific task', function () {
@@ -119,8 +119,8 @@ test('authenticated user can get a specific task', function () {
 
     $task = $user->tasks()->create([
         'id' => Str::uuid(),
-        'task_name' => 'My task',
-        'date' => '2026-05-20',
+        'name' => 'My task',
+        'due_date' => '2026-05-20',
         'priority' => 'high',
     ]);
 
@@ -131,7 +131,7 @@ test('authenticated user can get a specific task', function () {
     $response->assertStatus(200);
     $response->assertJson([
         'id' => $task->id,
-        'task_name' => 'My task',
+        'name' => 'My task',
     ]);
 });
 
@@ -141,8 +141,8 @@ test('user cannot get another users task', function () {
 
     $task = $otherUser->tasks()->create([
         'id' => Str::uuid(),
-        'task_name' => 'Other task',
-        'date' => '2026-05-20',
+        'name' => 'Other task',
+        'due_date' => '2026-05-20',
         'priority' => 'high',
     ]);
 

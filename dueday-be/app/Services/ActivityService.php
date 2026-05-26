@@ -15,9 +15,18 @@ class ActivityService
         $data['user_id'] = $userId;
         $data['status'] = $data['status'] ?? 'not_started';
 
-        // Set anchor_date to the same value as tanggal if a repeat rule exists
-        if (! empty($data['ulangi']) && isset($data['tanggal'])) {
-            $data['anchor_date'] = $data['tanggal'];
+        // Accept both new English `recurrence` and legacy `ulangi`, normalize to English DB values
+        $recurrenceInput = $data['recurrence'] ?? $data['ulangi'] ?? null;
+        if (! empty($recurrenceInput)) {
+            $data['recurrence'] = $this->normalizeRecurrenceInput($recurrenceInput);
+        }
+
+        if (! empty($data['recurrence'])) {
+            if (isset($data['date'])) {
+                $data['anchor_date'] = $data['date'];
+            } elseif (isset($data['tanggal'])) {
+                $data['anchor_date'] = $data['tanggal'];
+            }
         }
 
         // For creation treat status as explicitly provided so transitions apply
@@ -51,7 +60,13 @@ class ActivityService
         }
 
         // 1. Resolve what the active repetition rule is (newly submitted or existing)
-        $currentRepeatType = array_key_exists('ulangi', $data) ? $data['ulangi'] : $activity->ulangi;
+        if (array_key_exists('recurrence', $data)) {
+            $currentRepeatType = $this->normalizeRecurrenceInput($data['recurrence']);
+        } elseif (array_key_exists('ulangi', $data)) {
+            $currentRepeatType = $this->normalizeRecurrenceInput($data['ulangi']);
+        } else {
+            $currentRepeatType = $this->normalizeRecurrenceInput($activity->recurrence ?? $activity->ulangi ?? null);
+        }
 
         // 2. BROAD SPECTRUM LOOKUP: Accept any naming style or type from the frontend
         $ubahAnchorRaw = $data['ubah_anchor'] ?? $data['ubahAnchor'] ?? $data['change_anchor'] ?? false;
@@ -59,15 +74,17 @@ class ActivityService
         // Force string 'true', int 1, or boolean true into a strict true boolean primitive
         $ubahAnchorExplicitly = filter_var($ubahAnchorRaw, FILTER_VALIDATE_BOOLEAN);
 
-        if ($currentRepeatType === 'setiap_hari') {
+        if ($currentRepeatType === 'setiap_hari' || $currentRepeatType === 'daily') {
             // Rule A: Daily tasks always automatically align anchor with the current date
-            if (array_key_exists('tanggal', $data)) {
+            if (array_key_exists('date', $data)) {
+                $data['anchor_date'] = $data['date'];
+            } elseif (array_key_exists('tanggal', $data)) {
                 $data['anchor_date'] = $data['tanggal'];
             }
         } elseif (! empty($currentRepeatType) && $ubahAnchorExplicitly === true) {
             // Rule B: Weekly/Monthly/Yearly tasks align anchor ONLY if the frontend prompt was accepted
             // Use the newly changed date if provided; otherwise, fall back to the activity's current date
-            $data['anchor_date'] = $data['tanggal'] ?? ($activity->tanggal?->format('Y-m-d'));
+            $data['anchor_date'] = $data['date'] ?? $data['tanggal'] ?? ($activity->date?->format('Y-m-d'));
         }
 
         // 3. Clean out all variance flags before updating the repository layer
@@ -104,12 +121,12 @@ class ActivityService
     public function handleRecurringActivityResets(): void
     {
         $completedRecurring = Activity::where('status', 'completed')
-            ->whereNotNull('ulangi')
+            ->whereNotNull('recurrence')
             ->get();
 
         foreach ($completedRecurring as $activity) {
             // Using getRawOriginal ensures we get the clean 'YYYY-MM-DD' string directly from the DB
-            $baseDateString = $activity->getRawOriginal('anchor_date') ?? $activity->getRawOriginal('tanggal');
+            $baseDateString = $activity->getRawOriginal('anchor_date') ?? $activity->getRawOriginal('date');
 
             if (! $baseDateString) {
                 continue;
@@ -118,16 +135,20 @@ class ActivityService
             $baseDate = Carbon::parse($baseDateString);
             $nextAnchorDate = $baseDate->copy();
 
-            switch ($activity->ulangi) {
+            switch ($activity->recurrence ?? $activity->ulangi) {
+                case 'daily':
                 case 'setiap_hari':
                     $nextAnchorDate->addDay();
                     break;
+                case 'weekly':
                 case 'satu_minggu':
                     $nextAnchorDate->addWeek();
                     break;
+                case 'monthly':
                 case 'satu_bulan':
                     $nextAnchorDate->addMonth();
                     break;
+                case 'yearly':
                 case 'satu_tahun':
                     $nextAnchorDate->addYear();
                     break;
@@ -137,28 +158,28 @@ class ActivityService
 
             $alreadyExists = Activity::query()
                 ->where('user_id', $activity->user_id)
-                ->where('activity_name', $activity->activity_name)
-                ->where('tanggal', $targetDateString)
+                ->where('name', $activity->name)
+                ->where('date', $targetDateString)
                 ->where('time_start', $activity->time_start)
                 ->where('time_end', $activity->time_end)
-                ->where('ulangi', $activity->ulangi)
+                ->where('recurrence', $activity->recurrence ?? $activity->ulangi)
                 ->exists();
 
             if ($alreadyExists) {
-                $this->activityRepository->update($activity->id, ['ulangi' => null]);
+                $this->activityRepository->update($activity->id, ['recurrence' => null, 'ulangi' => null]);
                 continue;
             }
 
             // Completely isolating the array from Laravel's auto-serialization anomalies
             $newCycleData = [
                 'user_id' => $activity->user_id,
-                'id_tag' => $activity->id_tag,
-                'activity_name' => $activity->activity_name,
-                'deskripsi' => $activity->deskripsi,
-                'ulangi' => $activity->ulangi,
+                'tag_id' => $activity->tag_id ?? $activity->id_tag,
+                'name' => $activity->name ?? $activity->activity_name,
+                'description' => $activity->description ?? $activity->deskripsi,
+                'recurrence' => $activity->recurrence ?? $activity->ulangi,
                 'time_start' => $activity->time_start,
                 'time_end' => $activity->time_end,
-                'tanggal' => $targetDateString,
+                'date' => $targetDateString,
                 'anchor_date' => $targetDateString, // Explicit plain string injection
                 'status' => 'not_started',
                 'progress' => 0,
@@ -169,8 +190,30 @@ class ActivityService
             $this->activityRepository->create($newCycleData);
 
             // 2. Clear out the repetition flag on the old card so it acts as static history
-            $this->activityRepository->update($activity->id, ['ulangi' => null]);
+            $this->activityRepository->update($activity->id, ['recurrence' => null, 'ulangi' => null]);
         }
+    }
+
+    private function normalizeRecurrenceInput(?string $val): ?string
+    {
+        if ($val === null) {
+            return null;
+        }
+
+        $map = [
+            // map English -> English (DB)
+            'daily' => 'daily',
+            'weekly' => 'weekly',
+            'monthly' => 'monthly',
+            'yearly' => 'yearly',
+            // accept Indonesian legacy values -> map to English DB values
+            'setiap_hari' => 'daily',
+            'satu_minggu' => 'weekly',
+            'satu_bulan' => 'monthly',
+            'satu_tahun' => 'yearly',
+        ];
+
+        return $map[$val] ?? null;
     }
 
     private function applyStatusTransition(string $status, array $data, ?Activity $existingActivity, bool $statusProvided = false): array
@@ -218,7 +261,7 @@ class ActivityService
 
                 if ($existingActivity && $existingActivity->status === 'pending' && $existingProgress > 0) {
                     $totalSeconds = $this->getTotalDurationSeconds(
-                        $data['tanggal'] ?? $existingActivity->tanggal?->format('Y-m-d'),
+                        $data['date'] ?? $data['tanggal'] ?? $existingActivity->date?->format('Y-m-d'),
                         $data['time_start'] ?? $existingActivity->time_start,
                         $data['time_end'] ?? $existingActivity->time_end,
                     );
@@ -287,7 +330,7 @@ class ActivityService
     private function inferProgressStartedAt(Activity $activity): Carbon
     {
         $totalSeconds = $this->getTotalDurationSeconds(
-            $activity->tanggal?->format('Y-m-d'),
+            $activity->date?->format('Y-m-d') ?? $activity->tanggal?->format('Y-m-d'),
             $activity->time_start,
             $activity->time_end,
         );

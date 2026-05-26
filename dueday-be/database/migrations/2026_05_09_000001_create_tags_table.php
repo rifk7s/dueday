@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('tags', function (Blueprint $table) {
-            $table->id('id_tag');
-            $table->string('nama_tag');
+            $table->id();
+            $table->string('name');
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();
         });

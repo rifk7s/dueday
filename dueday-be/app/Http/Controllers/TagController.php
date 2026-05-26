@@ -24,7 +24,7 @@ class TagController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'nama_tag' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
         ]);
 
         $tag = $this->tagService->createTag($data);
@@ -35,7 +35,7 @@ class TagController extends Controller
     public function update(Request $request, Tag $tag)
     {
         $data = $request->validate([
-            'nama_tag' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
         ]);
 
         $updated = $this->tagService->updateTag($tag->{$tag->getKeyName()}, $data);

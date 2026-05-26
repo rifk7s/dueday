@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['id', 'user_id', 'id_tag', 'activity_name', 'tanggal', 'anchor_date', 'time_start', 'time_end', 'status', 'progress', 'progress_started_at', 'deskripsi', 'ulangi'])]
+#[Fillable(['id', 'user_id', 'tag_id', 'name', 'date', 'anchor_date', 'time_start', 'time_end', 'status', 'progress', 'progress_started_at', 'description', 'recurrence'])]
 class Activity extends Model
 {
     use HasFactory;
@@ -24,12 +24,12 @@ class Activity extends Model
     protected function casts(): array
     {
         return [
-            'tanggal' => 'date',
+            'date' => 'date',
             'anchor_date' => 'date',
             'progress' => 'integer',
             'progress_started_at' => 'datetime',
             'user_id' => 'string',
-            'id_tag' => 'integer',
+            'tag_id' => 'integer',
         ];
     }
 
@@ -46,6 +46,6 @@ class Activity extends Model
      */
     public function tag(): BelongsTo
     {
-        return $this->belongsTo(Tag::class, 'id_tag', 'id_tag');
+        return $this->belongsTo(Tag::class, 'tag_id', 'id');
     }
 }

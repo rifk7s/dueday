@@ -14,16 +14,16 @@ class StoreActivityRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'activity_name' => 'required|string|max:255',
-            'tanggal' => 'nullable|date',
+            'name' => 'required|string|max:255',
+            'date' => 'nullable|date',
             'anchor_date' => 'sometimes|nullable|date',
             'time_start' => 'nullable|date_format:H:i:s',
             'time_end' => 'nullable|date_format:H:i:s',
-            'id_tag' => 'nullable|integer|exists:tags,id_tag',
+            'tag_id' => 'nullable|integer|exists:tags,id',
             'status' => 'nullable|in:not_started,ongoing,pending,completed,cancelled',
             'progress' => 'nullable|integer|min:0|max:100',
-            'deskripsi' => 'nullable|string',
-            'ulangi' => 'nullable|in:setiap_hari,satu_minggu,satu_bulan,satu_tahun',
+            'description' => 'nullable|string',
+            'recurrence' => 'nullable|in:daily,weekly,monthly,yearly',
         ];
     }
 }

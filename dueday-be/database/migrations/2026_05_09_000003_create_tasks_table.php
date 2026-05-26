@@ -14,21 +14,21 @@ return new class extends Migration
         Schema::create('tasks', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->uuid('user_id');
-            $table->integer('id_tag')->nullable();
-            $table->string('task_name');
-            $table->date('date')->nullable();
-            $table->time('time')->nullable();
+            $table->unsignedBigInteger('tag_id')->nullable();
+            $table->string('name');
+            $table->date('due_date')->nullable();
+            $table->time('due_time')->nullable();
             $table->string('priority')->nullable();
             $table->enum('status', ['ongoing', 'completed'])->default('ongoing');
             $table->string('source')->nullable();
-            $table->text('deskripsi')->nullable();
+            $table->text('description')->nullable();
             $table->integer('progress')->default(0);
-            $table->enum('ulangi', ['setiap_hari', 'satu_minggu', 'satu_bulan', 'satu_tahun'])->nullable();
+            $table->enum('recurrence', ['daily','weekly','monthly','yearly'])->nullable();
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('id_tag')->references('id_tag')->on('tags')->onDelete('set null');
+            $table->foreign('tag_id')->references('id')->on('tags')->onDelete('set null');
         });
     }
 

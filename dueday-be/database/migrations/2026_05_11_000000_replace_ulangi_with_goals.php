@@ -12,12 +12,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tasks', function (Blueprint $table) {
-            // Drop the ulangi column
-            $table->dropColumn('ulangi');
-            
-            // Add new goals columns
-            $table->text('goals')->nullable()->after('deskripsi');
-            $table->json('goal_points')->nullable()->after('goals');
+            if (Schema::hasColumn('tasks', 'ulangi')) {
+                $table->dropColumn('ulangi');
+            }
+
+            if (! Schema::hasColumn('tasks', 'goals')) {
+                $table->text('goals')->nullable();
+            }
+
+            if (! Schema::hasColumn('tasks', 'goal_points')) {
+                $table->json('goal_points')->nullable();
+            }
         });
     }
 
@@ -27,11 +32,17 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('tasks', function (Blueprint $table) {
-            // Drop the new columns
-            $table->dropColumn(['goals', 'goal_points']);
-            
-            // Re-add ulangi column
-            $table->enum('ulangi', ['setiap_hari', 'satu_minggu', 'satu_bulan', 'satu_tahun'])->nullable()->after('deskripsi');
+            if (Schema::hasColumn('tasks', 'goals')) {
+                $table->dropColumn('goals');
+            }
+
+            if (Schema::hasColumn('tasks', 'goal_points')) {
+                $table->dropColumn('goal_points');
+            }
+
+            if (! Schema::hasColumn('tasks', 'ulangi')) {
+                $table->enum('ulangi', ['setiap_hari', 'satu_minggu', 'satu_bulan', 'satu_tahun'])->nullable();
+            }
         });
     }
 };

@@ -1,6 +1,6 @@
 import { apiFetch } from "./client";
 import type { Tag } from "./tags";
-import { mockTags } from "./tags";
+import { mapBackendTagToLegacy, mockTags } from "./tags";
 
 export type UlangiType =
   | "setiap_hari"
@@ -31,6 +31,38 @@ export type Activity = {
   updated_at: string;
 };
 
+type BackendRecurrenceType = "daily" | "weekly" | "monthly" | "yearly";
+
+type BackendActivity = {
+  id: string;
+  user_id: string;
+  tag_id: number | null;
+  name: string;
+  date: string | null;
+  time_start: string | null;
+  time_end: string | null;
+  status: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
+  progress: number;
+  progress_started_at?: string | null;
+  description: string | null;
+  reminder_message: string | null;
+  reminder_style?: string | null;
+  reminder_sound?: string | null;
+  reminder_frequency?: "once" | "daily" | "weekly" | null;
+  reminder_vibrate?: boolean | null;
+  recurrence: BackendRecurrenceType | null;
+  tag:
+    | {
+        id: number;
+        name: string;
+        created_at: string;
+        updated_at: string;
+      }
+    | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type NewActivity = {
   activity_name: string;
   tanggal?: string;
@@ -47,9 +79,28 @@ export type NewActivity = {
   status?: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
   progress?: number;
   progress_started_at?: string | null;
+  ubah_anchor?: boolean;
 };
 
 export type UpdateActivity = Partial<NewActivity>;
+
+type BackendActivityPayload = {
+  name?: string;
+  date?: string;
+  time_start?: string;
+  time_end?: string;
+  tag_id?: number | null;
+  recurrence?: BackendRecurrenceType;
+  description?: string;
+  reminder_message?: string | null;
+  reminder_style?: string | null;
+  reminder_sound?: string | null;
+  reminder_frequency?: "once" | "daily" | "weekly" | null;
+  reminder_vibrate?: boolean | null;
+  status?: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
+  progress?: number;
+  progress_started_at?: string | null;
+};
 
 export const ULANGI_API_MAP: Partial<Record<string, UlangiType>> = {
   Harian: "setiap_hari",
@@ -66,6 +117,20 @@ export const ULANGI_DISPLAY: Record<UlangiType, string> = {
 };
 
 const MOCK_API = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
+
+const backendToLegacyRecurrence: Record<BackendRecurrenceType, UlangiType> = {
+  daily: "setiap_hari",
+  weekly: "satu_minggu",
+  monthly: "satu_bulan",
+  yearly: "satu_tahun",
+};
+
+const legacyToBackendRecurrence: Record<UlangiType, BackendRecurrenceType> = {
+  setiap_hari: "daily",
+  satu_minggu: "weekly",
+  satu_bulan: "monthly",
+  satu_tahun: "yearly",
+};
 
 let mockStore: Activity[] = [
   {
@@ -95,11 +160,62 @@ function generateId(): string {
   return `mock-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function mapBackendActivityToLegacy(activity: BackendActivity): Activity {
+  return {
+    id: activity.id,
+    user_id: activity.user_id,
+    id_tag: activity.tag_id,
+    activity_name: activity.name,
+    tanggal: activity.date,
+    time_start: activity.time_start,
+    time_end: activity.time_end,
+    status: activity.status,
+    progress: activity.progress,
+    progress_started_at: activity.progress_started_at,
+    deskripsi: activity.description,
+    reminder_message: activity.reminder_message,
+    reminder_style: activity.reminder_style,
+    reminder_sound: activity.reminder_sound,
+    reminder_frequency: activity.reminder_frequency,
+    reminder_vibrate: activity.reminder_vibrate,
+    ulangi: activity.recurrence ? backendToLegacyRecurrence[activity.recurrence] : null,
+    tag: activity.tag ? mapBackendTagToLegacy(activity.tag) : null,
+    created_at: activity.created_at,
+    updated_at: activity.updated_at,
+  };
+}
+
+function mapLegacyActivityInputToBackendPayload(
+  input: Partial<NewActivity>,
+): BackendActivityPayload {
+  const payload: BackendActivityPayload = {};
+
+  if (input.activity_name !== undefined) payload.name = input.activity_name;
+  if (input.tanggal !== undefined) payload.date = input.tanggal;
+  if (input.time_start !== undefined) payload.time_start = input.time_start;
+  if (input.time_end !== undefined) payload.time_end = input.time_end;
+  if (input.id_tag !== undefined) payload.tag_id = input.id_tag;
+  if (input.ulangi !== undefined) payload.recurrence = legacyToBackendRecurrence[input.ulangi];
+  if (input.deskripsi !== undefined) payload.description = input.deskripsi;
+  if (input.reminder_message !== undefined) payload.reminder_message = input.reminder_message;
+  if (input.reminder_style !== undefined) payload.reminder_style = input.reminder_style;
+  if (input.reminder_sound !== undefined) payload.reminder_sound = input.reminder_sound;
+  if (input.reminder_frequency !== undefined) payload.reminder_frequency = input.reminder_frequency;
+  if (input.reminder_vibrate !== undefined) payload.reminder_vibrate = input.reminder_vibrate;
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.progress !== undefined) payload.progress = input.progress;
+  if (input.progress_started_at !== undefined) payload.progress_started_at = input.progress_started_at;
+  if (input.ubah_anchor !== undefined) payload.ubah_anchor = input.ubah_anchor;
+
+  return payload;
+}
+
 export async function listActivities(
   token: string | null,
 ): Promise<Activity[]> {
   if (MOCK_API) return [...mockStore];
-  return apiFetch<Activity[]>("/activities", token);
+  const activities = await apiFetch<BackendActivity[]>("/activities", token);
+  return activities.map(mapBackendActivityToLegacy);
 }
 
 export async function getActivity(
@@ -113,7 +229,8 @@ export async function getActivity(
     }
     return activity;
   }
-  return apiFetch<Activity>(`/activities/${id}`, token);
+  const activity = await apiFetch<BackendActivity>(`/activities/${id}`, token);
+  return mapBackendActivityToLegacy(activity);
 }
 
 export async function createActivity(
@@ -144,10 +261,12 @@ export async function createActivity(
     mockStore = [...mockStore, activity];
     return activity;
   }
-  return apiFetch<Activity>("/activities", token, {
+  const payload = mapLegacyActivityInputToBackendPayload(input);
+  const activity = await apiFetch<BackendActivity>("/activities", token, {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify(payload),
   });
+  return mapBackendActivityToLegacy(activity);
 }
 
 export async function updateActivity(
@@ -179,10 +298,12 @@ export async function updateActivity(
     return next;
   }
 
-  return apiFetch<Activity>(`/activities/${id}`, token, {
+  const payload = mapLegacyActivityInputToBackendPayload(input);
+  const activity = await apiFetch<BackendActivity>(`/activities/${id}`, token, {
     method: "PATCH",
-    body: JSON.stringify(input),
+    body: JSON.stringify(payload),
   });
+  return mapBackendActivityToLegacy(activity);
 }
 
 export async function deleteActivity(

@@ -17,22 +17,22 @@ class TaskResource extends JsonResource
     {
         $isOverdue = false;
 
-        if ($this->date) {
-            $dueDate = Carbon::parse($this->date->toDateString() . ' ' . ($this->time ?? '00:00:00'));
+        if ($this->due_date) {
+            $dueDate = Carbon::parse($this->due_date->toDateString() . ' ' . ($this->due_time ?? '00:00:00'));
             $isOverdue = $dueDate->lt(now()) && ! in_array($this->status, ['completed', 'completed_late'], true);
         }
 
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
-            'id_tag' => $this->id_tag,
-            'task_name' => $this->task_name,
-            'date' => $this->date,
-            'time' => $this->time,
+            'tag_id' => $this->tag_id,
+            'name' => $this->name,
+            'due_date' => $this->due_date,
+            'due_time' => $this->due_time,
             'priority' => $this->priority,
             'status' => $this->status,
             'source' => $this->source,
-            'deskripsi' => $this->deskripsi,
+            'description' => $this->description,
             'progress' => $this->progress,
             'goals' => $this->goals,
             'goal_points' => $this->goal_points,
