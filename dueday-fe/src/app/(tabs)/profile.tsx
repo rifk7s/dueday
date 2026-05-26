@@ -193,7 +193,7 @@ export default function ProfileScreen(): React.JSX.Element {
     item.label === "Upgrade to Premium"
       ? {
           ...item,
-          label: isPremium ? "Extend Premium" : item.label,
+          label: isPremium ? "Premium" : item.label,
           value: isPremium
             ? (premiumExpiryLabel ? `Sampai ${premiumExpiryLabel}` : "Aktif")
             : item.value,

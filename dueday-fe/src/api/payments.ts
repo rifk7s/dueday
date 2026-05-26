@@ -7,6 +7,8 @@ export type PaymentMethod = {
 
 export type PlanValue = "satu_bulan" | "tiga_bulan" | "satu_tahun";
 
+export type PremiumMode = "upgrade" | "extend" | "view";
+
 export type CreateSubscriptionInput = {
   plan: PlanValue;
   status: "active" | "expired" | "cancelled" | "pending";
@@ -29,7 +31,8 @@ export type CreatePaymentInput = {
   subscription_id: string;
   amount: number;
   method: string;
-  status: "pending" | "paid" | "failed" | "refunded";
+  status: "pending" | "paid" | "failed";
+  plan?: PlanValue;
 };
 
 export type Payment = {
@@ -38,7 +41,8 @@ export type Payment = {
   subscription_id: string;
   amount: number;
   method: string | null;
-  status: "pending" | "paid" | "failed" | "refunded";
+  status: "pending" | "paid" | "failed";
+  plan: PlanValue | null;
   created_at: string;
   updated_at: string;
 };
@@ -107,6 +111,7 @@ export async function createPaymentFlow(
     amount: input.amount,
     method: input.method.id,
     status: "pending",
+    plan: input.plan,
   });
 }
 
@@ -119,12 +124,21 @@ export async function createExtendPaymentFlow(
     amount: input.amount,
     method: input.method.id,
     status: "pending",
+    plan: input.plan,
   });
 }
 
 export async function getActiveSubscription(token: string): Promise<Subscription | null> {
   const subscriptions = await apiFetch<Subscription[]>('/subscriptions', token);
-  return subscriptions.find((subscription) => subscription.status === 'active' && subscription.plan != null) ?? null;
+  // Pick the active subscription with the latest expiry — deterministic across users
+  // who might end up with multiple active rows (race, stale data, manual seed).
+  const active = subscriptions
+    .filter((subscription) => subscription.status === 'active' && subscription.plan != null)
+    .sort(
+      (a, b) =>
+        new Date(b.expired_at ?? 0).getTime() - new Date(a.expired_at ?? 0).getTime(),
+    );
+  return active[0] ?? null;
 }
 
 export async function getPendingPaymentTransferParams(
@@ -139,14 +153,40 @@ export async function getPendingPaymentTransferParams(
 
   const subscriptions = await apiFetch<Subscription[]>("/subscriptions", token);
   const subscription = subscriptions.find((item) => item.id === pendingPayment.subscription_id);
-  const amount = Number(pendingPayment.amount) || 0;
+  return buildPendingPaymentTransferParams(pendingPayment, subscription ?? null);
+}
 
-  const plan: PlanValue = subscription?.plan ?? "satu_bulan";
+// Double-tap guard for the extend flow. Returns params for an existing pending payment
+// on this subscription so the caller can navigate instead of creating a duplicate row.
+export async function findPendingExtendPaymentParams(
+  token: string,
+  subscription: Subscription,
+): Promise<PendingPaymentTransferParams | null> {
+  const payments = await apiFetch<Payment[]>("/payments", token);
+  const pendingPayment = payments.find(
+    (payment) => payment.status === "pending" && payment.subscription_id === subscription.id,
+  );
+
+  if (!pendingPayment) {
+    return null;
+  }
+
+  return buildPendingPaymentTransferParams(pendingPayment, subscription);
+}
+
+function buildPendingPaymentTransferParams(
+  payment: Payment,
+  subscription: Subscription | null,
+): PendingPaymentTransferParams {
+  const amount = Number(payment.amount) || 0;
+  // Prefer the plan persisted on the payment row itself (set at create time, source of truth
+  // for the user's actual selection). Fall back to the subscription's plan for legacy rows.
+  const plan: PlanValue = payment.plan ?? subscription?.plan ?? "satu_bulan";
 
   return {
-    paymentId: pendingPayment.id,
-    paymentStatus: pendingPayment.status,
-    methodId: pendingPayment.method || "bca",
+    paymentId: payment.id,
+    paymentStatus: payment.status,
+    methodId: payment.method || "bca",
     plan,
     planName: planLabel(plan),
     planPrice: formatCurrency(amount),
@@ -189,13 +229,13 @@ export function formatCurrency(amount: number): string {
 }
 
 
-const SHORT_MONTHS_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTH_LABELS_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agt", "Sep", "Okt", "Nov", "Des"];
 
-export function formatDateLabel(value: string | null | undefined): string | null {
-  if (!value) return null;
+export function formatDateLabel(value: string | null | undefined): string {
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${date.getDate()} ${SHORT_MONTHS_ID[date.getMonth()]} ${date.getFullYear()}`;
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getDate()} ${MONTH_LABELS_ID[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 export function formatSqlDateTime(date: Date): string {

@@ -10,9 +10,7 @@ use App\Services\ActivityService;
 
 class ActivityController extends Controller
 {
-    public function __construct(private ActivityService $activityService)
-    {
-    }
+    public function __construct(private ActivityService $activityService) {}
 
     public function index()
     {
@@ -49,7 +47,7 @@ class ActivityController extends Controller
             return response(['message' => 'Activity not found or not owned by user'], 404);
         }
 
-        if ($activity->status === 'completed' && $activity->ulangi) {
+        if ($activity->status === 'completed' && $activity->recurrence) {
             $this->activityService->handleRecurringActivityResets();
         }
 

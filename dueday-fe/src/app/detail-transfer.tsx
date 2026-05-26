@@ -7,6 +7,9 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { exitFlowTo } from "@/constants/navigation";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
+// Legacy `Camera` class is kept for `Camera.scanFromURLAsync` (QR-from-image).
+// SDK 54's `CameraView` does NOT expose this — only live-stream barcode scanning
+// via `onBarcodeScanned`. Migrate when Expo provides a replacement.
 import { Camera } from "expo-camera";
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
@@ -75,11 +78,6 @@ const paymentStatusMeta: Record<
     title: "Pembayaran ditolak",
     description: "Admin menolak pembayaran ini. Silakan cek ulang atau lakukan pembayaran ulang.",
     color: colors.error,
-  },
-  refunded: {
-    title: "Pembayaran dikembalikan",
-    description: "Pembayaran ini sudah dibatalkan dan dikembalikan.",
-    color: colors.primaryContainer,
   },
   unknown: {
     title: "Menunggu status pembayaran",
@@ -163,8 +161,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
   useEffect(() => {
     void refreshPaymentStatus();
 
-    const isTerminal =
-      paymentStatus === "paid" || paymentStatus === "failed" || paymentStatus === "refunded";
+    const isTerminal = paymentStatus === "paid" || paymentStatus === "failed";
 
     if (!paymentId || !token || isTerminal) return;
 

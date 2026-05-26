@@ -15,17 +15,11 @@ class ActivityService
         $data['user_id'] = $userId;
         $data['status'] = $data['status'] ?? 'not_started';
 
-        // Accept both new English `recurrence` and legacy `ulangi`, normalize to English DB values
-        $recurrenceInput = $data['recurrence'] ?? $data['ulangi'] ?? null;
-        if (! empty($recurrenceInput)) {
-            $data['recurrence'] = $this->normalizeRecurrenceInput($recurrenceInput);
-        }
-
         if (! empty($data['recurrence'])) {
+            $data['recurrence'] = $this->normalizeRecurrenceInput($data['recurrence']);
+
             if (isset($data['date'])) {
                 $data['anchor_date'] = $data['date'];
-            } elseif (isset($data['tanggal'])) {
-                $data['anchor_date'] = $data['tanggal'];
             }
         }
 
@@ -60,35 +54,24 @@ class ActivityService
         }
 
         // 1. Resolve what the active repetition rule is (newly submitted or existing)
-        if (array_key_exists('recurrence', $data)) {
-            $currentRepeatType = $this->normalizeRecurrenceInput($data['recurrence']);
-        } elseif (array_key_exists('ulangi', $data)) {
-            $currentRepeatType = $this->normalizeRecurrenceInput($data['ulangi']);
-        } else {
-            $currentRepeatType = $this->normalizeRecurrenceInput($activity->recurrence ?? $activity->ulangi ?? null);
-        }
+        $currentRepeatType = array_key_exists('recurrence', $data)
+            ? $this->normalizeRecurrenceInput($data['recurrence'])
+            : $this->normalizeRecurrenceInput($activity->recurrence);
 
-        // 2. BROAD SPECTRUM LOOKUP: Accept any naming style or type from the frontend
-        $ubahAnchorRaw = $data['ubah_anchor'] ?? $data['ubahAnchor'] ?? $data['change_anchor'] ?? false;
+        $ubahAnchorExplicitly = filter_var($data['ubah_anchor'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-        // Force string 'true', int 1, or boolean true into a strict true boolean primitive
-        $ubahAnchorExplicitly = filter_var($ubahAnchorRaw, FILTER_VALIDATE_BOOLEAN);
-
-        if ($currentRepeatType === 'setiap_hari' || $currentRepeatType === 'daily') {
+        if ($currentRepeatType === 'daily') {
             // Rule A: Daily tasks always automatically align anchor with the current date
             if (array_key_exists('date', $data)) {
                 $data['anchor_date'] = $data['date'];
-            } elseif (array_key_exists('tanggal', $data)) {
-                $data['anchor_date'] = $data['tanggal'];
             }
         } elseif (! empty($currentRepeatType) && $ubahAnchorExplicitly === true) {
             // Rule B: Weekly/Monthly/Yearly tasks align anchor ONLY if the frontend prompt was accepted
-            // Use the newly changed date if provided; otherwise, fall back to the activity's current date
-            $data['anchor_date'] = $data['date'] ?? $data['tanggal'] ?? ($activity->date?->format('Y-m-d'));
+            $data['anchor_date'] = $data['date'] ?? $activity->date?->format('Y-m-d');
         }
 
-        // 3. Clean out all variance flags before updating the repository layer
-        unset($data['ubah_anchor'], $data['ubahAnchor'], $data['change_anchor']);
+        // 3. Clean out the variance flag before updating the repository layer
+        unset($data['ubah_anchor']);
 
         $nextStatus = $data['status'] ?? $activity->status;
         $statusProvided = array_key_exists('status', $data);
@@ -135,21 +118,17 @@ class ActivityService
             $baseDate = Carbon::parse($baseDateString);
             $nextAnchorDate = $baseDate->copy();
 
-            switch ($activity->recurrence ?? $activity->ulangi) {
+            switch ($activity->recurrence) {
                 case 'daily':
-                case 'setiap_hari':
                     $nextAnchorDate->addDay();
                     break;
                 case 'weekly':
-                case 'satu_minggu':
                     $nextAnchorDate->addWeek();
                     break;
                 case 'monthly':
-                case 'satu_bulan':
                     $nextAnchorDate->addMonth();
                     break;
                 case 'yearly':
-                case 'satu_tahun':
                     $nextAnchorDate->addYear();
                     break;
             }
@@ -162,25 +141,25 @@ class ActivityService
                 ->where('date', $targetDateString)
                 ->where('time_start', $activity->time_start)
                 ->where('time_end', $activity->time_end)
-                ->where('recurrence', $activity->recurrence ?? $activity->ulangi)
+                ->where('recurrence', $activity->recurrence)
                 ->exists();
 
             if ($alreadyExists) {
-                $this->activityRepository->update($activity->id, ['recurrence' => null, 'ulangi' => null]);
+                $this->activityRepository->update($activity->id, ['recurrence' => null]);
+
                 continue;
             }
 
-            // Completely isolating the array from Laravel's auto-serialization anomalies
             $newCycleData = [
                 'user_id' => $activity->user_id,
-                'tag_id' => $activity->tag_id ?? $activity->id_tag,
-                'name' => $activity->name ?? $activity->activity_name,
-                'description' => $activity->description ?? $activity->deskripsi,
-                'recurrence' => $activity->recurrence ?? $activity->ulangi,
+                'tag_id' => $activity->tag_id,
+                'name' => $activity->name,
+                'description' => $activity->description,
+                'recurrence' => $activity->recurrence,
                 'time_start' => $activity->time_start,
                 'time_end' => $activity->time_end,
                 'date' => $targetDateString,
-                'anchor_date' => $targetDateString, // Explicit plain string injection
+                'anchor_date' => $targetDateString,
                 'status' => 'not_started',
                 'progress' => 0,
                 'progress_started_at' => null,
@@ -190,7 +169,7 @@ class ActivityService
             $this->activityRepository->create($newCycleData);
 
             // 2. Clear out the repetition flag on the old card so it acts as static history
-            $this->activityRepository->update($activity->id, ['recurrence' => null, 'ulangi' => null]);
+            $this->activityRepository->update($activity->id, ['recurrence' => null]);
         }
     }
 
@@ -261,7 +240,7 @@ class ActivityService
 
                 if ($existingActivity && $existingActivity->status === 'pending' && $existingProgress > 0) {
                     $totalSeconds = $this->getTotalDurationSeconds(
-                        $data['date'] ?? $data['tanggal'] ?? $existingActivity->date?->format('Y-m-d'),
+                        $data['date'] ?? $existingActivity->date?->format('Y-m-d'),
                         $data['time_start'] ?? $existingActivity->time_start,
                         $data['time_end'] ?? $existingActivity->time_end,
                     );
@@ -330,7 +309,7 @@ class ActivityService
     private function inferProgressStartedAt(Activity $activity): Carbon
     {
         $totalSeconds = $this->getTotalDurationSeconds(
-            $activity->date?->format('Y-m-d') ?? $activity->tanggal?->format('Y-m-d'),
+            $activity->date?->format('Y-m-d'),
             $activity->time_start,
             $activity->time_end,
         );

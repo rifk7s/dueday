@@ -5,6 +5,7 @@ import {
   planDurationFor,
   planLabel,
   type PlanValue,
+  type PremiumMode,
   type Subscription,
 } from "@/api/payments";
 import { useSession } from "@/auth/ctx";
@@ -75,9 +76,9 @@ const plans: PlanItem[] = [
 
 export default function PremiumPlanScreen(): React.JSX.Element {
   const router = useRouter();
-  const params = useLocalSearchParams<{ mode?: string }>();
-  const isViewMode = params.mode === "view";
-  const isExtendMode = params.mode === "extend";
+  const { mode = "upgrade" } = useLocalSearchParams<{ mode?: PremiumMode }>();
+  const isViewMode = mode === "view";
+  const isExtendMode = mode === "extend";
   const { token, user } = useSession();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   const { top, bottom } = useSafeAreaInsets();

@@ -57,7 +57,6 @@ export default function CreateActivityPage() {
 
   const mutation = useCreateActivityMutation();
   const tagId = useTagIdByName(tag);
-  const [validationError, setValidationError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
 
@@ -97,8 +96,6 @@ export default function CreateActivityPage() {
       scrollRef.current?.scrollTo?.({ y: 0, animated: true });
       return;
     }
-    setFieldErrors({});
-    setValidationError("");
     setFieldErrors({});
 
     const payload: Parameters<typeof mutation.mutate>[0] = {

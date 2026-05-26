@@ -24,6 +24,7 @@ class StoreActivityRequest extends FormRequest
             'progress' => 'nullable|integer|min:0|max:100',
             'description' => 'nullable|string',
             'recurrence' => 'nullable|in:daily,weekly,monthly,yearly',
+            'ubah_anchor' => 'sometimes|boolean',
         ];
     }
 }

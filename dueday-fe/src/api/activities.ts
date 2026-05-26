@@ -100,6 +100,7 @@ type BackendActivityPayload = {
   status?: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
   progress?: number;
   progress_started_at?: string | null;
+  ubah_anchor?: boolean;
 };
 
 export const ULANGI_API_MAP: Partial<Record<string, UlangiType>> = {

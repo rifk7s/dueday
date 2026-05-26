@@ -23,6 +23,7 @@ class StorePaymentRequest extends FormRequest
             'amount' => 'nullable|numeric|min:0',
             'method' => 'nullable|string|max:255',
             'status' => 'required|in:pending,paid,failed',
+            'plan' => 'sometimes|nullable|string|in:satu_bulan,tiga_bulan,satu_tahun',
         ];
     }
 }

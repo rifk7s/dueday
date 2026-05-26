@@ -721,6 +721,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
+    // RN 0.76+ universal boxShadow renders the drop shadow on web (where
+    // shadowColor/shadowOffset/etc are ignored). Native still uses the iOS
+    // shadow props + Android elevation below.
+    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.12)",
     shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowRadius: 10,

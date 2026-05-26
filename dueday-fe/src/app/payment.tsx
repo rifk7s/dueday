@@ -10,12 +10,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   createPaymentFlow,
   createExtendPaymentFlow,
+  findPendingExtendPaymentParams,
   getActiveSubscription,
   parseRupiahAmount,
   planDurationFor,
   planLabel,
   type PaymentMethod,
   type PlanValue,
+  type PremiumMode,
 } from "@/api/payments";
 
 type PaymentMethodItem = {
@@ -38,15 +40,22 @@ export default function PaymentScreen(): React.JSX.Element {
   const router = useRouter();
   const { token } = useSession();
   const { top, bottom } = useSafeAreaInsets();
-  const params = useLocalSearchParams();
-  const mode = (params.mode as string) || "upgrade";
+  const params = useLocalSearchParams<{
+    mode?: PremiumMode;
+    plan?: PlanValue;
+    planName?: string;
+    planPrice?: string;
+    planAmount?: string;
+    planDuration?: string;
+  }>();
+  const mode: PremiumMode = params.mode ?? "upgrade";
   const isExtendMode = mode === "extend";
 
-  const plan = ((params.plan as string) || "satu_bulan") as PlanValue;
-  const planName = (params.planName as string) || planLabel(plan);
-  const planPrice = (params.planPrice as string) || "Rp20.000";
+  const plan: PlanValue = params.plan ?? "satu_bulan";
+  const planName = params.planName ?? planLabel(plan);
+  const planPrice = params.planPrice ?? "Rp20.000";
   const planAmount = Number(params.planAmount ?? "0") || 0;
-  const planDuration = (params.planDuration as string) || planDurationFor(plan);
+  const planDuration = params.planDuration ?? planDurationFor(plan);
 
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,6 +92,17 @@ export default function PaymentScreen(): React.JSX.Element {
 
         if (!currentSubscription) {
           throw new Error("Tidak ada langganan aktif untuk diperpanjang.");
+        }
+
+        // Double-tap guard: if a pending extend payment already exists for this
+        // subscription, route to it instead of creating a duplicate pending row.
+        const existingPending = await findPendingExtendPaymentParams(token, currentSubscription);
+        if (existingPending) {
+          router.replace({
+            pathname: "/detail-transfer",
+            params: { ...existingPending, mode },
+          });
+          return;
         }
 
         const payment = await createExtendPaymentFlow(token, {
