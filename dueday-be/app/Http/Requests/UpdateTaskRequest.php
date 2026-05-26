@@ -14,13 +14,13 @@ class UpdateTaskRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'task_name' => 'sometimes|string|max:255',
-            'date' => 'sometimes|date',
-            'time' => 'nullable|date_format:H:i:s',
+            'name' => 'sometimes|string|max:255',
+            'due_date' => 'sometimes|date',
+            'due_time' => 'nullable|date_format:H:i:s',
             'priority' => 'nullable|string',
-            'id_tag' => 'nullable|integer|exists:tags,id_tag',
+            'tag_id' => 'nullable|integer|exists:tags,id',
             'source' => 'nullable|string',
-            'deskripsi' => 'nullable|string',
+            'description' => 'nullable|string',
             'goals' => 'nullable|string',
             'goal_points' => 'nullable|array',
             'goal_points.*.id' => 'required|integer',

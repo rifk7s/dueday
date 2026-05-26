@@ -59,7 +59,9 @@ class PaymentService
 
         if ($updatedPayment->status === 'paid') {
             $subscription = $updatedPayment->subscription;
-            $plan = $subscription?->plan ?? 'satu_bulan';
+            // Source of truth: the plan the user CHOSE at payment time. Falls back to the
+            // subscription's stored plan only if a legacy row lacks a plan column value.
+            $plan = $updatedPayment->plan ?? $subscription?->plan ?? 'satu_bulan';
             $months = match ($plan) {
                 'satu_tahun' => 12,
                 'tiga_bulan' => 3,
@@ -67,9 +69,6 @@ class PaymentService
             };
 
             $this->subscriptionService->activateOrExtendUserSubscription($userId, $plan, $months);
-        } elseif (in_array($updatedPayment->status, ['failed', 'refunded', 'cancelled'], true)) {
-            // Explicitly do nothing for terminal non-paid statuses.
-            // The subscription must remain unchanged when payment fails.
         }
 
         return $updatedPayment;

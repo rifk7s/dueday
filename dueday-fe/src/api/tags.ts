@@ -7,6 +7,13 @@ export type Tag = {
   updated_at: string;
 };
 
+type BackendTag = {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+};
+
 const MOCK_API = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
 
 export const mockTags: Tag[] = [
@@ -16,7 +23,17 @@ export const mockTags: Tag[] = [
   { id_tag: 4, nama_tag: "Rumah", created_at: "", updated_at: "" },
 ];
 
+export function mapBackendTagToLegacy(tag: BackendTag): Tag {
+  return {
+    id_tag: tag.id,
+    nama_tag: tag.name,
+    created_at: tag.created_at,
+    updated_at: tag.updated_at,
+  };
+}
+
 export async function listTags(token: string | null): Promise<Tag[]> {
   if (MOCK_API) return [...mockTags];
-  return apiFetch<Tag[]>("/tags", token);
+  const tags = await apiFetch<BackendTag[]>("/tags", token);
+  return tags.map(mapBackendTagToLegacy);
 }

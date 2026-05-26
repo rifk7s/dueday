@@ -230,6 +230,7 @@ export default function App() {
             task={activeTask}
             isMenuOpen={activeTaskMenuOpen}
             onToggleMenu={() => setActiveTaskMenuOpen((current) => !current)}
+            onCloseMenu={() => setActiveTaskMenuOpen(false)}
             onDelete={handleDeleteTask}
           />
         ) : (
@@ -354,11 +355,13 @@ function DashboardTaskCard({
   task,
   isMenuOpen,
   onToggleMenu,
+  onCloseMenu,
   onDelete,
 }: Readonly<{
   task: Task;
   isMenuOpen: boolean;
   onToggleMenu: () => void;
+  onCloseMenu: () => void;
   onDelete: () => void;
 }>) {
   const router = useRouter();
@@ -387,92 +390,85 @@ function DashboardTaskCard({
     if (isDone) accentColor = colors.success;
 
   return (
-    <Pressable
-      onPress={() => {
-        if (isMenuOpen) {
-          onToggleMenu();
-          return;
-        }
-        router.push({ pathname: "/taskprogress", params: { id: task.id, tab: "tugas" } });
-      }}
-      accessibilityRole="button"
-      style={[styles.taskCard, isDone && styles.taskCardDone]}
-    >
+    <View style={[styles.taskCard, isDone && styles.taskCardDone]}>
+      {isMenuOpen ? <Pressable style={styles.taskCardBackdrop} onPress={onCloseMenu} /> : null}
       <View style={[styles.taskAccent, { backgroundColor: accentColor }]} />
-      <View style={styles.taskHeaderRow}>
-        <View style={styles.deadlineRow}>
-          <Ionicons
-            name={isDone ? "checkmark-circle-outline" : "warning-outline"}
-            size={16}
-            color={isDone ? colors.success : colors.error}
-          />
-          <Text style={[styles.deadlineText, isDone && styles.deadlineTextDone]}>{deadline}</Text>
-        </View>
-        <View style={styles.menuContainer}>
-          <Pressable
-            hitSlop={12}
-            style={styles.menuTrigger}
-            onPress={(event) => {
-              event.stopPropagation();
-              onToggleMenu();
-            }}
-          >
-            <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
-          </Pressable>
 
-          {isMenuOpen ? (
-            <Pressable
-              style={styles.deleteDropdown}
-              onPress={(event) => {
-                event.stopPropagation();
-                onDelete();
-              }}
-            >
-              <Ionicons name="trash-outline" size={14} color={colors.errorStrong} />
-              <Text style={styles.deleteDropdownText}>Hapus</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-
-      <View style={styles.taskMainRow}>
-        <View style={styles.taskInfo}>
-          <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>{task.task_name}</Text>
-          {task.deskripsi ? (
-            <Text style={[styles.taskDescription, isDone && styles.taskDescriptionDone]}>
-              {task.deskripsi}
-            </Text>
-          ) : null}
-
-          <View style={styles.tagRow}>
-            {stateText === "TERLAMBAT" ? (
-              <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
-                <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
-              </View>
-            ) : !isDone ? (
-              <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
-                <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
-              </View>
-            ) : null}
-            {task.id_tag !== null ? (
-              <View style={[styles.tag, styles.categoryTag]}>
-                <Text style={styles.categoryTagText}>{task.tag?.nama_tag ?? "—"}</Text>
-              </View>
-            ) : null}
+      <Pressable
+        accessibilityRole="button"
+        pointerEvents={isMenuOpen ? "none" : "auto"}
+        onPress={() => router.push({ pathname: "/taskprogress", params: { id: task.id, tab: "tugas" } })}
+        style={styles.taskCardBody}
+      >
+        <View style={styles.taskHeaderRow}>
+          <View style={styles.deadlineRow}>
+            <Ionicons
+              name={isDone ? "checkmark-circle-outline" : "warning-outline"}
+              size={16}
+              color={isDone ? colors.success : colors.error}
+            />
+            <Text style={[styles.deadlineText, isDone && styles.deadlineTextDone]}>{deadline}</Text>
           </View>
         </View>
 
-        <View style={styles.progressWrap}>
-            {isDone ? (
-              <View style={[styles.doneCircle, { borderColor: colors.success, backgroundColor: colors.surfaceSuccess }]}>
-                <Ionicons name="checkmark" size={18} color={colors.success} />
-              </View>
-            ) : (
-              <ProgressRing progress={task.progress / 100} size={56} strokeWidth={5} />
-            )}
+        <View style={styles.taskMainRow}>
+          <View style={styles.taskInfo}>
+            <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>{task.task_name}</Text>
+            {task.deskripsi ? (
+              <Text style={[styles.taskDescription, isDone && styles.taskDescriptionDone]}>
+                {task.deskripsi}
+              </Text>
+            ) : null}
+
+            <View style={styles.tagRow}>
+              {stateText === "TERLAMBAT" ? (
+                <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
+                  <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
+                </View>
+              ) : !isDone ? (
+                <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
+                  <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
+                </View>
+              ) : null}
+              {task.id_tag !== null ? (
+                <View style={[styles.tag, styles.categoryTag]}>
+                  <Text style={styles.categoryTagText}>{task.tag?.nama_tag ?? "—"}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={styles.progressWrap}>
+              {isDone ? (
+                <View style={[styles.doneCircle, { borderColor: colors.success, backgroundColor: colors.surfaceSuccess }]}>
+                  <Ionicons name="checkmark" size={18} color={colors.success} />
+                </View>
+              ) : (
+                <ProgressRing progress={task.progress / 100} size={56} strokeWidth={5} />
+              )}
+          </View>
         </View>
+      </Pressable>
+
+      <View style={styles.menuContainer}>
+        <Pressable
+          hitSlop={12}
+          style={styles.menuTrigger}
+          onPress={onToggleMenu}
+        >
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.iconMuted} />
+        </Pressable>
+
+        {isMenuOpen ? (
+          <View style={styles.deleteDropdownWrap}>
+            <Pressable style={styles.deleteDropdown} onPress={onDelete}>
+              <Ionicons name="trash-outline" size={14} color={colors.errorStrong} />
+              <Text style={styles.deleteDropdownText}>Hapus</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -644,8 +640,6 @@ const styles = StyleSheet.create({
     position: "relative",
     borderRadius: 16,
     backgroundColor: colors.surfaceContainerLowest,
-    padding: 14,
-    paddingLeft: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -653,11 +647,21 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginBottom: 14,
   },
+  taskCardBody: {
+    padding: 14,
+    paddingLeft: 16,
+    position: "relative",
+    zIndex: 2,
+  },
   taskCardDone: {
     opacity: 1,
     shadowOpacity: 0.04,
     shadowRadius: 7,
     elevation: 1,
+  },
+  taskCardBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
   emptyTaskTitle: {
     fontSize: 18,
@@ -689,8 +693,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   menuContainer: {
-    position: "relative",
+    position: "absolute",
+    top: 14,
+    right: 14,
     alignItems: "flex-end",
+    zIndex: 4,
   },
   menuTrigger: {
     width: 28,
@@ -698,10 +705,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  deleteDropdown: {
+  deleteDropdownWrap: {
     position: "absolute",
     top: 30,
     right: 0,
+    zIndex: 5,
+  },
+  deleteDropdown: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -711,6 +721,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
+    // RN 0.76+ universal boxShadow renders the drop shadow on web (where
+    // shadowColor/shadowOffset/etc are ignored). Native still uses the iOS
+    // shadow props + Android elevation below.
+    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.12)",
     shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowRadius: 10,

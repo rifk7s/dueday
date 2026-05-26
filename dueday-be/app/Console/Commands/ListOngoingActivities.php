@@ -22,11 +22,11 @@ class ListOngoingActivities extends Command
         foreach ($this->activityRepository->getOngoingActivities() as $a) {
             $rows[] = [
                 'id' => $a->id,
-                'name' => $a->activity_name,
+                'name' => $a->name,
                 'status' => $a->status,
                 'progress' => $a->progress,
                 'progress_started_at' => $a->progress_started_at?->toDateTimeString() ?? null,
-                'tanggal' => $a->tanggal?->format('Y-m-d') ?? null,
+                'date' => $a->date?->format('Y-m-d') ?? null,
                 'time_start' => $a->time_start,
                 'time_end' => $a->time_end,
             ];
@@ -37,7 +37,7 @@ class ListOngoingActivities extends Command
             return self::SUCCESS;
         }
 
-        $this->table(['ID', 'Name', 'Status', 'Progress', 'ProgressStartedAt', 'Tanggal', 'TimeStart', 'TimeEnd'], $rows);
+        $this->table(['ID', 'Name', 'Status', 'Progress', 'ProgressStartedAt', 'Date', 'TimeStart', 'TimeEnd'], $rows);
 
         return self::SUCCESS;
     }

@@ -17,20 +17,23 @@ class ActivityResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
-            'id_tag' => $this->id_tag,
-            'activity_name' => $this->activity_name,
-            'tanggal' => $this->tanggal,
-            
-            // CRITICAL FIX: Expose the anchor_date to the frontend response
-            'anchor_date' => $this->anchor_date, 
-            
+            'tag_id' => $this->tag_id,
+            'name' => $this->name,
+            'date' => $this->date,
+            'anchor_date' => $this->anchor_date,
             'time_start' => $this->time_start,
             'time_end' => $this->time_end,
             'status' => $this->status,
             'progress' => $this->progress,
             'progress_started_at' => $this->progress_started_at,
-            'deskripsi' => $this->deskripsi,
-            'ulangi' => $this->ulangi,
+            'description' => $this->description,
+            'recurrence' => match($this->recurrence) {
+                'setiap_hari' => 'daily',
+                'satu_minggu' => 'weekly',
+                'satu_bulan' => 'monthly',
+                'satu_tahun' => 'yearly',
+                default => $this->recurrence,
+            },
             'tag' => TagResource::make($this->whenLoaded('tag')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

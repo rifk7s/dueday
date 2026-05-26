@@ -135,8 +135,8 @@ describe('Task Creation with Goals', function () {
        $service = new \App\Services\TaskService(new \App\Repositories\TaskRepository());
        $task = $service->createTask($this->user->id, [
             'id' => \Illuminate\Support\Str::uuid(),
-            'task_name' => 'Test Task',
-            'date' => now()->addDay(),
+            'name' => 'Test Task',
+            'due_date' => now()->addDay(),
             'goals' => $goalsText,
         ]);
 
@@ -153,8 +153,8 @@ describe('Task Creation with Goals', function () {
        $service = new \App\Services\TaskService(new \App\Repositories\TaskRepository());
        $task = $service->createTask($this->user->id, [
             'id' => \Illuminate\Support\Str::uuid(),
-            'task_name' => 'Goal Task',
-            'date' => now()->addDay(),
+            'name' => 'Goal Task',
+            'due_date' => now()->addDay(),
             'goals' => $goalsText,
         ]);
 

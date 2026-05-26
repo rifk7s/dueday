@@ -15,15 +15,15 @@ test('task service creates task with user id', function () {
     $service = new TaskService(new TaskRepository());
     
     $task = $service->createTask($user->id, [
-        'task_name' => 'Test task',
-        'date' => '2026-05-20',
+        'name' => 'Test task',
+        'due_date' => '2026-05-20',
         'priority' => 'high',
     ]);
 
     expect($task)->toBeInstanceOf(Task::class);
     expect($task->user_id)->toBe($user->id);
-    expect($task->task_name)->toBe('Test task');
-    expect($task->date->toDateString())->toBe('2026-05-20');
+    expect($task->name)->toBe('Test task');
+    expect($task->due_date->toDateString())->toBe('2026-05-20');
 });
 
 test('task service retrieves user tasks', function () {

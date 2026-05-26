@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tags', function (Blueprint $table) {
-            $table->uuid('user_id')->nullable()->after('id_tag')->index();
+            $table->uuid('user_id')->nullable()->after('id')->index();
             $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
         });
     }

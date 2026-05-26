@@ -21,7 +21,15 @@ class SubscriptionService
     public function activateOrExtendUserSubscription(string $userId, string $planName, int $months): Subscription
     {
         $subscriptions = $this->subscriptionRepository->getByUserId($userId);
-        $latestSubscription = $subscriptions->firstWhere('status', 'active') ?? $subscriptions->first();
+
+        // Pick the latest-expiring active subscription deterministically. Falling back to
+        // .first() on the Collection would otherwise return whichever row the DB happened
+        // to surface first if a user ended up with multiple active rows.
+        $latestSubscription = $subscriptions
+            ->where('status', 'active')
+            ->sortByDesc('expired_at')
+            ->first()
+            ?? $subscriptions->first();
 
         $baseDate = ($latestSubscription && $latestSubscription->status === 'active' && $latestSubscription->expired_at)
             ? Carbon::parse($latestSubscription->expired_at)

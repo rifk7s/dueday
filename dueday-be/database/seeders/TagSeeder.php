@@ -19,7 +19,7 @@ class TagSeeder extends Seeder
         $tags = ['Kuliah', 'Pekerjaan', 'Rapat', 'Rumah'];
 
         foreach ($tags as $tagName) {
-            Tag::firstOrCreate(['nama_tag' => $tagName, 'user_id' => null]);
+            Tag::firstOrCreate(['name' => $tagName, 'user_id' => null]);
         }
 
         // Add some example local tags for each existing user (skip if already exists)
@@ -28,12 +28,12 @@ class TagSeeder extends Seeder
         foreach (User::all() as $user) {
             foreach ($localTags as $localName) {
                 $exists = Tag::where('user_id', $user->id)
-                    ->where('nama_tag', $localName)
+                    ->where('name', $localName)
                     ->exists();
 
                 if (! $exists) {
                     Tag::create([
-                        'nama_tag' => $localName,
+                        'name' => $localName,
                         'user_id' => $user->id,
                     ]);
                 }

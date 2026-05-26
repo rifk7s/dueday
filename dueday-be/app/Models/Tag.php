@@ -9,12 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['nama_tag', 'user_id'])]
+#[Fillable(['name', 'user_id'])]
 class Tag extends Model
 {
     use HasFactory;
-
-    protected $primaryKey = 'id_tag';
 
     protected $table = 'tags';
 
@@ -28,7 +26,7 @@ class Tag extends Model
     protected function casts(): array
     {
         return [
-            'id_tag' => 'integer',
+            'id' => 'integer',
             'user_id' => 'string',
         ];
     }
@@ -46,7 +44,7 @@ class Tag extends Model
      */
     public function tasks(): HasMany
     {
-        return $this->hasMany(Task::class, 'id_tag', 'id_tag');
+        return $this->hasMany(Task::class, 'tag_id', 'id');
     }
 
     /**
@@ -54,7 +52,7 @@ class Tag extends Model
      */
     public function activities(): HasMany
     {
-        return $this->hasMany(Activity::class, 'id_tag', 'id_tag');
+        return $this->hasMany(Activity::class, 'tag_id', 'id');
     }
 
     /**
@@ -89,5 +87,16 @@ class Tag extends Model
     public function isGlobal(): bool
     {
         return $this->user_id === null;
+    }
+
+    // Name column is 'name' in DB (keeps original global tag strings)
+    public function getNameAttribute(): ?string
+    {
+        return $this->attributes['name'] ?? null;
+    }
+
+    public function setNameAttribute(?string $value): void
+    {
+        $this->attributes['name'] = $value;
     }
 }
