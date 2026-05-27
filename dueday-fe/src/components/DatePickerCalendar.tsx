@@ -2,12 +2,12 @@ import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -135,29 +135,30 @@ export default function DatePickerCalendar({
         </View>
       ) : null}
 
-      <View style={styles.monthNav}>
+      <View style={[styles.monthNav, inline && styles.inlineMonthNav]}>
         <Pressable onPress={handlePrevMonth}>
-          <Ionicons name="chevron-back" size={24} color={colors.primaryContainer} />
+          <Ionicons name="chevron-back" size={inline ? 20 : 24} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.monthText}>{monthNames[currentMonth]} {currentYear}</Text>
+        <Text style={[styles.monthText, inline && styles.inlineMonthText]}>{monthNames[currentMonth]} {currentYear}</Text>
         <Pressable onPress={handleNextMonth}>
-          <Ionicons name="chevron-forward" size={24} color={colors.primaryContainer} />
+          <Ionicons name="chevron-forward" size={inline ? 20 : 24} color={colors.primaryContainer} />
         </Pressable>
       </View>
 
-      <View style={styles.dayHeaderRow}>
+      <View style={[styles.dayHeaderRow, inline && styles.inlineDayHeaderRow]}>
         {["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"].map((day, idx) => (
-          <Text key={idx} style={styles.dayHeaderText}>{day}</Text>
+          <Text key={idx} style={[styles.dayHeaderText, inline && styles.inlineDayHeaderText]}>{day}</Text>
         ))}
       </View>
 
-      <View style={styles.calendarGrid}>
+      <View style={[styles.calendarGrid, inline && styles.inlineCalendarGrid]}>
         {calendarDays.map((day, idx) => (
-          <View key={idx} style={styles.dayCell}>
+          <View key={idx} style={[styles.dayCell, inline && styles.inlineDayCell]}>
             {day ? (
               <Pressable
                 style={[
                   styles.dayButton,
+                  inline && styles.inlineDayButton,
                   isToday(day) && styles.todayButton,
                   isSelectedDate(day) && styles.selectedButton,
                 ]}
@@ -166,6 +167,7 @@ export default function DatePickerCalendar({
                 <Text
                   style={[
                     styles.dayText,
+                    inline && styles.inlineDayText,
                     (isToday(day) || isSelectedDate(day)) && styles.dayTextActive,
                   ]}
                 >
@@ -208,21 +210,29 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center" },
   container: { justifyContent: "center", alignItems: "center", paddingHorizontal: 16 },
   content: { width: "100%", maxWidth: 400, backgroundColor: colors.surfaceContainerLowest, borderRadius: 16, paddingBottom: 20 },
-  inlineContent: { maxWidth: "100%", width: "100%", borderRadius: 24, paddingBottom: 18 },
+  inlineContent: { maxWidth: "100%", width: "100%", borderRadius: 24, paddingBottom: 20 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.surfaceContainerLow },
   headerTitle: { fontSize: 18, fontFamily: fonts["600"], color: colors.onSurface },
   monthNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 16 },
+  inlineMonthNav: { paddingHorizontal: 14, paddingVertical: 10 },
   monthText: { fontSize: 16, fontFamily: fonts["600"], color: colors.onSurface },
+  inlineMonthText: { fontSize: 14 },
   dayHeaderRow: { flexDirection: "row", paddingHorizontal: 16, marginBottom: 8 },
+  inlineDayHeaderRow: { paddingHorizontal: 14, marginBottom: 6 },
   dayHeaderText: { flex: 1, textAlign: "center", fontSize: 12, fontFamily: fonts["600"], color: colors.onSurfaceVariant },
+  inlineDayHeaderText: { fontSize: 11 },
   calendarGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 16, marginBottom: 16 },
+  inlineCalendarGrid: { paddingHorizontal: 14, marginBottom: 12 },
   dayCell: { width: "14.28%", height: 48, justifyContent: "center", alignItems: "center" },
+  inlineDayCell: { height: 42 },
   dayButton: { width: 40, height: 40, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  inlineDayButton: { width: 36, height: 36 },
   markerDot: { marginTop: 3, width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primaryContainer },
   markerDotActive: { backgroundColor: colors.onPrimary },
   todayButton: { backgroundColor: colors.surfaceContainerLow },
   selectedButton: { backgroundColor: colors.primaryContainer },
   dayText: { fontSize: 14, fontFamily: fonts["500"], color: colors.onSurface },
+  inlineDayText: { fontSize: 13 },
   dayTextActive: { color: colors.onPrimary },
   footer: { flexShrink: 0, flexDirection: "row", gap: 12, paddingHorizontal: 16, marginTop: 8 },
   cancelButton: { flex: 1, paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.surfaceContainerLow, alignItems: "center" },

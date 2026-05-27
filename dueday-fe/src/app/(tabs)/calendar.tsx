@@ -45,6 +45,18 @@ const ACCENT_PALETTE = [
   "#0ea5e9",
 ];
 
+const CARD_BG_PALETTE = [
+  "#fff1c7",
+  "#d6fbf2",
+  "#eadcff",
+  "#ffe2ea",
+  "#dbe7ff",
+  "#dff0ff",
+  "#dcfce7",
+  "#fff0cf",
+  "#dff7ff",
+];
+
 const START_HOUR = 0;
 const END_HOUR = 23;
 const SLOT_HEIGHT = 72;
@@ -81,7 +93,7 @@ export default function CalendarScreen() {
           startHour: start,
           endHour: end,
           title: a.activity_name,
-          color: colors.surfaceContainerLowest,
+          color: CARD_BG_PALETTE[(a.id_tag ?? idx) % CARD_BG_PALETTE.length],
           accent,
         } as ScheduleItem;
       });
@@ -100,7 +112,7 @@ export default function CalendarScreen() {
           startHour: start,
           endHour: end,
           title: t.task_name,
-          color: colors.surfaceContainerLowest,
+          color: CARD_BG_PALETTE[(t.id_tag ?? idx) % CARD_BG_PALETTE.length],
           accent,
         } as ScheduleItem;
       });
@@ -172,7 +184,21 @@ export default function CalendarScreen() {
                       startHour={START_HOUR}
                       slotHeight={SLOT_HEIGHT}
                       stackCount={cluster.items.length}
-                      onPress={() => setActiveCluster(cluster)}
+                      onPress={() => {
+                        if (cluster.items.length === 1) {
+                          const item = cluster.items[0];
+                          if (!item) return;
+
+                          router.push(
+                            item.kind === "task"
+                              ? { pathname: "/taskprogress", params: { id: item.id, tab: "tugas" } }
+                              : { pathname: "/activityprogress", params: { id: item.id, tab: "aktivitas" } },
+                          );
+                          return;
+                        }
+
+                        setActiveCluster(cluster);
+                      }}
                     />
                   ))}
                 </View>
@@ -369,7 +395,9 @@ const styles = StyleSheet.create({
   schedulePanel: {
     marginHorizontal: 12,
     borderRadius: 28,
-    backgroundColor: colors.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainer,
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 16,
