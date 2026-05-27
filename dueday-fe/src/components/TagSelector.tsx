@@ -191,8 +191,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    width: "100%",
   },
   chip: {
+    maxWidth: "100%",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
@@ -215,6 +217,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryContainer,
     backgroundColor: colors.surfaceContainerLowest,
     marginBottom: 8,
+    maxWidth: "100%",
   },
   addChipText: {
     fontSize: 13,
