@@ -7,6 +7,10 @@ export type Tag = {
   updated_at: string;
 };
 
+export type NewTag = {
+  name: string;
+};
+
 type BackendTag = {
   id: number;
   name: string;
@@ -36,4 +40,25 @@ export async function listTags(token: string | null): Promise<Tag[]> {
   if (MOCK_API) return [...mockTags];
   const tags = await apiFetch<BackendTag[]>("/tags", token);
   return tags.map(mapBackendTagToLegacy);
+}
+
+export async function createTag(input: NewTag, token: string | null): Promise<Tag> {
+  if (MOCK_API) {
+    const nextId = mockTags.reduce((maxId, tag) => Math.max(maxId, tag.id_tag), 0) + 1;
+    const now = new Date().toISOString();
+    const tag: Tag = {
+      id_tag: nextId,
+      nama_tag: input.name,
+      created_at: now,
+      updated_at: now,
+    };
+    mockTags.push(tag);
+    return tag;
+  }
+
+  const tag = await apiFetch<BackendTag>("/tags", token, {
+    method: "POST",
+    body: JSON.stringify({ name: input.name }),
+  });
+  return mapBackendTagToLegacy(tag);
 }

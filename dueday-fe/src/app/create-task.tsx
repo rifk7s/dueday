@@ -1,36 +1,36 @@
 import { toApiDate, toApiTime } from "@/api/format";
+import type { Tag } from "@/api/tags";
 import { PRIORITY_API_MAP } from "@/api/tasks";
 import DatePickerCalendar from "@/components/DatePickerModal";
+import TagSelector from "@/components/TagSelector";
 import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
-import { useTagIdByName } from "@/hooks/useTags";
 import { useCreateTaskMutation } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Keyboard,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    ToastAndroid,
-    View,
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  ToastAndroid,
+  View,
 } from "react-native";
 import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard-controller";
 import Animated, {
-    Extrapolation,
-    interpolate,
-    useAnimatedStyle,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type PriorityType = "Tinggi" | "Sedang" | "Rendah" | null;
-type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
 
 export default function CreateTaskPage() {
   const router = useRouter();
@@ -47,7 +47,7 @@ export default function CreateTaskPage() {
   const [tanggal, setTanggal] = useState("");
   const [jam, setJam] = useState("");
   const [prioritas, setPrioritas] = useState<PriorityType>(null);
-  const [tag, setTag] = useState<TagType | null>(null);
+  const [tag, setTag] = useState<Tag | null>(null);
   const [goals, setGoals] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
@@ -55,10 +55,7 @@ export default function CreateTaskPage() {
   const [validationError, setValidationError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
-
   const mutation = useCreateTaskMutation();
-  const tagId = useTagIdByName(tag);
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
 
   const getPriorityColor = (priority: PriorityType) => {
@@ -111,7 +108,7 @@ export default function CreateTaskPage() {
         date: toApiDate(tanggal),
         ...(jam ? { time: toApiTime(jam) } : {}),
         ...(prioritas ? { priority: PRIORITY_API_MAP[prioritas] } : {}),
-        ...(tagId !== undefined ? { id_tag: tagId } : {}),
+        ...(tag ? { id_tag: tag.id_tag } : {}),
         goals: goals.trim(),
         ...(deskripsi.trim() ? { deskripsi: deskripsi.trim() } : {}),
         status: "ongoing",
@@ -227,25 +224,7 @@ export default function CreateTaskPage() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Tag</Text>
-          <View style={styles.chipRow}>
-            {tagOptions.map((t) => (
-              <Pressable
-                key={t}
-                onPress={() => setTag(tag === t ? null : t)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: tag === t ? colors.primaryContainer : colors.surfaceContainerLow },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: tag === t ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                  {t}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
         <View style={styles.section}>
           <Text style={styles.label}>Goals</Text>
