@@ -1,11 +1,12 @@
 import { ULANGI_API_MAP } from "@/api/activities";
 import { toApiDate, toApiTime } from "@/api/format";
+import type { Tag } from "@/api/tags";
 import DatePickerCalendar from "@/components/DatePickerModal";
+import TagSelector from "@/components/TagSelector";
 import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
 import { useCreateActivityMutation } from "@/hooks/useActivities";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
-import { useTagIdByName } from "@/hooks/useTags";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
@@ -16,20 +17,16 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
-  Platform,
-  Alert,
-  ToastAndroid,
+  View
 } from "react-native";
 import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard-controller";
 import Animated, {
-    Extrapolation,
-    interpolate,
-    useAnimatedStyle,
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
 type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
 
 export default function CreateActivityPage() {
@@ -45,22 +42,19 @@ export default function CreateActivityPage() {
   const [tanggal, setTanggal] = useState("");
   const [jamMulai, setJamMulai] = useState("");
   const [jamSelesai, setJamSelesai] = useState("");
-  const [tag, setTag] = useState<TagType | null>(null);
+  const [tag, setTag] = useState<Tag | null>(null);
   const [repeat, setRepeat] = useState<RepeatType | null>(null);
   const [deskripsi, setDeskripsi] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTimePickerMulai, setShowTimePickerMulai] = useState(false);
   const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
 
-  const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
   const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tahunan"];
 
   const mutation = useCreateActivityMutation();
-  const tagId = useTagIdByName(tag);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
 
-  const isTagSelected = (t: TagType): boolean => tag === t;
   const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
 
   const handleSave = () => {
@@ -105,7 +99,7 @@ export default function CreateActivityPage() {
     if (tanggal) payload.tanggal = toApiDate(tanggal);
     if (jamMulai) payload.time_start = toApiTime(jamMulai);
     if (jamSelesai) payload.time_end = toApiTime(jamSelesai);
-    if (tagId != null) payload.id_tag = tagId;
+    if (tag) payload.id_tag = tag.id_tag;
     const ulangi = repeat ? ULANGI_API_MAP[repeat] : undefined;
     if (ulangi) payload.ulangi = ulangi;
     if (deskripsi.trim()) payload.deskripsi = deskripsi.trim();
@@ -211,22 +205,7 @@ export default function CreateActivityPage() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Tag</Text>
-          <View style={styles.chipsRow}>
-            {tagOptions.map((t) => (
-              <Pressable
-                key={t}
-                onPress={() => setTag(tag === t ? null : t)}
-                style={[styles.chip, { backgroundColor: isTagSelected(t) ? colors.primaryContainer : colors.surfaceContainerLow }]}
-              >
-                <Text style={[styles.chipText, { color: isTagSelected(t) ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                  {t}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
         <View style={styles.section}>
           <Text style={styles.label}>Ulangi</Text>
