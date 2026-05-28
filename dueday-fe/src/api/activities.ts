@@ -14,6 +14,7 @@ export type Activity = {
   id_tag: number | null;
   activity_name: string;
   tanggal: string | null;
+  anchor_date?: string | null;
   time_start: string | null;
   time_end: string | null;
   status: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
@@ -39,6 +40,7 @@ type BackendActivity = {
   tag_id: number | null;
   name: string;
   date: string | null;
+  anchor_date?: string | null;
   time_start: string | null;
   time_end: string | null;
   status: "not_started" | "ongoing" | "pending" | "completed" | "cancelled";
@@ -168,6 +170,7 @@ function mapBackendActivityToLegacy(activity: BackendActivity): Activity {
     id_tag: activity.tag_id,
     activity_name: activity.name,
     tanggal: activity.date,
+    anchor_date: activity.anchor_date,
     time_start: activity.time_start,
     time_end: activity.time_end,
     status: activity.status,
@@ -248,6 +251,7 @@ export async function createActivity(
       id_tag: input.id_tag ?? null,
       activity_name: input.activity_name,
       tanggal: input.tanggal ?? null,
+      anchor_date: input.tanggal ?? null,
       time_start: input.time_start ?? null,
       time_end: input.time_end ?? null,
       status: input.status ?? "not_started",

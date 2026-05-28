@@ -16,7 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type MethodMeta = {
@@ -304,6 +304,16 @@ export default function DetailTransferScreen(): React.JSX.Element {
     <View style={[styles.root, { paddingTop: top }]}>
       <StatusBar style="dark" />
 
+      <Modal transparent animationType="fade" visible={isUploading} statusBarTranslucent>
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={colors.primaryContainer} />
+            <Text style={styles.loadingTitle}>Memverifikasi Gambar</Text>
+            <Text style={styles.loadingText}>Sedang memindai QRIS dan menyiapkan verifikasi pembayaran.</Text>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel="Kembali" onPress={() => exitFlowTo("/profile")}>
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
@@ -464,4 +474,8 @@ const styles = StyleSheet.create({
   confirmButtonText: { fontSize: 14, fontFamily: fonts["700"], color: colors.onPrimary },
   cancelButton: { height: 46, borderRadius: 999, borderWidth: 1, borderColor: colors.errorStrong, alignItems: "center", justifyContent: "center" },
   cancelButtonText: { fontSize: 14, fontFamily: fonts["600"], color: colors.errorStrong },
+  loadingOverlay: { flex: 1, backgroundColor: "rgba(12, 16, 24, 0.48)", alignItems: "center", justifyContent: "center", padding: 24 },
+  loadingCard: { width: "100%", maxWidth: 320, borderRadius: 20, backgroundColor: colors.surfaceContainerLowest, padding: 24, alignItems: "center", gap: 12 },
+  loadingTitle: { fontSize: 18, fontFamily: fonts["700"], color: colors.onSurface, textAlign: "center" },
+  loadingText: { fontSize: 13, fontFamily: fonts["500"], color: colors.onSurfaceVariant, textAlign: "center", lineHeight: 20 },
 });

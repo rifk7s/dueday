@@ -1,6 +1,6 @@
 import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Modal,
     Pressable,
@@ -16,6 +16,7 @@ type DatePickerCalendarProps = {
   onClose: () => void;
   onDateSelect: (date: string) => void;
   selectedDate?: string;
+  focusDate?: string;
   inline?: boolean;
   markedDays?: string[];
 };
@@ -25,6 +26,7 @@ export default function DatePickerCalendar({
   onClose,
   onDateSelect,
   selectedDate,
+  focusDate,
   inline = false,
   markedDays = [],
 }: Readonly<DatePickerCalendarProps>) {
@@ -34,12 +36,32 @@ export default function DatePickerCalendar({
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [tempSelectedDate, setTempSelectedDate] = useState<string | undefined>(selectedDate);
+  const hasAutoFocusedMarkedMonth = useRef(false);
 
   useEffect(() => {
     if (visible) {
       setTempSelectedDate(selectedDate);
     }
   }, [visible, selectedDate]);
+
+  useEffect(() => {
+    if (!inline || hasAutoFocusedMarkedMonth.current) {
+      return;
+    }
+
+    const targetDate = focusDate ?? markedDays.find((day) => day.includes("-")) ?? markedDays[0];
+    if (!targetDate) return;
+
+    const [year, month] = targetDate.split("-");
+    const nextMonth = Number(month) - 1;
+    const nextYear = Number(year);
+
+    if (Number.isFinite(nextMonth) && Number.isFinite(nextYear)) {
+      setCurrentMonth(nextMonth);
+      setCurrentYear(nextYear);
+      hasAutoFocusedMarkedMonth.current = true;
+    }
+  }, [focusDate, inline, markedDays]);
 
   const getDaysInMonth = (month: number, year: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -108,10 +130,10 @@ export default function DatePickerCalendar({
     return false;
   };
 
-  const hasMarker = (day: number) => {
+  const getMarkerCount = (day: number) => {
     const fullDateKey = `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
     const dayKey = day.toString().padStart(2, "0");
-    return markedDays.includes(fullDateKey) || markedDays.includes(dayKey);
+    return markedDays.filter((markedDay) => markedDay === fullDateKey || markedDay === dayKey).length;
   };
 
   const calendarContent = (
@@ -173,7 +195,20 @@ export default function DatePickerCalendar({
                 >
                   {day}
                 </Text>
-                {hasMarker(day) ? <View style={[styles.markerDot, isSelectedDate(day) && styles.markerDotActive]} /> : null}
+                {getMarkerCount(day) > 0 ? (
+                  <View style={styles.markerDotsRow}>
+                    {Array.from({ length: Math.min(getMarkerCount(day), 3) }).map((_, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.markerDot,
+                          isSelectedDate(day) && styles.markerDotActive,
+                          index === 2 && getMarkerCount(day) > 2 && styles.markerDotFaded,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                ) : null}
               </Pressable>
             ) : null}
           </View>
@@ -227,8 +262,10 @@ const styles = StyleSheet.create({
   inlineDayCell: { height: 42 },
   dayButton: { width: 40, height: 40, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   inlineDayButton: { width: 36, height: 36 },
-  markerDot: { marginTop: 3, width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primaryContainer },
+  markerDotsRow: { marginTop: 3, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2 },
+  markerDot: { width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primaryContainer },
   markerDotActive: { backgroundColor: colors.onPrimary },
+  markerDotFaded: { opacity: 0.4 },
   todayButton: { backgroundColor: colors.surfaceContainerLow },
   selectedButton: { backgroundColor: colors.primaryContainer },
   dayText: { fontSize: 14, fontFamily: fonts["500"], color: colors.onSurface },
@@ -239,4 +276,5 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onSurface },
   confirmButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: colors.primaryContainer, alignItems: "center" },
   confirmText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onPrimary },
+  
 });
