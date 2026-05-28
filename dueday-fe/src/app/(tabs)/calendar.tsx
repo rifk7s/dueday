@@ -20,6 +20,7 @@ type ScheduleItem = {
   title: string;
   color: string;
   accent: string;
+  recurring?: boolean;
   column?: number;
   columnCount?: number;
 };
@@ -61,11 +62,13 @@ const START_HOUR = 0;
 const END_HOUR = 23;
 const SLOT_HEIGHT = 72;
 const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index);
+const RECURRING_HORIZON_YEARS = 5;
 
 export default function CalendarScreen() {
   const { top } = useSafeAreaInsets();
   const bottomBarSpace = useBottomBarSpace();
   const router = useRouter();
+  const hasAutoSelectedRecurringDate = React.useRef(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     const day = today.getDate().toString().padStart(2, "0");
@@ -78,15 +81,15 @@ export default function CalendarScreen() {
   const { data: tasks = [] } = useTasksQuery();
 
   const scheduleItems: ScheduleItem[] = useMemo(() => {
-    const fromActivities: ScheduleItem[] = activities
+    const fromActivities = activities
       .filter((a) => !!a.tanggal && a.status !== "cancelled")
-      .map((a, idx) => {
+      .flatMap((a, idx) => {
         const dateKey = normalizeDateKey(a.tanggal);
         const start = a.time_start ? parseInt(a.time_start.substring(0, 2), 10) : START_HOUR;
         const endRaw = a.time_end ? parseInt(a.time_end.substring(0, 2), 10) : start + 1;
         const end = Math.min(Math.max(endRaw, start + 1), END_HOUR);
         const accent = ACCENT_PALETTE[(a.id_tag ?? idx) % ACCENT_PALETTE.length];
-        return {
+        const baseItem: ScheduleItem = {
           id: a.id,
           kind: "activity",
           dateKey,
@@ -95,7 +98,15 @@ export default function CalendarScreen() {
           title: a.activity_name,
           color: CARD_BG_PALETTE[(a.id_tag ?? idx) % CARD_BG_PALETTE.length],
           accent,
-        } as ScheduleItem;
+          recurring: false,
+        };
+
+        if (!a.ulangi) {
+          return [baseItem];
+        }
+
+        const recurrenceItems = buildRecurringScheduleItems(a, idx);
+        return recurrenceItems.length > 0 ? recurrenceItems : [baseItem];
       });
 
     const fromTasks: ScheduleItem[] = tasks
@@ -120,11 +131,33 @@ export default function CalendarScreen() {
     return [...fromActivities, ...fromTasks];
   }, [activities, tasks]);
 
-  const markedDays = Array.from(new Set(scheduleItems.map((item) => item.dateKey)));
+  const markedDays = scheduleItems.map((item) => item.dateKey);
+  const recurringFocusDate = useMemo(() => {
+    const todayKey = toDateKeyForSort(new Date());
+    const recurringDates = scheduleItems
+      .filter((item) => item.kind === "activity" && item.recurring)
+      .map((item) => item.dateKey)
+      .sort();
+
+    return recurringDates.find((dateKey) => dateKey >= todayKey) ?? recurringDates[0] ?? undefined;
+  }, [scheduleItems]);
   const selectedScheduleItems = scheduleItems.filter((item) => item.dateKey === selectedDateKey);
   const scheduleClusters = useMemo(() => groupOverlappingScheduleItems(selectedScheduleItems), [selectedScheduleItems]);
   const hasSelectedScheduleItems = scheduleClusters.length > 0;
   const selectedDateLabel = selectedDateKey ? fromApiDate(selectedDateKey) : selectedDate;
+
+  
+
+  React.useEffect(() => {
+    if (hasAutoSelectedRecurringDate.current) return;
+    if (!recurringFocusDate) return;
+
+    setSelectedDate(formatIsoDateKeyAsDisplayDate(recurringFocusDate));
+    hasAutoSelectedRecurringDate.current = true;
+  }, [recurringFocusDate]);
+
+  
+
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
       <ScrollView
@@ -144,11 +177,14 @@ export default function CalendarScreen() {
             visible
             inline
             selectedDate={selectedDate}
+            focusDate={recurringFocusDate}
             onClose={() => undefined}
             onDateSelect={setSelectedDate}
             markedDays={markedDays}
           />
         </View>
+
+        
 
         <View style={styles.schedulePanel}>
           <View style={styles.schedulePanelHeader}>
@@ -270,6 +306,185 @@ export default function CalendarScreen() {
 
 function formatHour(hour: number): string {
   return `${hour.toString().padStart(2, "0")}.00`;
+}
+
+function buildRecurringScheduleItems(activity: { id: string; activity_name: string; tanggal: string | null; anchor_date?: string | null; time_start: string | null; time_end: string | null; id_tag: number | null; ulangi: string | null }, idx: number): ScheduleItem[] {
+  const baseDateString = activity.anchor_date ?? activity.tanggal;
+  const baseDate = parseDateKey(baseDateString);
+  if (!baseDate || !activity.ulangi) {
+    return [];
+  }
+
+  const rangeStart = addYears(baseDate, -RECURRING_HORIZON_YEARS);
+  const rangeEnd = addYears(baseDate, RECURRING_HORIZON_YEARS);
+
+  const startHour = activity.time_start ? parseInt(activity.time_start.substring(0, 2), 10) : START_HOUR;
+  const endRaw = activity.time_end ? parseInt(activity.time_end.substring(0, 2), 10) : startHour + 1;
+  const endHour = Math.min(Math.max(endRaw, startHour + 1), END_HOUR);
+  const accent = ACCENT_PALETTE[(activity.id_tag ?? idx) % ACCENT_PALETTE.length];
+  const color = CARD_BG_PALETTE[(activity.id_tag ?? idx) % CARD_BG_PALETTE.length];
+
+  const dates = expandRecurringDates(baseDate, rangeStart, rangeEnd, activity.ulangi);
+
+  return dates.map((date) => ({
+    id: activity.id,
+    kind: "activity",
+    dateKey: toDateKey(date),
+    startHour,
+    endHour,
+    title: activity.activity_name,
+    color,
+    accent,
+    recurring: true,
+  }));
+}
+
+function expandRecurringDates(baseDate: Date, startDate: Date, endDate: Date, recurrence: string): Date[] {
+  const dates: Date[] = [];
+
+  switch (recurrence) {
+    case "setiap_hari": {
+      let current = new Date(baseDate);
+      alignTime(current, baseDate);
+
+      while (current > startDate) {
+        current = addDays(current, -1);
+      }
+
+      while (current <= endDate) {
+        if (current >= startDate) {
+          dates.push(new Date(current));
+        }
+        current = addDays(current, 1);
+      }
+      break;
+    }
+    case "satu_minggu": {
+      let current = new Date(baseDate);
+      alignTime(current, baseDate);
+
+      while (current > startDate) {
+        current = addDays(current, -7);
+      }
+
+      while (current <= endDate) {
+        if (current >= startDate) {
+          dates.push(new Date(current));
+        }
+        current = addDays(current, 7);
+      }
+      break;
+    }
+    case "satu_bulan": {
+      const baseDay = baseDate.getDate();
+      for (let monthOffset = 0; ; monthOffset -= 1) {
+        const current = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, baseDay);
+        alignTime(current, baseDate);
+
+        if (current < startDate) {
+          break;
+        }
+
+        if (current.getDate() === baseDay) {
+          dates.unshift(current);
+        }
+      }
+
+      for (let monthOffset = 1; ; monthOffset += 1) {
+        const current = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, baseDay);
+        alignTime(current, baseDate);
+
+        if (current > endDate) {
+          break;
+        }
+
+        if (current.getDate() === baseDay) {
+          dates.push(current);
+        }
+      }
+      break;
+    }
+    case "satu_tahun": {
+      const baseMonth = baseDate.getMonth();
+      const baseDay = baseDate.getDate();
+      for (let yearOffset = 0; ; yearOffset -= 1) {
+        const current = new Date(baseDate.getFullYear() + yearOffset, baseMonth, baseDay);
+        alignTime(current, baseDate);
+
+        if (current < startDate) {
+          break;
+        }
+
+        if (current.getMonth() === baseMonth && current.getDate() === baseDay) {
+          dates.unshift(current);
+        }
+      }
+
+      for (let yearOffset = 1; ; yearOffset += 1) {
+        const current = new Date(baseDate.getFullYear() + yearOffset, baseMonth, baseDay);
+        alignTime(current, baseDate);
+
+        if (current > endDate) {
+          break;
+        }
+
+        if (current.getMonth() === baseMonth && current.getDate() === baseDay) {
+          dates.push(current);
+        }
+      }
+      break;
+    }
+  }
+
+  return dates;
+}
+
+function parseDateKey(value: string | null | undefined): Date | null {
+  if (!value) return null;
+
+  const dateOnly = value.split("T")[0] ?? value;
+  const isoMatch = dateOnly.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const slashMatch = dateOnly.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, day, month, year] = slashMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  return null;
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+function addYears(date: Date, years: number): Date {
+  return new Date(date.getFullYear() + years, date.getMonth(), date.getDate());
+}
+
+function alignTime(target: Date, source: Date): void {
+  target.setHours(source.getHours(), source.getMinutes(), source.getSeconds(), 0);
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toDateKeyForSort(date: Date): string {
+  return toDateKey(date);
+}
+
+function formatIsoDateKeyAsDisplayDate(dateKey: string): string {
+  const [year, month, day] = dateKey.split("-");
+  if (!year || !month || !day) return dateKey;
+  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
 }
 
 function normalizeDateKey(value: string | null | undefined): string {
@@ -550,4 +765,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
   },
+  debugRow: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 6,
+    alignItems: "flex-start",
+  },
+  debugText: {
+    fontSize: 12,
+    fontFamily: fonts["500"],
+    color: colors.onSurfaceVariant,
+    backgroundColor: "rgba(0,0,0,0.03)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  
 });
