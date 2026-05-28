@@ -3,7 +3,8 @@ import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { useUpdateTaskMutation } from "@/hooks/useTasks";
-import { useTagIdByName } from "@/hooks/useTags";
+import TagSelector from "@/components/TagSelector";
+import type { Tag } from "@/api/tags";
 import { fromApiTime, toApiDate, toApiTime } from "@/api/format";
 import { PRIORITY_API_MAP, type UpdateTask } from "@/api/tasks";
 import { Ionicons } from "@expo/vector-icons";
@@ -27,9 +28,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTasksQuery } from "@/hooks/useTasks";
 
 type PriorityType = "Tinggi" | "Sedang" | "Rendah" | null;
-type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
-
-const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
 
 function isoToDdMmYyyy(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -63,7 +61,7 @@ export default function EditTaskPage() {
   const [tanggal, setTanggal] = useState("");
   const [jam, setJam] = useState("");
   const [prioritas, setPrioritas] = useState<PriorityType>(null);
-  const [tag, setTag] = useState<TagType | null>(null);
+  const [tag, setTag] = useState<Tag | null>(null);
   const [goals, setGoals] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
@@ -71,7 +69,6 @@ export default function EditTaskPage() {
   const [validationError, setValidationError] = useState("");
 
   const updateMutation = useUpdateTaskMutation();
-  const tagId = useTagIdByName(tag);
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
 
   useEffect(() => {
@@ -80,7 +77,7 @@ export default function EditTaskPage() {
       setTanggal(isoToDdMmYyyy(task.date ?? ""));
       setJam(fromApiTime(task.time));
       setPrioritas(PRIORITY_API_TO_UI[task.priority ?? ""] ?? null);
-      setTag((task.tag?.nama_tag as TagType) ?? null);
+      setTag(task.tag ?? null);
       setGoals(task.goals ?? "");
       setDeskripsi(task.deskripsi ?? "");
     }
@@ -119,7 +116,7 @@ export default function EditTaskPage() {
           ...(tanggal ? { date: toApiDate(tanggal) } : {}),
           ...(jam ? { time: toApiTime(jam) } : { time: null }),
           ...(prioritas ? { priority: PRIORITY_API_MAP[prioritas] } : { priority: null }),
-          ...(tagId !== undefined ? { id_tag: tagId } : {}),
+          id_tag: tag?.id_tag ?? null,
           ...(goals.trim() ? { goals: goals.trim() } : {}),
           ...(deskripsi.trim() ? { deskripsi: deskripsi.trim() } : {}),
         } as UpdateTask,
@@ -246,25 +243,7 @@ export default function EditTaskPage() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Tag</Text>
-          <View style={styles.chipRow}>
-            {tagOptions.map((t) => (
-              <Pressable
-                key={t}
-                onPress={() => setTag(tag === t ? null : t)}
-                style={[
-                  styles.chip,
-                  { backgroundColor: tag === t ? colors.primaryContainer : colors.surfaceContainerLow },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: tag === t ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                  {t}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+        <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
         <View style={styles.section}>
           <Text style={styles.label}>Goals</Text>

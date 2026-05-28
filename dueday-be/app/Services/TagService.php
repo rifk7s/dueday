@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Repositories\TagRepository;
 use App\Models\Tag;
+use App\Repositories\TagRepository;
 
 class TagService
 {
@@ -11,14 +11,26 @@ class TagService
         private TagRepository $tagRepository
     ) {}
 
-    public function listTags()
+    /**
+     * List tags visible to the user: global tags plus the user's own tags.
+     */
+    public function listTags(string $userId)
     {
-        return $this->tagRepository->all();
+        return $this->tagRepository->visibleToUser($userId);
     }
 
-    public function getTag(int $id): ?Tag
+    /**
+     * Get a tag the user is allowed to see (global or owned), otherwise null.
+     */
+    public function getTagForUser(string $userId, int $id): ?Tag
     {
-        return $this->tagRepository->findById($id);
+        $tag = $this->tagRepository->findById($id);
+
+        if ($tag && ($tag->user_id === null || $tag->user_id === $userId)) {
+            return $tag;
+        }
+
+        return null;
     }
 
     public function createTag(array $data): Tag
@@ -26,13 +38,31 @@ class TagService
         return $this->tagRepository->create($data);
     }
 
-    public function updateTag(int $id, array $data): ?Tag
+    /**
+     * Update a tag the user owns. Global tags and other users' tags are off-limits.
+     */
+    public function updateTag(string $userId, int $id, array $data): ?Tag
     {
+        $tag = $this->tagRepository->findById($id);
+
+        if (! $tag || $tag->user_id !== $userId) {
+            return null;
+        }
+
         return $this->tagRepository->update($id, $data);
     }
 
-    public function deleteTag(int $id): bool
+    /**
+     * Delete a tag the user owns. Global tags and other users' tags are off-limits.
+     */
+    public function deleteTag(string $userId, int $id): bool
     {
+        $tag = $this->tagRepository->findById($id);
+
+        if (! $tag || $tag->user_id !== $userId) {
+            return false;
+        }
+
         return $this->tagRepository->delete($id);
     }
 }

@@ -70,7 +70,7 @@ export type NewTask = {
   date: string;
   time?: string;
   priority?: string;
-  id_tag?: number;
+  id_tag?: number | null;
   goals?: string;
   deskripsi?: string;
   reminder_message?: string | null;
@@ -90,7 +90,7 @@ type BackendTaskPayload = {
   due_date?: string;
   due_time?: string;
   priority?: string;
-  tag_id?: number;
+  tag_id?: number | null;
   goals?: string;
   description?: string;
   reminder_message?: string | null;

@@ -11,14 +11,20 @@ class TagController extends Controller
 {
     public function __construct(private TagService $tagService) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        return TagResource::collection($this->tagService->listTags());
+        return TagResource::collection($this->tagService->listTags($request->user()->id));
     }
 
-    public function show(Tag $tag)
+    public function show(Request $request, Tag $tag)
     {
-        return new TagResource($tag);
+        $found = $this->tagService->getTagForUser($request->user()->id, $tag->{$tag->getKeyName()});
+
+        if (! $found) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+
+        return new TagResource($found);
     }
 
     public function store(Request $request)
@@ -27,7 +33,10 @@ class TagController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $tag = $this->tagService->createTag($data);
+        $tag = $this->tagService->createTag([
+            ...$data,
+            'user_id' => $request->user()->id,
+        ]);
 
         return (new TagResource($tag))->response()->setStatusCode(201);
     }
@@ -38,7 +47,7 @@ class TagController extends Controller
             'name' => 'required|string|max:255',
         ]);
 
-        $updated = $this->tagService->updateTag($tag->{$tag->getKeyName()}, $data);
+        $updated = $this->tagService->updateTag($request->user()->id, $tag->{$tag->getKeyName()}, $data);
 
         if (! $updated) {
             return response()->json(['message' => 'Not found'], 404);
@@ -47,9 +56,9 @@ class TagController extends Controller
         return new TagResource($updated);
     }
 
-    public function destroy(Tag $tag)
+    public function destroy(Request $request, Tag $tag)
     {
-        $deleted = $this->tagService->deleteTag($tag->{$tag->getKeyName()});
+        $deleted = $this->tagService->deleteTag($request->user()->id, $tag->{$tag->getKeyName()});
 
         if (! $deleted) {
             return response()->json(['message' => 'Not found'], 404);
