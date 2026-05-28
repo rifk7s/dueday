@@ -3,9 +3,10 @@ import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { useActivityQuery, useUpdateActivityMutation } from "@/hooks/useActivities";
-import { useTagIdByName } from "@/hooks/useTags";
+import TagSelector from "@/components/TagSelector";
+import type { Tag } from "@/api/tags";
 import { fromApiTime, toApiDate, toApiTime } from "@/api/format";
-import { ULANGI_API_MAP, type Activity, type UlangiType } from "@/api/activities";
+import { ULANGI_API_MAP, type UlangiType } from "@/api/activities";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -25,7 +26,6 @@ import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type TagType = "Kuliah" | "Pekerjaan" | "Rapat" | "Rumah";
 type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
 
 function formatDisplayDate(value: string | null | undefined): string {
@@ -71,16 +71,14 @@ export default function EditActivityPage() {
   const [tanggal, setTanggal] = useState("");
   const [jamMulai, setJamMulai] = useState("");
   const [jamSelesai, setJamSelesai] = useState("");
-  const [tag, setTag] = useState<TagType | null>(null);
+  const [tag, setTag] = useState<Tag | null>(null);
   const [repeat, setRepeat] = useState<RepeatType | null>(null);
   const [deskripsi, setDeskripsi] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
   const [showTimePickerMulai, setShowTimePickerMulai] = useState(false);
   const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const tagId = useTagIdByName(tag);
 
-  const tagOptions: TagType[] = ["Kuliah", "Pekerjaan", "Rapat", "Rumah"];
   const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tahunan"];
 
   useEffect(() => {
@@ -100,28 +98,12 @@ export default function EditActivityPage() {
     setTanggal(formatDisplayDate(activity.tanggal));
     setJamMulai(fromApiTime(activity.time_start ?? "") || "");
     setJamSelesai(fromApiTime(activity.time_end ?? "") || "");
-    setTag((activity.tag?.nama_tag as TagType) ?? null);
+    setTag(activity.tag ?? null);
     setRepeat(repeatToUi(activity.ulangi));
     setDeskripsi(activity.deskripsi ?? "");
     setInitialized(true);
   }, [activity, initialized]);
 
-  const getTagColor = (currentTag: TagType | null): string => {
-    switch (currentTag) {
-      case "Kuliah":
-        return colors.primaryContainer;
-      case "Pekerjaan":
-        return colors.success;
-      case "Rapat":
-        return colors.warning;
-      case "Rumah":
-        return colors.tertiaryContainer;
-      default:
-        return colors.surfaceContainerLow;
-    }
-  };
-
-  const isTagSelected = (t: TagType): boolean => tag === t;
   const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
 
   // Extracted core payload preparation and execution out to a helper
@@ -134,7 +116,7 @@ export default function EditActivityPage() {
     if (jamMulai !== (fromApiTime(activity.time_start ?? "") || "")) payload.time_start = toApiTime(jamMulai);
     if (jamSelesai !== (fromApiTime(activity.time_end ?? "") || "")) payload.time_end = toApiTime(jamSelesai);
 
-    const selectedTagId = tagId ?? null;
+    const selectedTagId = tag?.id_tag ?? null;
     if (selectedTagId !== (activity.id_tag ?? null)) payload.id_tag = selectedTagId;
 
     const isLegacyRepeat = repeat !== null && !repeatOptions.includes(repeat);
@@ -324,26 +306,7 @@ export default function EditActivityPage() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Tag</Text>
-          <View style={styles.chipsRow}>
-            {tagOptions.map((t) => {
-              const selected = isTagSelected(t);
-              const chipColor = selected ? getTagColor(t) : colors.surfaceContainerLow;
-              return (
-                <Pressable
-                  key={t}
-                  onPress={() => setTag(tag === t ? null : t)}
-                  style={[styles.chip, { backgroundColor: chipColor }]}
-                >
-                  <Text style={[styles.chipText, { color: selected ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                    {t}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
+        <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
         <View style={styles.section}>
           <Text style={styles.label}>Ulangi</Text>

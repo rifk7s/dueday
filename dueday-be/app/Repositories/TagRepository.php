@@ -6,9 +6,12 @@ use App\Models\Tag;
 
 class TagRepository
 {
-    public function all()
+    /**
+     * Get tags visible to the given user (global tags + the user's own tags).
+     */
+    public function visibleToUser(string $userId)
     {
-        return Tag::all();
+        return Tag::visibleToUser($userId)->get();
     }
 
     public function findById(int $id): ?Tag
