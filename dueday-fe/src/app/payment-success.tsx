@@ -174,10 +174,10 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
   const features = useMemo(
     () => [
       {
-        key: "who_first",
-        title: "Lihat Siapa Duluan Kumpul",
-        desc: "Monitor siapa yang duluan submit tugas di e‑learn sehingga kamu nggak ketinggalan.",
-        icon: "eye-outline",
+        key: "unlimited_import",
+        title: "Import E-Learn Tanpa Batas",
+        desc: "Impor tugas dari e-learn sepuasnya. Versi gratis dibatasi 3x impor per bulan.",
+        icon: "infinite-outline",
       },
       {
         key: "reminders",
