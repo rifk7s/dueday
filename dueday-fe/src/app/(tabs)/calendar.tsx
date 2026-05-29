@@ -7,7 +7,7 @@ import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -62,13 +62,15 @@ const START_HOUR = 0;
 const END_HOUR = 23;
 const SLOT_HEIGHT = 72;
 const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index);
-const RECURRING_HORIZON_YEARS = 5;
+// Forward-only projection window for a recurring activity's future occurrences.
+// The backend uses a rolling single-occurrence model, so we only ever project
+// the live row forward from max(anchor, today) — never into the past.
+const RECURRING_HORIZON_YEARS = 1;
 
 export default function CalendarScreen() {
   const { top } = useSafeAreaInsets();
   const bottomBarSpace = useBottomBarSpace();
   const router = useRouter();
-  const hasAutoSelectedRecurringDate = React.useRef(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     const day = today.getDate().toString().padStart(2, "0");
@@ -131,32 +133,14 @@ export default function CalendarScreen() {
     return [...fromActivities, ...fromTasks];
   }, [activities, tasks]);
 
-  const markedDays = scheduleItems.map((item) => item.dateKey);
-  const recurringFocusDate = useMemo(() => {
-    const todayKey = toDateKeyForSort(new Date());
-    const recurringDates = scheduleItems
-      .filter((item) => item.kind === "activity" && item.recurring)
-      .map((item) => item.dateKey)
-      .sort();
-
-    return recurringDates.find((dateKey) => dateKey >= todayKey) ?? recurringDates[0] ?? undefined;
-  }, [scheduleItems]);
-  const selectedScheduleItems = scheduleItems.filter((item) => item.dateKey === selectedDateKey);
+  const markedDays = useMemo(() => scheduleItems.map((item) => item.dateKey), [scheduleItems]);
+  const selectedScheduleItems = useMemo(
+    () => scheduleItems.filter((item) => item.dateKey === selectedDateKey),
+    [scheduleItems, selectedDateKey],
+  );
   const scheduleClusters = useMemo(() => groupOverlappingScheduleItems(selectedScheduleItems), [selectedScheduleItems]);
   const hasSelectedScheduleItems = scheduleClusters.length > 0;
   const selectedDateLabel = selectedDateKey ? fromApiDate(selectedDateKey) : selectedDate;
-
-  
-
-  React.useEffect(() => {
-    if (hasAutoSelectedRecurringDate.current) return;
-    if (!recurringFocusDate) return;
-
-    setSelectedDate(formatIsoDateKeyAsDisplayDate(recurringFocusDate));
-    hasAutoSelectedRecurringDate.current = true;
-  }, [recurringFocusDate]);
-
-  
 
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
@@ -177,7 +161,6 @@ export default function CalendarScreen() {
             visible
             inline
             selectedDate={selectedDate}
-            focusDate={recurringFocusDate}
             onClose={() => undefined}
             onDateSelect={setSelectedDate}
             markedDays={markedDays}
@@ -315,8 +298,12 @@ function buildRecurringScheduleItems(activity: { id: string; activity_name: stri
     return [];
   }
 
-  const rangeStart = addYears(baseDate, -RECURRING_HORIZON_YEARS);
-  const rangeEnd = addYears(baseDate, RECURRING_HORIZON_YEARS);
+  // Forward-only projection: start at max(anchor, today) so past occurrences are
+  // never re-painted (those live as their own static rows after each reset), and
+  // cap the window one horizon ahead to bound the work.
+  const today = startOfToday();
+  const rangeStart = baseDate.getTime() > today.getTime() ? baseDate : today;
+  const rangeEnd = addYears(rangeStart, RECURRING_HORIZON_YEARS);
 
   const startHour = activity.time_start ? parseInt(activity.time_start.substring(0, 2), 10) : START_HOUR;
   const endRaw = activity.time_end ? parseInt(activity.time_end.substring(0, 2), 10) : startHour + 1;
@@ -339,7 +326,7 @@ function buildRecurringScheduleItems(activity: { id: string; activity_name: stri
   }));
 }
 
-function expandRecurringDates(baseDate: Date, startDate: Date, endDate: Date, recurrence: string): Date[] {
+function expandRecurringDates(baseDate: Date, rangeStart: Date, rangeEnd: Date, recurrence: string): Date[] {
   const dates: Date[] = [];
 
   switch (recurrence) {
@@ -347,12 +334,8 @@ function expandRecurringDates(baseDate: Date, startDate: Date, endDate: Date, re
       let current = new Date(baseDate);
       alignTime(current, baseDate);
 
-      while (current > startDate) {
-        current = addDays(current, -1);
-      }
-
-      while (current <= endDate) {
-        if (current >= startDate) {
+      while (current <= rangeEnd) {
+        if (current >= rangeStart) {
           dates.push(new Date(current));
         }
         current = addDays(current, 1);
@@ -363,12 +346,8 @@ function expandRecurringDates(baseDate: Date, startDate: Date, endDate: Date, re
       let current = new Date(baseDate);
       alignTime(current, baseDate);
 
-      while (current > startDate) {
-        current = addDays(current, -7);
-      }
-
-      while (current <= endDate) {
-        if (current >= startDate) {
+      while (current <= rangeEnd) {
+        if (current >= rangeStart) {
           dates.push(new Date(current));
         }
         current = addDays(current, 7);
@@ -377,28 +356,17 @@ function expandRecurringDates(baseDate: Date, startDate: Date, endDate: Date, re
     }
     case "satu_bulan": {
       const baseDay = baseDate.getDate();
-      for (let monthOffset = 0; ; monthOffset -= 1) {
+      for (let monthOffset = 0; ; monthOffset += 1) {
         const current = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, baseDay);
         alignTime(current, baseDate);
 
-        if (current < startDate) {
+        if (current > rangeEnd) {
           break;
         }
 
-        if (current.getDate() === baseDay) {
-          dates.unshift(current);
-        }
-      }
-
-      for (let monthOffset = 1; ; monthOffset += 1) {
-        const current = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, baseDay);
-        alignTime(current, baseDate);
-
-        if (current > endDate) {
-          break;
-        }
-
-        if (current.getDate() === baseDay) {
+        // getDate() !== baseDay means the day overflowed into the next month
+        // (e.g. the 31st in a 30-day month) — skip rather than shift.
+        if (current >= rangeStart && current.getDate() === baseDay) {
           dates.push(current);
         }
       }
@@ -407,28 +375,16 @@ function expandRecurringDates(baseDate: Date, startDate: Date, endDate: Date, re
     case "satu_tahun": {
       const baseMonth = baseDate.getMonth();
       const baseDay = baseDate.getDate();
-      for (let yearOffset = 0; ; yearOffset -= 1) {
+      for (let yearOffset = 0; ; yearOffset += 1) {
         const current = new Date(baseDate.getFullYear() + yearOffset, baseMonth, baseDay);
         alignTime(current, baseDate);
 
-        if (current < startDate) {
+        if (current > rangeEnd) {
           break;
         }
 
-        if (current.getMonth() === baseMonth && current.getDate() === baseDay) {
-          dates.unshift(current);
-        }
-      }
-
-      for (let yearOffset = 1; ; yearOffset += 1) {
-        const current = new Date(baseDate.getFullYear() + yearOffset, baseMonth, baseDay);
-        alignTime(current, baseDate);
-
-        if (current > endDate) {
-          break;
-        }
-
-        if (current.getMonth() === baseMonth && current.getDate() === baseDay) {
+        // Skip Feb 29 on non-leap years instead of rolling into March.
+        if (current >= rangeStart && current.getMonth() === baseMonth && current.getDate() === baseDay) {
           dates.push(current);
         }
       }
@@ -466,6 +422,11 @@ function addYears(date: Date, years: number): Date {
   return new Date(date.getFullYear() + years, date.getMonth(), date.getDate());
 }
 
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 function alignTime(target: Date, source: Date): void {
   target.setHours(source.getHours(), source.getMinutes(), source.getSeconds(), 0);
 }
@@ -475,16 +436,6 @@ function toDateKey(date: Date): string {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function toDateKeyForSort(date: Date): string {
-  return toDateKey(date);
-}
-
-function formatIsoDateKeyAsDisplayDate(dateKey: string): string {
-  const [year, month, day] = dateKey.split("-");
-  if (!year || !month || !day) return dateKey;
-  return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
 }
 
 function normalizeDateKey(value: string | null | undefined): string {
