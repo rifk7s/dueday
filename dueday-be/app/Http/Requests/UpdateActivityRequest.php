@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateActivityRequest extends FormRequest
 {
@@ -19,7 +20,15 @@ class UpdateActivityRequest extends FormRequest
             'anchor_date' => 'sometimes|nullable|date',
             'time_start' => 'sometimes|nullable|date_format:H:i:s',
             'time_end' => 'sometimes|nullable|date_format:H:i:s',
-            'tag_id' => 'sometimes|nullable|integer|exists:tags,id',
+            'tag_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                // Only a global tag or one the caller owns may be attached.
+                Rule::exists('tags', 'id')->where(function ($query): void {
+                    $query->whereNull('user_id')->orWhere('user_id', $this->user()?->id);
+                }),
+            ],
             'status' => 'sometimes|nullable|in:not_started,ongoing,pending,completed,cancelled',
             'progress' => 'sometimes|nullable|integer|min:0|max:100',
             'progress_started_at' => 'sometimes|nullable|date',

@@ -24,6 +24,23 @@ class TagRepository
         return Tag::create($data);
     }
 
+    /**
+     * Create the tag, or return the existing one for this (user_id, name).
+     *
+     * Race-safe: relies on the unique(['user_id', 'name']) constraint and ACID
+     * semantics instead of a select-then-insert, so concurrent identical creates
+     * resolve to a single row without a duplicate-key error.
+     *
+     * @param  array{name: string, user_id: ?string}  $data
+     */
+    public function createOrFirst(array $data): Tag
+    {
+        return Tag::createOrFirst([
+            'user_id' => $data['user_id'] ?? null,
+            'name' => $data['name'],
+        ]);
+    }
+
     public function update(int $id, array $data): ?Tag
     {
         $tag = $this->findById($id);

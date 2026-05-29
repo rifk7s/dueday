@@ -1,9 +1,13 @@
-import type { Tag } from "@/api/tags";
+import { isOwnedTag, type Tag } from "@/api/tags";
 import { colors, fonts } from "@/constants/theme";
-import { usePersistentState } from "@/hooks/usePersistentState";
-import { useTagsQuery } from "@/hooks/useTags";
+import {
+  useCreateTagMutation,
+  useDeleteTagMutation,
+  useTagsQuery,
+  useUpdateTagMutation,
+} from "@/hooks/useTags";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 type Props = {
@@ -12,44 +16,96 @@ type Props = {
   onSelectTag: (tag: Tag | null) => void;
 };
 
+const MAX_TAG_LENGTH = 10;
+
 export default function TagSelector({
   label = "Tag",
   selectedTag,
   onSelectTag,
 }: Props) {
   const { data: tags = [] } = useTagsQuery();
-  const [localTags, setLocalTags] = usePersistentState<Tag>("local_tags", []);
+  const createTag = useCreateTagMutation();
+  const updateTag = useUpdateTagMutation();
+  const deleteTag = useDeleteTagMutation();
+
   const [visible, setVisible] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
-  const [localError, setLocalError] = useState("");
-  const [recentLocalTag, setRecentLocalTag] = useState<Tag | null>(null);
-
-  const handleAddLocalTag = () => {
-    const name = newTagName.trim();
-    if (!name) return;
-    if (name.length > 10) {
-      setLocalError("Tag maksimal 10 huruf.");
-      return;
-    }
-    const nextId = -Date.now();
-    const newTag: Tag = { id_tag: nextId, nama_tag: name, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    setLocalTags([newTag, ...localTags]);
-    setNewTagName("");
-    setLocalError("");
-  };
+  const [error, setError] = useState("");
 
   const selectedTagId = selectedTag?.id_tag ?? null;
-  const recentLocalTagId = recentLocalTag?.id_tag ?? null;
+  const busy = createTag.isPending || updateTag.isPending || deleteTag.isPending;
+  // The modal manages only the user's own tags; global tags are picker-only (chip row).
+  const ownedTags = tags.filter(isOwnedTag);
 
-  const sortedTags = useMemo(() => tags, [tags]);
+  const handleAddTag = async () => {
+    const name = newTagName.trim();
+    if (!name || createTag.isPending) return;
+    if (name.length > MAX_TAG_LENGTH) {
+      setError(`Tag maksimal ${MAX_TAG_LENGTH} huruf.`);
+      return;
+    }
+    try {
+      const tag = await createTag.mutateAsync({ name });
+      onSelectTag(tag);
+      setNewTagName("");
+      setError("");
+      setVisible(false);
+    } catch {
+      setError("Gagal menambah tag. Coba lagi.");
+    }
+  };
+
+  const handleRenameTag = async (tag: Tag) => {
+    const trimmed = editingText.trim();
+    if (!trimmed || updateTag.isPending) return;
+    if (trimmed.length > MAX_TAG_LENGTH) {
+      setError(`Tag maksimal ${MAX_TAG_LENGTH} huruf.`);
+      return;
+    }
+    try {
+      const updated = await updateTag.mutateAsync({ id: tag.id_tag, name: trimmed });
+      if (selectedTagId === tag.id_tag) onSelectTag(updated);
+      setEditingId(null);
+      setEditingText("");
+      setError("");
+    } catch {
+      setError("Gagal mengubah tag. Coba lagi.");
+    }
+  };
+
+  const handleDeleteTag = (tag: Tag) => {
+    Alert.alert(
+      "Hapus tag?",
+      `Tag "${tag.nama_tag}" akan dihapus. Tindakan ini tidak bisa dibatalkan.`,
+      [
+        { text: "Batal", style: "cancel" },
+        {
+          text: "Hapus",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteTag.mutateAsync(tag.id_tag);
+              if (selectedTagId === tag.id_tag) onSelectTag(null);
+              if (editingId === tag.id_tag) {
+                setEditingId(null);
+                setEditingText("");
+              }
+            } catch {
+              setError("Gagal menghapus tag. Coba lagi.");
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <View style={styles.section}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.chipRow}>
-        {sortedTags.map((tag) => {
+        {tags.map((tag) => {
           const isSelected = selectedTagId === tag.id_tag;
           return (
             <Pressable
@@ -78,34 +134,6 @@ export default function TagSelector({
             </Pressable>
           );
         })}
-        {recentLocalTag && !sortedTags.find((t) => t.id_tag === recentLocalTag.id_tag) ? (
-          <Pressable
-            key={`recent-local-${recentLocalTag.id_tag}`}
-            onPress={() => onSelectTag(recentLocalTag)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor:
-                  selectedTagId === recentLocalTagId
-                    ? colors.primaryContainer
-                    : colors.surfaceContainerLow,
-                borderColor:
-                  selectedTagId === recentLocalTagId
-                    ? colors.primaryContainer
-                    : colors.surfaceContainerLow,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                { color: selectedTagId === recentLocalTagId ? colors.onPrimary : colors.onSurfaceVariant },
-              ]}
-            >
-              {recentLocalTag.nama_tag}
-            </Text>
-          </Pressable>
-        ) : null}
         <Pressable style={styles.addChip} onPress={() => setVisible(true)}>
           <Ionicons name="add" size={16} color={colors.primaryContainer} />
         </Pressable>
@@ -120,13 +148,12 @@ export default function TagSelector({
               </Pressable>
             </View>
 
-            <Text style={[styles.subtitle, { marginTop: 0 }]}>Tag Lokal</Text>
             <View style={{ marginTop: 8 }}>
-              {localTags.length === 0 ? (
+              {ownedTags.length === 0 ? (
                 <Text style={{ color: colors.onSurfaceVariant, fontFamily: fonts["400"] }}>Belum ada tag lokal.</Text>
               ) : (
-                localTags.map((tag) => (
-                  <View key={`local-${tag.id_tag}`} style={{ marginBottom: 8 }}>
+                ownedTags.map((tag) => (
+                  <View key={`tag-${tag.id_tag}`} style={{ marginBottom: 8 }}>
                     {editingId === tag.id_tag ? (
                       <View style={{ flexDirection: "row", alignItems: "center" }}>
                         <TextInput
@@ -134,24 +161,14 @@ export default function TagSelector({
                           value={editingText}
                           onChangeText={(text) => {
                             setEditingText(text);
-                            if (localError) setLocalError("");
+                            if (error) setError("");
                           }}
                           placeholder="Nama tag"
                         />
                         <Pressable
-                          style={[styles.secondaryButton, { marginLeft: 8 }]}
-                          onPress={() => {
-                            const trimmed = editingText.trim();
-                            if (!trimmed) return;
-                            if (trimmed.length > 10) {
-                              setLocalError("Tag maksimal 10 huruf.");
-                              return;
-                            }
-                            setLocalTags(localTags.map((t) => (t.id_tag === tag.id_tag ? { ...t, nama_tag: trimmed } : t)));
-                            setEditingId(null);
-                            setEditingText("");
-                            setLocalError("");
-                          }}
+                          style={[styles.secondaryButton, { marginLeft: 8 }, updateTag.isPending && styles.buttonDisabled]}
+                          disabled={updateTag.isPending}
+                          onPress={() => handleRenameTag(tag)}
                         >
                           <Text style={styles.secondaryButtonText}>Simpan</Text>
                         </Pressable>
@@ -160,7 +177,7 @@ export default function TagSelector({
                           onPress={() => {
                             setEditingId(null);
                             setEditingText("");
-                            setLocalError("");
+                            setError("");
                           }}
                         >
                           <Text style={styles.secondaryButtonText}>Batal</Text>
@@ -175,9 +192,7 @@ export default function TagSelector({
                             : {},
                         ]}
                         onPress={() => {
-                          // Select this local tag for the form and close the modal.
                           onSelectTag(tag);
-                          setRecentLocalTag(tag);
                           setVisible(false);
                         }}
                       >
@@ -185,36 +200,26 @@ export default function TagSelector({
                           styles.pillText,
                           selectedTagId === tag.id_tag ? { color: colors.onPrimary } : {},
                         ]}>{tag.nama_tag}</Text>
-                        <View style={styles.pillActions}>
-                          <Pressable
-                            onPress={() => {
-                              setEditingId(tag.id_tag);
-                              setEditingText(tag.nama_tag);
-                            }}
-                            style={styles.pillActionBtn}
-                          >
-                            <Ionicons name="pencil" size={14} color={colors.onSurfaceVariant} />
-                          </Pressable>
-                          <Pressable
-                            onPress={() => {
-                              const deletingId = tag.id_tag;
-                              // remove from local tags
-                              setLocalTags(localTags.filter((t) => t.id_tag !== deletingId));
-                              // clear recent/modal selection if it was the deleted one
-                              if (recentLocalTag && recentLocalTag.id_tag === deletingId) {
-                                setRecentLocalTag(null);
-                              }
-                              // if the deleted tag was selected in the form, switch to default 'Rumah' if available
-                              if (selectedTag && selectedTag.id_tag === deletingId) {
-                                const defaultTag = sortedTags.find((t) => t.nama_tag === "Rumah");
-                                onSelectTag(defaultTag ?? null);
-                              }
-                            }}
-                            style={[styles.pillActionBtn, { marginLeft: 8 }]}
-                          >
-                            <Ionicons name="trash" size={14} color={colors.error} />
-                          </Pressable>
-                        </View>
+                        {isOwnedTag(tag) ? (
+                          <View style={styles.pillActions}>
+                            <Pressable
+                              onPress={() => {
+                                setEditingId(tag.id_tag);
+                                setEditingText(tag.nama_tag);
+                                setError("");
+                              }}
+                              style={styles.pillActionBtn}
+                            >
+                              <Ionicons name="pencil" size={14} color={colors.onSurfaceVariant} />
+                            </Pressable>
+                            <Pressable
+                              onPress={() => handleDeleteTag(tag)}
+                              style={[styles.pillActionBtn, { marginLeft: 8 }]}
+                            >
+                              <Ionicons name="trash" size={14} color={colors.error} />
+                            </Pressable>
+                          </View>
+                        ) : null}
                       </Pressable>
                     )}
                   </View>
@@ -225,45 +230,24 @@ export default function TagSelector({
             <View style={{ marginTop: 12 }}>
               <TextInput
                 style={styles.input}
-                placeholder="Tambah tag lokal..."
+                placeholder="Tambah tag baru..."
                 placeholderTextColor={colors.iconMuted}
                 value={newTagName}
+                maxLength={MAX_TAG_LENGTH}
                 onChangeText={(text) => {
                   setNewTagName(text);
-                  if (localError) setLocalError("");
+                  if (error) setError("");
                 }}
+                onSubmitEditing={handleAddTag}
               />
-              {localError ? <Text style={styles.errorText}>{localError}</Text> : null}
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
               <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 10 }}>
                 <Pressable
-                  style={styles.secondaryButton}
-                  onPress={() => {
-                    if (localTags.length === 0) return;
-                    Alert.alert(
-                      "Reset tag lokal?",
-                      "Semua tag lokal akan dihapus. Tindakan ini tidak bisa dibatalkan.",
-                      [
-                        { text: "Batal", style: "cancel" },
-                        {
-                          text: "Reset",
-                          style: "destructive",
-                          onPress: () => {
-                            setLocalTags([]);
-                            setRecentLocalTag(null);
-                            setLocalError("");
-                          },
-                        },
-                      ],
-                    );
-                  }}
+                  style={[styles.footerButton, busy && styles.buttonDisabled]}
+                  disabled={busy}
+                  onPress={handleAddTag}
                 >
-                  <Text style={styles.secondaryButtonText}>Reset</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.footerButton, { marginLeft: 8 }]}
-                  onPress={handleAddLocalTag}
-                >
-                  <Text style={styles.primaryButtonText}>Tambah</Text>
+                  <Text style={styles.primaryButtonText}>{createTag.isPending ? "Menyimpan..." : "Tambah"}</Text>
                 </Pressable>
               </View>
             </View>
