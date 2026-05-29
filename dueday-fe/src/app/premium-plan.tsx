@@ -36,9 +36,9 @@ type PlanItem = {
 
 const benefits: BenefitItem[] = [
   {
-    icon: "eye-outline",
-    title: "Lihat Siapa Duluan Kumpul",
-    description: "Monitor siapa yang duluan submit tugas di e-learn, jadi kamu nggak ketinggalan info perkembangan kelas.",
+    icon: "infinite-outline",
+    title: "Import E-Learn Tanpa Batas",
+    description: "Impor tugas dari e-learn sepuasnya. Versi gratis dibatasi 3x impor per bulan.",
   },
   {
     icon: "notifications-outline",

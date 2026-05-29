@@ -1,7 +1,7 @@
 import { exitFlowTo } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
@@ -88,18 +88,38 @@ function AccentDot({ size, color, top, left, right, delay }: AccentDotProps): Re
 
 export default function PaymentRejectedScreen(): React.JSX.Element {
   const { top, bottom } = useSafeAreaInsets();
+  const router = useRouter();
   const params = useLocalSearchParams();
 
   const planName = (params.planName as string) || "Dueday Premium - 1 Bulan";
   const methodName = (params.methodName as string) || "Virtual Account";
+  // Carried over from detail-transfer so retry re-enters /payment with the
+  // original plan selection rather than the screen's defaults.
+  const mode = params.mode as string | undefined;
+  const plan = params.plan as string | undefined;
+  const planPrice = params.planPrice as string | undefined;
+  const planAmount = params.planAmount as string | undefined;
+  const planDuration = params.planDuration as string | undefined;
 
   const handleBack = useCallback(() => {
     exitFlowTo("/profile");
   }, []);
 
   const handleRetry = useCallback(() => {
-    exitFlowTo("/payment");
-  }, []);
+    // Replace (not dismissTo): in the real flow /payment was replaced out of the
+    // stack, so there's nothing to dismiss back to. Stays inside the modal host.
+    router.replace({
+      pathname: "/payment",
+      params: {
+        ...(mode ? { mode } : {}),
+        ...(plan ? { plan } : {}),
+        planName,
+        ...(planPrice ? { planPrice } : {}),
+        ...(planAmount ? { planAmount } : {}),
+        ...(planDuration ? { planDuration } : {}),
+      },
+    });
+  }, [router, mode, plan, planName, planPrice, planAmount, planDuration]);
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {

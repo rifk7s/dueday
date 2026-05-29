@@ -102,6 +102,7 @@ function RootNavigator() {
         <Stack.Screen name="payment" options={modalScreenOptions} />
         <Stack.Screen name="detail-transfer" options={modalScreenOptions} />
         <Stack.Screen name="payment-success" options={successScreenOptions} />
+        <Stack.Screen name="payment-rejected" options={successScreenOptions} />
         <Stack.Screen name="create-task" options={modalScreenOptions} />
         <Stack.Screen name="create-activity" options={modalScreenOptions} />
         <Stack.Screen name="edit-activity" options={modalScreenOptions} />
