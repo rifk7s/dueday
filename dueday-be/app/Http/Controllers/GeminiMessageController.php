@@ -11,10 +11,17 @@ class GeminiMessageController extends Controller
 {
     private const int CACHE_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
-    private const int MAX_ITEMS_PER_REQUEST = 50;
+    // Public so Scramble can read it when statically evaluating the validation rules.
+    public const int MAX_ITEMS_PER_REQUEST = 50;
 
     public function __construct(private readonly GeminiService $gemini) {}
 
+    /**
+     * Generate reminder message
+     *
+     * Generate a single reminder message for one entity. Identical requests are
+     * served from cache and cost zero Gemini calls.
+     */
     public function generate(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -47,9 +54,11 @@ class GeminiMessageController extends Controller
     }
 
     /**
-     * Batch endpoint. Accepts up to 50 items, returns a map keyed by the
-     * caller-supplied `key`. Items served from cache cost zero Gemini calls;
-     * misses go through one batched structured-output request.
+     * Batch generate reminder messages
+     *
+     * Accepts up to 50 items, returns a map keyed by the caller-supplied `key`.
+     * Items served from cache cost zero Gemini calls; misses go through one
+     * batched structured-output request.
      */
     public function generateBatch(Request $request): JsonResponse
     {
