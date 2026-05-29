@@ -1,6 +1,6 @@
 import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Modal,
     Pressable,
@@ -16,7 +16,6 @@ type DatePickerCalendarProps = {
   onClose: () => void;
   onDateSelect: (date: string) => void;
   selectedDate?: string;
-  focusDate?: string;
   inline?: boolean;
   markedDays?: string[];
 };
@@ -26,7 +25,6 @@ export default function DatePickerCalendar({
   onClose,
   onDateSelect,
   selectedDate,
-  focusDate,
   inline = false,
   markedDays = [],
 }: Readonly<DatePickerCalendarProps>) {
@@ -36,32 +34,12 @@ export default function DatePickerCalendar({
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [tempSelectedDate, setTempSelectedDate] = useState<string | undefined>(selectedDate);
-  const hasAutoFocusedMarkedMonth = useRef(false);
 
   useEffect(() => {
     if (visible) {
       setTempSelectedDate(selectedDate);
     }
   }, [visible, selectedDate]);
-
-  useEffect(() => {
-    if (!inline || hasAutoFocusedMarkedMonth.current) {
-      return;
-    }
-
-    const targetDate = focusDate ?? markedDays.find((day) => day.includes("-")) ?? markedDays[0];
-    if (!targetDate) return;
-
-    const [year, month] = targetDate.split("-");
-    const nextMonth = Number(month) - 1;
-    const nextYear = Number(year);
-
-    if (Number.isFinite(nextMonth) && Number.isFinite(nextYear)) {
-      setCurrentMonth(nextMonth);
-      setCurrentYear(nextYear);
-      hasAutoFocusedMarkedMonth.current = true;
-    }
-  }, [focusDate, inline, markedDays]);
 
   const getDaysInMonth = (month: number, year: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -130,10 +108,19 @@ export default function DatePickerCalendar({
     return false;
   };
 
+  // Pre-aggregate marker counts once per markedDays change so each day cell is an
+  // O(1) lookup instead of an O(n) filter over the full (un-deduped) marked list.
+  const markerCountByDate = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const markedDay of markedDays) {
+      counts.set(markedDay, (counts.get(markedDay) ?? 0) + 1);
+    }
+    return counts;
+  }, [markedDays]);
+
   const getMarkerCount = (day: number) => {
     const fullDateKey = `${currentYear}-${(currentMonth + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
-    const dayKey = day.toString().padStart(2, "0");
-    return markedDays.filter((markedDay) => markedDay === fullDateKey || markedDay === dayKey).length;
+    return markerCountByDate.get(fullDateKey) ?? 0;
   };
 
   const calendarContent = (
@@ -276,5 +263,4 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onSurface },
   confirmButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: colors.primaryContainer, alignItems: "center" },
   confirmText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onPrimary },
-  
 });

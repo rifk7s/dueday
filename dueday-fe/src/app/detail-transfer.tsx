@@ -16,7 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type MethodMeta = {
@@ -238,12 +238,11 @@ export default function DetailTransferScreen(): React.JSX.Element {
   };
 
   const handleSelectAndScanQRIS = async () => {
-    setIsUploading(true);
-
     // ================== WEB BROWSER MODE ==================
     if (Platform.OS === "web") {
       try {
         const mockString = `DUEDAY_MOCK_PAYMENT|MERCHANT:DUEDAY STUDIO|CITY:MAKASSAR|AMOUNT:${planAmount}`;
+        setIsUploading(true);
         await sendDecodedDataToBackend(mockString);
         alert("Sukses: Pembayaran terverifikasi via Browser Simulator!");
         setPaymentStatus("paid");
@@ -276,6 +275,10 @@ export default function DetailTransferScreen(): React.JSX.Element {
 
       const selectedImgUri = pickerResult.assets[0].uri;
 
+      // A valid screenshot is in hand — only now show the verifying overlay,
+      // covering the scan + backend call (not the permission prompt or picker).
+      setIsUploading(true);
+
       // Scan code directly on device using native hardware capabilities
       const scanResults = await Camera.scanFromURLAsync(selectedImgUri, ["qr"]);
 
@@ -289,8 +292,12 @@ export default function DetailTransferScreen(): React.JSX.Element {
       // Send the decoded text output directly to backend
       await sendDecodedDataToBackend(nativeScannedString);
 
-      Alert.alert("Sukses", "Pembayaran terverifikasi oleh server!");
-      setPaymentStatus("paid");
+      // Defer the status flip (which navigates to /payment-success) until the user
+      // taps OK. Alert.alert is non-blocking on native, so setting it inline would
+      // tear this screen down mid-alert and leave the OK button unresponsive.
+      Alert.alert("Sukses", "Pembayaran terverifikasi oleh server!", [
+        { text: "OK", onPress: () => setPaymentStatus("paid") },
+      ]);
     } catch (error: any) {
       Alert.alert("Verifikasi Gagal", error.message || "Terjadi kesalahan sistem.");
     } finally {
@@ -303,16 +310,6 @@ export default function DetailTransferScreen(): React.JSX.Element {
   return (
     <View style={[styles.root, { paddingTop: top }]}>
       <StatusBar style="dark" />
-
-      <Modal transparent animationType="fade" visible={isUploading} statusBarTranslucent>
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color={colors.primaryContainer} />
-            <Text style={styles.loadingTitle}>Memverifikasi Gambar</Text>
-            <Text style={styles.loadingText}>Sedang memindai QRIS dan menyiapkan verifikasi pembayaran.</Text>
-          </View>
-        </View>
-      </Modal>
 
       <View style={styles.header}>
         <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel="Kembali" onPress={() => exitFlowTo("/profile")}>
@@ -422,6 +419,18 @@ export default function DetailTransferScreen(): React.JSX.Element {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* In-tree overlay (not a Modal): a Modal can't present right after the image
+          picker dismisses on iOS, so the loading state was getting dropped there. */}
+      {isUploading ? (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color={colors.primaryContainer} />
+            <Text style={styles.loadingTitle}>Memverifikasi Gambar</Text>
+            <Text style={styles.loadingText}>Sedang memindai QRIS dan menyiapkan verifikasi pembayaran.</Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -474,7 +483,7 @@ const styles = StyleSheet.create({
   confirmButtonText: { fontSize: 14, fontFamily: fonts["700"], color: colors.onPrimary },
   cancelButton: { height: 46, borderRadius: 999, borderWidth: 1, borderColor: colors.errorStrong, alignItems: "center", justifyContent: "center" },
   cancelButtonText: { fontSize: 14, fontFamily: fonts["600"], color: colors.errorStrong },
-  loadingOverlay: { flex: 1, backgroundColor: "rgba(12, 16, 24, 0.48)", alignItems: "center", justifyContent: "center", padding: 24 },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(12, 16, 24, 0.48)", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 20, elevation: 20 },
   loadingCard: { width: "100%", maxWidth: 320, borderRadius: 20, backgroundColor: colors.surfaceContainerLowest, padding: 24, alignItems: "center", gap: 12 },
   loadingTitle: { fontSize: 18, fontFamily: fonts["700"], color: colors.onSurface, textAlign: "center" },
   loadingText: { fontSize: 13, fontFamily: fonts["500"], color: colors.onSurfaceVariant, textAlign: "center", lineHeight: 20 },
