@@ -263,5 +263,4 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onSurface },
   confirmButton: { flex: 1, paddingVertical: 12, borderRadius: 8, backgroundColor: colors.primaryContainer, alignItems: "center" },
   confirmText: { fontSize: 14, fontFamily: fonts["600"], color: colors.onPrimary },
-  
 });

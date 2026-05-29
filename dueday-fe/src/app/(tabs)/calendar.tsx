@@ -167,8 +167,6 @@ export default function CalendarScreen() {
           />
         </View>
 
-        
-
         <View style={styles.schedulePanel}>
           <View style={styles.schedulePanelHeader}>
             <View>
@@ -716,20 +714,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts["500"],
     color: colors.onSurfaceVariant,
   },
-  debugRow: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 6,
-    alignItems: "flex-start",
-  },
-  debugText: {
-    fontSize: 12,
-    fontFamily: fonts["500"],
-    color: colors.onSurfaceVariant,
-    backgroundColor: "rgba(0,0,0,0.03)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  
 });
