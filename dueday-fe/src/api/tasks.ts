@@ -189,7 +189,11 @@ function mapLegacyTaskInputToBackendPayload(input: Partial<NewTask>): BackendTas
   if (input.date !== undefined) payload.due_date = input.date;
   if (input.time !== undefined) payload.due_time = input.time;
   if (input.priority !== undefined) payload.priority = input.priority;
-  if (input.id_tag !== undefined) payload.tag_id = input.id_tag;
+  // Local-only tags carry negative ids and must never reach the backend
+  // (tag_id is an unsigned FK). A local selection clears the tag instead.
+  if (input.id_tag !== undefined) {
+    payload.tag_id = input.id_tag != null && input.id_tag > 0 ? input.id_tag : null;
+  }
   if (input.goals !== undefined) payload.goals = input.goals;
   if (input.deskripsi !== undefined) payload.description = input.deskripsi;
   if (input.reminder_message !== undefined) payload.reminder_message = input.reminder_message;

@@ -1,0 +1,5 @@
+# Monorepo root — packages keep their own .gitignore (dueday-fe/, dueday-be/).
+# This repo uses bun in dueday-fe; no npm lockfile or node_modules belongs at the root.
+package-lock.json
+yarn.lock
+node_modules/

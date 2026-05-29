@@ -4,7 +4,7 @@ import { usePersistentState } from "@/hooks/usePersistentState";
 import { useTagsQuery } from "@/hooks/useTags";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 type Props = {
   label?: string;
@@ -25,7 +25,6 @@ export default function TagSelector({
   const [editingText, setEditingText] = useState("");
   const [localError, setLocalError] = useState("");
   const [recentLocalTag, setRecentLocalTag] = useState<Tag | null>(null);
-  const [modalActiveLocalId, setModalActiveLocalId] = useState<number | null>(null);
 
   const handleAddLocalTag = () => {
     const name = newTagName.trim();
@@ -45,8 +44,6 @@ export default function TagSelector({
   const recentLocalTagId = recentLocalTag?.id_tag ?? null;
 
   const sortedTags = useMemo(() => tags, [tags]);
-
-  
 
   return (
     <View style={styles.section}>
@@ -173,18 +170,20 @@ export default function TagSelector({
                       <Pressable
                         style={[
                           styles.localPill,
-                          modalActiveLocalId === tag.id_tag
+                          selectedTagId === tag.id_tag
                             ? { backgroundColor: colors.primaryContainer, borderColor: colors.primaryContainer }
                             : {},
                         ]}
                         onPress={() => {
-                          // activate locally in the modal (visual only)
-                          setModalActiveLocalId(modalActiveLocalId === tag.id_tag ? null : tag.id_tag);
+                          // Select this local tag for the form and close the modal.
+                          onSelectTag(tag);
+                          setRecentLocalTag(tag);
+                          setVisible(false);
                         }}
                       >
                         <Text style={[
                           styles.pillText,
-                          modalActiveLocalId === tag.id_tag ? { color: colors.onPrimary } : {},
+                          selectedTagId === tag.id_tag ? { color: colors.onPrimary } : {},
                         ]}>{tag.nama_tag}</Text>
                         <View style={styles.pillActions}>
                           <Pressable
@@ -204,9 +203,6 @@ export default function TagSelector({
                               // clear recent/modal selection if it was the deleted one
                               if (recentLocalTag && recentLocalTag.id_tag === deletingId) {
                                 setRecentLocalTag(null);
-                              }
-                              if (modalActiveLocalId === deletingId) {
-                                setModalActiveLocalId(null);
                               }
                               // if the deleted tag was selected in the form, switch to default 'Rumah' if available
                               if (selectedTag && selectedTag.id_tag === deletingId) {
@@ -242,33 +238,32 @@ export default function TagSelector({
                 <Pressable
                   style={styles.secondaryButton}
                   onPress={() => {
-                    // reset local tags
-                    setLocalTags([]);
-                    setRecentLocalTag(null);
-                    setLocalError("");
+                    if (localTags.length === 0) return;
+                    Alert.alert(
+                      "Reset tag lokal?",
+                      "Semua tag lokal akan dihapus. Tindakan ini tidak bisa dibatalkan.",
+                      [
+                        { text: "Batal", style: "cancel" },
+                        {
+                          text: "Reset",
+                          style: "destructive",
+                          onPress: () => {
+                            setLocalTags([]);
+                            setRecentLocalTag(null);
+                            setLocalError("");
+                          },
+                        },
+                      ],
+                    );
                   }}
                 >
                   <Text style={styles.secondaryButtonText}>Reset</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.footerButton, { marginLeft: 8 }]}
-                  onPress={() => {
-                    // If a local tag is active in the modal, apply it to the form and close.
-                    if (modalActiveLocalId != null) {
-                      const tagToApply = localTags.find((t) => t.id_tag === modalActiveLocalId);
-                      if (tagToApply) {
-                        onSelectTag(tagToApply);
-                        setRecentLocalTag(tagToApply);
-                      }
-                      setModalActiveLocalId(null);
-                      setVisible(false);
-                      return;
-                    }
-                    // Otherwise, treat as add-new (retain modal open)
-                    handleAddLocalTag();
-                  }}
+                  onPress={handleAddLocalTag}
                 >
-                  <Text style={styles.primaryButtonText}>Simpan</Text>
+                  <Text style={styles.primaryButtonText}>Tambah</Text>
                 </Pressable>
               </View>
             </View>
