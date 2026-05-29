@@ -198,7 +198,11 @@ function mapLegacyActivityInputToBackendPayload(
   if (input.tanggal !== undefined) payload.date = input.tanggal;
   if (input.time_start !== undefined) payload.time_start = input.time_start;
   if (input.time_end !== undefined) payload.time_end = input.time_end;
-  if (input.id_tag !== undefined) payload.tag_id = input.id_tag;
+  // Local-only tags carry negative ids and must never reach the backend
+  // (tag_id is an unsigned FK). A local selection clears the tag instead.
+  if (input.id_tag !== undefined) {
+    payload.tag_id = input.id_tag != null && input.id_tag > 0 ? input.id_tag : null;
+  }
   if (input.ulangi !== undefined) payload.recurrence = legacyToBackendRecurrence[input.ulangi];
   if (input.deskripsi !== undefined) payload.description = input.deskripsi;
   if (input.reminder_message !== undefined) payload.reminder_message = input.reminder_message;
