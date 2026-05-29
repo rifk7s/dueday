@@ -96,6 +96,11 @@ export default function DetailTransferScreen(): React.JSX.Element {
   const planName = (params.planName as string) || "Dueday Premium 1 Bulan";
   const planPrice = (params.planPrice as string) || "Rp20.000";
   const planAmount = Number(params.planAmount || "0");
+  // Forwarded straight through to /payment-rejected so its "Coba Lagi" can
+  // replace back into /payment with the original plan selection intact.
+  const plan = params.plan as string | undefined;
+  const planDuration = params.planDuration as string | undefined;
+  const mode = params.mode as string | undefined;
   const methodId = ((params.methodId as string) || "bca").toLowerCase();
   const methodType = (params.methodType as "VA" | "QRIS") || (methodId === "qris" ? "QRIS" : "VA");
   const methodNameParam = params.methodName as string | undefined;
@@ -117,6 +122,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
   const [isCancelling, setIsCancelling] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialPaymentStatus);
   const hasNavigatedToSuccess = useRef(false);
+  const hasNavigatedToRejected = useRef(false);
 
   const goQrApiUrl = useMemo(() => {
     const rawQrisData = `DUEDAY_MOCK_PAYMENT|MERCHANT:DUEDAY STUDIO|CITY:MAKASSAR|AMOUNT:${planAmount}`;
@@ -188,6 +194,38 @@ export default function DetailTransferScreen(): React.JSX.Element {
       params: { planName, planPrice, methodName: methodMeta.name },
     });
   }, [methodMeta.name, paymentStatus, planName, planPrice, router, token, setUser, qc]);
+
+  useEffect(() => {
+    if (paymentStatus !== "failed" || hasNavigatedToRejected.current) return;
+
+    hasNavigatedToRejected.current = true;
+    router.replace({
+      pathname: "/payment-rejected",
+      params: {
+        planName,
+        planPrice,
+        methodName: methodMeta.name,
+        // Forwarded so the rejected screen's "Coba Lagi" can re-enter /payment
+        // with the original selection (falls back to defaults if missing).
+        ...(plan ? { plan } : {}),
+        ...(planDuration ? { planDuration } : {}),
+        ...(mode ? { mode } : {}),
+        planAmount: String(planAmount),
+        methodId,
+      },
+    });
+  }, [
+    paymentStatus,
+    planName,
+    planPrice,
+    methodMeta.name,
+    plan,
+    planDuration,
+    mode,
+    planAmount,
+    methodId,
+    router,
+  ]);
 
   const handleCopyVA = async () => {
     await Clipboard.setStringAsync(methodMeta.virtualAccount);

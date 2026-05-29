@@ -1,22 +1,19 @@
 import { exitFlowTo } from "@/constants/navigation";
 import { colors, fonts, typography } from "@/constants/theme";
-import { ensureNotificationPermission } from "@/lib/notifications";
 import { Ionicons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
-import { useLocalSearchParams } from "expo-router";
-import { Platform } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import {
-  Animated,
-  BackHandler,
-  type DimensionValue,
-  Easing,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Animated,
+    BackHandler,
+    type DimensionValue,
+    Easing,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -89,30 +86,48 @@ function AccentDot({ size, color, top, left, right, delay }: AccentDotProps): Re
   );
 }
 
-export default function PaymentSuccessScreen(): React.JSX.Element {
+export default function PaymentRejectedScreen(): React.JSX.Element {
   const { top, bottom } = useSafeAreaInsets();
+  const router = useRouter();
   const params = useLocalSearchParams();
 
   const planName = (params.planName as string) || "Dueday Premium - 1 Bulan";
-  const planPrice = (params.planPrice as string) || "Rp20.000";
   const methodName = (params.methodName as string) || "Virtual Account";
+  // Carried over from detail-transfer so retry re-enters /payment with the
+  // original plan selection rather than the screen's defaults.
+  const mode = params.mode as string | undefined;
+  const plan = params.plan as string | undefined;
+  const planPrice = params.planPrice as string | undefined;
+  const planAmount = params.planAmount as string | undefined;
+  const planDuration = params.planDuration as string | undefined;
 
-  const handleDone = useCallback(() => {
-    // Single native dismiss that also switches the buried tab back to
-    // profile, so the sheet slides down once and reveals the profile tab
-    // the flow was launched from (not the dashboard).
+  const handleBack = useCallback(() => {
     exitFlowTo("/profile");
   }, []);
 
+  const handleRetry = useCallback(() => {
+    // Replace (not dismissTo): in the real flow /payment was replaced out of the
+    // stack, so there's nothing to dismiss back to. Stays inside the modal host.
+    router.replace({
+      pathname: "/payment",
+      params: {
+        ...(mode ? { mode } : {}),
+        ...(plan ? { plan } : {}),
+        planName,
+        ...(planPrice ? { planPrice } : {}),
+        ...(planAmount ? { planAmount } : {}),
+        ...(planDuration ? { planDuration } : {}),
+      },
+    });
+  }, [router, mode, plan, planName, planPrice, planAmount, planDuration]);
+
   useEffect(() => {
-    // Android hardware back must also exit the flow, not pop back into the
-    // (already completed) detail-transfer screen.
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      handleDone();
+      handleBack();
       return true;
     });
     return () => sub.remove();
-  }, [handleDone]);
+  }, [handleBack]);
 
   const heroScale = useRef(new Animated.Value(0.8)).current;
   const heroOpacity = useRef(new Animated.Value(0)).current;
@@ -163,68 +178,31 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
 
   const dots = useMemo<AccentDotProps[]>(
     () => [
-      { size: 10, color: colors.secondaryContainer, top: 100, left: "14%", delay: 0 },
+      { size: 10, color: colors.errorContainer, top: 100, left: "14%", delay: 0 },
       { size: 14, color: colors.surfaceWarm, top: 132, right: "12%", delay: 180 },
-      { size: 8, color: colors.primaryContainer, top: 164, left: "22%", delay: 260 },
-      { size: 12, color: colors.secondaryContainer, top: 188, right: "22%", delay: 420 },
+      { size: 8, color: colors.errorStrong, top: 164, left: "22%", delay: 260 },
+      { size: 12, color: colors.errorContainer, top: 188, right: "22%", delay: 420 },
     ],
     []
   );
 
-  const features = useMemo(
+  const reasons = useMemo(
     () => [
       {
-        key: "unlimited_import",
-        title: "Import E-Learn Tanpa Batas",
-        desc: "Impor tugas dari e-learn sepuasnya. Versi gratis dibatasi 3x impor per bulan.",
-        icon: "infinite-outline",
+        key: "method",
+        title: "Metode pembayaran",
+        desc: `Pembayaran melalui ${methodName} mungkin gagal. Periksa detail atau pilih metode lain.`,
+        icon: "card-outline",
       },
       {
-        key: "reminders",
-        title: "Reminder Personalization",
-        desc: "Reminder otomatis yang menyesuaikan deadline, waktu kosong, dan kebiasaan kamu setiap hari.",
-        icon: "notifications-outline",
+        key: "bank",
+        title: "Dari pihak bank",
+        desc: "Transfer ditolak oleh bank penerbit. Coba lagi nanti atau hubungi bank.",
+        icon: "business-outline",
       },
     ],
-    []
+    [methodName]
   );
-
-  useEffect(() => {
-    let active = true;
-
-    async function notify() {
-      if (Platform.OS === "web") return; // skip on web
-
-      try {
-        const granted = await ensureNotificationPermission();
-        if (!granted || !active) return;
-
-        // Use scheduleNotificationAsync to present immediately (consistent typings)
-        // scheduleNotificationAsync typings require a trigger; cast to any to present immediately
-        await (Notifications as any).scheduleNotificationAsync({
-          content: {
-            title: "Pembayaran Berhasil",
-            body: `${planName} sudah aktif. Ketuk untuk melihat fitur yang didapatkan.`,
-            data: {
-              type: "payment-success",
-              planName,
-              features: JSON.stringify(features),
-            },
-          },
-        });
-      } catch (e) {
-        // log error so we can debug why presentNotificationAsync failed
-        // eslint-disable-next-line no-console
-        console.warn("presentNotificationAsync error:", e);
-      }
-    }
-
-    notify();
-
-    return () => {
-      active = false;
-    };
-  }, [planName, features]);
 
   return (
     <View style={[styles.root, { paddingTop: top }]}>
@@ -247,73 +225,77 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-      <View style={styles.content}>
-        <Animated.View
-          style={[
-            styles.heroWrap,
-            {
-              opacity: heroOpacity,
-              transform: [{ scale: heroScale }],
-            },
-          ]}
-        >
-          <View style={styles.heroOuterCircle}>
-            <View style={styles.heroInnerCircle}>
-              <Ionicons name="checkmark" size={44} color={colors.onPrimary} />
+        <View style={styles.content}>
+          <Animated.View
+            style={[
+              styles.heroWrap,
+              {
+                opacity: heroOpacity,
+                transform: [{ scale: heroScale }],
+              },
+            ]}
+          >
+            <View style={styles.heroOuterCircle}>
+              <View style={styles.heroInnerCircle}>
+                <Ionicons name="close-outline" size={44} color={colors.onError} />
+              </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        <Animated.View
-          style={{
-            opacity: contentOpacity,
-            transform: [{ translateY: contentTranslate }],
-            width: "100%",
-          }}
-        >
-          <Text style={styles.title}>Pembayaran Berhasil</Text>
-          <Text style={styles.subtitle}>Langganan premium kamu sudah aktif dan siap dipakai.</Text>
+          <Animated.View
+            style={{
+              opacity: contentOpacity,
+              transform: [{ translateY: contentTranslate }],
+              width: "100%",
+            }}
+          >
+            <Text style={styles.title}>Pembayaran Ditolak</Text>
+            <Text style={styles.subtitle}>Pembayaran gagal diproses. Silakan coba lagi atau pilih metode lain.</Text>
 
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Paket</Text>
-              <Text style={styles.summaryValue}>{planName}</Text>
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Paket</Text>
+                <Text style={styles.summaryValue}>{planName}</Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Metode</Text>
+                <Text style={styles.summaryValue}>{methodName}</Text>
+              </View>
             </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Metode</Text>
-              <Text style={styles.summaryValue}>{methodName}</Text>
-            </View>
-            <View style={[styles.summaryRow, styles.summaryRowLast]}>
-              <Text style={styles.summaryLabel}>Total</Text>
-              <Text style={styles.summaryPrice}>{planPrice}</Text>
-            </View>
-          </View>
 
             <View style={styles.featuresWrap}>
-              <Text style={styles.featuresTitle}>Fitur yang dibuka</Text>
-              {features.map((f) => (
-                <View key={f.key} style={styles.featureRow}>
+              <Text style={styles.featuresTitle}>Kemungkinan penyebab</Text>
+              {reasons.map((r) => (
+                <View key={r.key} style={styles.featureRow}>
                   <View style={styles.featureIconWrap}>
-                    <Ionicons name={f.icon as any} size={18} color={colors.primaryContainer} />
+                    <Ionicons name={r.icon as any} size={18} color={colors.errorStrong} />
                   </View>
                   <View style={styles.featureTextWrap}>
-                    <Text style={styles.featureTitle}>{f.title}</Text>
-                    <Text style={styles.featureDesc}>{f.desc}</Text>
+                    <Text style={styles.featureTitle}>{r.title}</Text>
+                    <Text style={styles.featureDesc}>{r.desc}</Text>
                   </View>
                 </View>
               ))}
             </View>
-        </Animated.View>
-      </View>
+          </Animated.View>
+        </View>
       </ScrollView>
 
       <View style={[styles.footerActions, { paddingBottom: bottom + 16 }]}>
         <Pressable
           style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryButtonPressed]}
           accessibilityRole="button"
-          onPress={handleDone}
+          onPress={handleRetry}
         >
-          <Text style={styles.primaryButtonText}>Kembali ke Profil</Text>
+          <Text style={styles.primaryButtonText}>Coba Lagi</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.secondaryButton, pressed && styles.secondaryButtonPressed]}
+          accessibilityRole="button"
+          onPress={handleBack}
+        >
+          <Text style={styles.secondaryButtonText}>Kembali ke Profil</Text>
         </Pressable>
       </View>
     </View>
@@ -346,7 +328,7 @@ const styles = StyleSheet.create({
     width: 128,
     height: 128,
     borderRadius: 64,
-    backgroundColor: colors.surfaceSuccess,
+    backgroundColor: colors.errorContainer,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -354,10 +336,10 @@ const styles = StyleSheet.create({
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: colors.success,
+    backgroundColor: colors.errorStrong,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: colors.success,
+    shadowColor: colors.errorStrong,
     shadowOpacity: 0.25,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 4 },
@@ -393,12 +375,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  summaryRowLast: {
-    paddingTop: 8,
-    marginTop: 2,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceContainer,
-  },
   summaryLabel: {
     fontSize: 13,
     fontFamily: fonts["500"],
@@ -410,11 +386,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts["700"],
     color: colors.onSurface,
-  },
-  summaryPrice: {
-    fontSize: 17,
-    fontFamily: fonts["800"],
-    color: colors.primaryContainer,
   },
   featuresWrap: {
     marginTop: 18,
@@ -466,7 +437,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: 52,
     borderRadius: 999,
-    backgroundColor: colors.primaryContainer,
+    backgroundColor: colors.errorStrong,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -476,7 +447,22 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: typography.button.fontSize,
     fontFamily: typography.button.fontFamily,
-    color: colors.onPrimary,
+    color: colors.onError,
+  },
+  secondaryButton: {
+    height: 52,
+    borderRadius: 999,
+    backgroundColor: colors.surfaceContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButtonPressed: {
+    opacity: 0.9,
+  },
+  secondaryButtonText: {
+    fontSize: typography.button.fontSize,
+    fontFamily: typography.button.fontFamily,
+    color: colors.onSurface,
   },
   accentDot: {
     position: "absolute",

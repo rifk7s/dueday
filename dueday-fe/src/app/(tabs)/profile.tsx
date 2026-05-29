@@ -14,16 +14,16 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-  Alert,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  ToastAndroid,
-  View,
+    Alert,
+    Image,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    ToastAndroid,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -294,6 +294,18 @@ export default function ProfileScreen(): React.JSX.Element {
             Alert.alert("Error", "Gagal mengubah status dev");
           }
         }
+      },
+    });
+
+    // Dev-only: preview rejected payment screen
+    settingsWithActions.push({
+      icon: "alert-circle-outline",
+      label: "Lihat Payment Rejected (Dev)",
+      onPress: () => {
+        router.push({
+          pathname: "/payment-rejected",
+          params: { planName: "Dueday Premium - 1 Bulan", methodName: "Virtual Account" },
+        });
       },
     });
   }
