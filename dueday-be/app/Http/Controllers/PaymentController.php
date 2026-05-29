@@ -14,7 +14,9 @@ class PaymentController extends Controller
     public function __construct(private PaymentService $paymentService) {}
 
     /**
-     * Display a listing of the user's payments.
+     * List payments
+     *
+     * Display a listing of the authenticated user's payments.
      */
     public function index()
     {
@@ -24,6 +26,8 @@ class PaymentController extends Controller
     }
 
     /**
+     * Create payment
+     *
      * Store a newly created payment resource in storage.
      */
     public function store(StorePaymentRequest $request)
@@ -34,7 +38,9 @@ class PaymentController extends Controller
     }
 
     /**
-     * Display the specified payment resource if owned by user.
+     * Get payment
+     *
+     * Display the specified payment resource if owned by the user.
      */
     public function show(Payment $payment)
     {
@@ -48,6 +54,8 @@ class PaymentController extends Controller
     }
 
     /**
+     * Update payment
+     *
      * Update the specified payment resource status/details manually.
      */
     public function update(UpdatePaymentRequest $request, Payment $payment)
@@ -62,6 +70,8 @@ class PaymentController extends Controller
     }
 
     /**
+     * Delete payment
+     *
      * Remove the specified payment resource from storage.
      */
     public function destroy(Payment $payment)
@@ -76,8 +86,10 @@ class PaymentController extends Controller
     }
 
     /**
-     * Securely verify a frontend pre-decoded QRIS string.
-     * Replaces file upload streaming with lightweight string checking.
+     * Verify QRIS payment
+     *
+     * Securely verify a frontend pre-decoded QRIS string. Replaces file upload
+     * streaming with lightweight string checking.
      */
     public function scan(Request $request)
     {
@@ -89,7 +101,7 @@ class PaymentController extends Controller
         $qrText = $request->input('qr_data');
 
         // 2. Safeguard structural integrity against unexpected QR payloads
-        if (!str_starts_with($qrText, 'DUEDAY_MOCK_PAYMENT')) {
+        if (! str_starts_with($qrText, 'DUEDAY_MOCK_PAYMENT')) {
             return response(['message' => 'Format string QRIS tidak valid atau tidak dikenali oleh sandbox.'], 400);
         }
 
@@ -109,20 +121,20 @@ class PaymentController extends Controller
             ->latest()
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             return response(['message' => 'Tidak ditemukan transaksi gantung dengan nominal matching.'], 404);
         }
 
         // 5. Commit transaction updates securely
         $updatedPayment = $this->paymentService->updatePayment(
-            auth()->id(), 
-            $payment->{$payment->getKeyName()}, 
+            auth()->id(),
+            $payment->{$payment->getKeyName()},
             ['status' => 'paid']
         );
 
         return response([
             'message' => 'Pembayaran Berhasil Terverifikasi!',
-            'payment' => new PaymentResource($updatedPayment)
+            'payment' => new PaymentResource($updatedPayment),
         ], 200);
     }
 }
