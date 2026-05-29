@@ -238,12 +238,11 @@ export default function DetailTransferScreen(): React.JSX.Element {
   };
 
   const handleSelectAndScanQRIS = async () => {
-    setIsUploading(true);
-
     // ================== WEB BROWSER MODE ==================
     if (Platform.OS === "web") {
       try {
         const mockString = `DUEDAY_MOCK_PAYMENT|MERCHANT:DUEDAY STUDIO|CITY:MAKASSAR|AMOUNT:${planAmount}`;
+        setIsUploading(true);
         await sendDecodedDataToBackend(mockString);
         alert("Sukses: Pembayaran terverifikasi via Browser Simulator!");
         setPaymentStatus("paid");
@@ -275,6 +274,10 @@ export default function DetailTransferScreen(): React.JSX.Element {
       }
 
       const selectedImgUri = pickerResult.assets[0].uri;
+
+      // A valid screenshot is in hand — only now show the verifying overlay,
+      // covering the scan + backend call (not the permission prompt or picker).
+      setIsUploading(true);
 
       // Scan code directly on device using native hardware capabilities
       const scanResults = await Camera.scanFromURLAsync(selectedImgUri, ["qr"]);
