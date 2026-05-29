@@ -35,7 +35,7 @@ class TagService
 
     public function createTag(array $data): Tag
     {
-        return $this->tagRepository->create($data);
+        return $this->tagRepository->createOrFirst($data);
     }
 
     /**

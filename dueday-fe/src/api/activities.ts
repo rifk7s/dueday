@@ -57,6 +57,7 @@ type BackendActivity = {
     | {
         id: number;
         name: string;
+        user_id: string | null;
         created_at: string;
         updated_at: string;
       }
