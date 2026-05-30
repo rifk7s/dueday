@@ -19,7 +19,13 @@ it('creates a detail row for every enrolled student when an assignment is create
         'username' => 'admin_tester',
         'email' => 'admin@test.local',
         'password' => 'Password123',
-        'role' => 'admin',
+    ]);
+
+    // Register admin in the legacy `admin` table so `isAdmin()` returns true.
+    DB::table('admin')->insert([
+        'id' => 1,
+        'name' => $admin->name,
+        'password' => bcrypt('Password123'),
     ]);
 
     $studentUserOne = User::query()->create([
@@ -29,7 +35,6 @@ it('creates a detail row for every enrolled student when an assignment is create
         'email' => 'student1@test.local',
         'nim' => '0806010001',
         'password' => 'Password123',
-        'role' => 'student',
     ]);
 
     $studentUserTwo = User::query()->create([
@@ -39,7 +44,6 @@ it('creates a detail row for every enrolled student when an assignment is create
         'email' => 'student2@test.local',
         'nim' => '0806010002',
         'password' => 'Password123',
-        'role' => 'student',
     ]);
 
     $studentOneId = '11111111-1111-1111-1111-111111111111';

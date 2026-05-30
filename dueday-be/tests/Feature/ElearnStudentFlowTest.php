@@ -25,7 +25,6 @@ it('shows student assignments and accepts txt or pdf submissions based on the as
         'email' => 'student1@test.local',
         'nim' => '0806010001',
         'password' => 'Password123',
-        'role' => 'student',
     ]);
 
     $studentId = '11111111-1111-1111-1111-111111111111';

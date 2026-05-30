@@ -60,7 +60,6 @@ Route::post('/login', function (Request $request) {
                 'email' => ($admin->name).'@elearn.local',
                 'username' => str()->slug($admin->name, '_'),
                 'password' => $admin->password,
-                'role' => 'admin',
             ]
         );
 
@@ -79,7 +78,6 @@ Route::post('/login', function (Request $request) {
                 'username' => str()->slug($student->student_name, '_'),
                 'nim' => $student->nim,
                 'password' => $student->password,
-                'role' => 'student',
             ]
         );
 

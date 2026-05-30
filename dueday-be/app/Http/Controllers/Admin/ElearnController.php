@@ -140,7 +140,7 @@ class ElearnController extends Controller
 
     public function update(Request $request, $majorId, Assessment $assessment)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
             abort(403);
         }
 
@@ -206,7 +206,7 @@ class ElearnController extends Controller
 
     public function destroy(Request $request, $majorId, Assessment $assessment)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
             abort(403);
         }
 

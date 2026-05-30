@@ -14,7 +14,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Facades\DB;
 
 #[Fillable([
-    'photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'is_subscribed', 'language', 'role',
+    'photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'is_subscribed', 'language',
     'reminder_task_time', 'reminder_task_message', 'reminder_task_style', 'reminder_task_sound', 'reminder_task_vibrate',
     'reminder_activity_time', 'reminder_activity_message', 'reminder_activity_style', 'reminder_activity_sound', 'reminder_activity_vibrate',
 ])]

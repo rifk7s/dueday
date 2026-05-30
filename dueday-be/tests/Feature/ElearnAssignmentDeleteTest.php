@@ -19,7 +19,12 @@ it('deletes the matching elearn task rows when an assignment is deleted', functi
         'username' => 'admin_tester',
         'email' => 'admin@test.local',
         'password' => 'Password123',
-        'role' => 'admin',
+    ]);
+
+    DB::table('admin')->insert([
+        'id' => 1,
+        'name' => $admin->name,
+        'password' => bcrypt('Password123'),
     ]);
 
     $studentUser = User::query()->create([
@@ -29,7 +34,6 @@ it('deletes the matching elearn task rows when an assignment is deleted', functi
         'email' => 'student1@test.local',
         'nim' => '0806010001',
         'password' => 'Password123',
-        'role' => 'student',
     ]);
 
     $studentId = '11111111-1111-1111-1111-111111111111';

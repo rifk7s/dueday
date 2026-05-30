@@ -52,9 +52,9 @@ class ElearnSeeder extends Seeder
         $students = [
             [
                 'id' => (string) Str::uuid(),
-                'student_name' => 'MAN',
+                'student_name' => 'Rifki',
                 'current_semester' => 1,
-                'nim' => '0806010001',
+                'nim' => '08060022410017',
                 'major_id' => 1,
             ],
             [
@@ -66,9 +66,9 @@ class ElearnSeeder extends Seeder
             ],
             [
                 'id' => (string) Str::uuid(),
-                'student_name' => 'VCD',
+                'student_name' => 'Cherryl',
                 'current_semester' => 2,
-                'nim' => '0806030001',
+                'nim' => '0806022410023',
                 'major_id' => 3,
             ],
         ];
