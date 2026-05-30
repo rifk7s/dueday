@@ -20,6 +20,7 @@ class UserSeeder extends Seeder
             'nickname' => 'brit',
             'name' => 'britney',
             'password' => Hash::make('Password123'),
+            'role' => 'admin',
             'nim' => '0806022410020',
             'is_subscribed' => false,
             'language' => 'Indonesia',

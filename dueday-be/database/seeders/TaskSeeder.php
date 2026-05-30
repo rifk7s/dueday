@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TaskSeeder extends Seeder
@@ -68,8 +69,7 @@ class TaskSeeder extends Seeder
             $completedCount = collect($goalPoints)->filter(fn ($point) => $point['completed'])->count();
             $totalCount = count($goalPoints);
             $progress = $totalCount > 0 ? (int) (($completedCount / $totalCount) * 100) : 0;
-
-                Task::create([
+            $taskData = [
                 'id' => Str::uuid(),
                 'user_id' => $user->id,
                 'tag_id' => $task['tag_id'],
@@ -85,7 +85,13 @@ class TaskSeeder extends Seeder
                 'progress' => $progress,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+
+            if (Schema::hasColumn('tasks', 'elearn_assessment_id')) {
+                $taskData['elearn_assessment_id'] = null;
+            }
+
+            Task::create($taskData);
         }
     }
 

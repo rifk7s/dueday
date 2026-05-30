@@ -29,7 +29,10 @@
 
         <div class="topbar">
         <h1>Fake Payments</h1>
-        <a href="{{ route('fakepay.index') }}">Reload</a>
+        <div>
+            <a href="{{ route('dashboard') }}" style="margin-right: 8px;">← Back to Dashboard</a>
+            <a href="{{ route('fakepay.index') }}">Reload</a>
+        </div>
         </div>
 
         <p>Newest payments are shown first. Refresh this page to see newly created payments.</p>

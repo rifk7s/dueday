@@ -13,7 +13,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
-    'photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'is_subscribed', 'language',
+    'photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'is_subscribed', 'language', 'role',
     'reminder_task_time', 'reminder_task_message', 'reminder_task_style', 'reminder_task_sound', 'reminder_task_vibrate',
     'reminder_activity_time', 'reminder_activity_message', 'reminder_activity_style', 'reminder_activity_sound', 'reminder_activity_vibrate',
 ])]
