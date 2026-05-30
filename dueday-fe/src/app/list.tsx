@@ -43,12 +43,17 @@ type ListItem = {
   isElearnSource?: boolean;
 };
 
+// Case-insulated priority mapping supporting both localized & standard keys
 const PRIORITY_COLOR: Record<string, StateColor> = {
   high: { bg: colors.errorSoft, text: colors.errorStrong },
+  tinggi: { bg: colors.errorSoft, text: colors.errorStrong },
   medium: { bg: colors.surfaceWarm, text: colors.warning },
+  sedang: { bg: colors.surfaceWarm, text: colors.warning },
   low: { bg: colors.surfaceSuccess, text: colors.success },
+  rendah: { bg: colors.surfaceSuccess, text: colors.success },
 };
 
+const DEFAULT_PRIORITY_COLOR: StateColor = { bg: colors.surfaceWarm, text: colors.warning };
 const DONE_COLOR: StateColor = { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant };
 
 function isTaskDone(status: Task["status"]): boolean {
@@ -64,13 +69,19 @@ function taskToListItem(task: Task): ListItem {
   const isElearnSource = task.source?.toLowerCase() === "elearn";
   const isOverdue = !isDone && (task.is_overdue ?? (task.date ? new Date((task.date ?? "") + " " + (task.time ?? "00:00:00")) < new Date() : false));
 
+  // Safeguard case sensitivity from database string updates
+  const normalizedPriority = (task.priority ?? "").toLowerCase().trim();
+
+  // Dynamically extract name tag from map dictionary fallback to raw string formatting
+  const structuralPriorityText = PRIORITY_DISPLAY[normalizedPriority] ?? normalizedPriority.toUpperCase();
+
   const stateText = task.status === "completed_late"
     ? "TERLAMBAT"
     : isDone
     ? "SELESAI"
     : isOverdue
     ? "TERLAMBAT"
-    : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
+    : (structuralPriorityText || "ONGOING");
 
   let accentColor: string = colors.primaryContainer;
   if (isDone) accentColor = colors.success;
@@ -81,7 +92,7 @@ function taskToListItem(task: Task): ListItem {
     ? DONE_COLOR
     : isOverdue
     ? { bg: colors.errorSoft, text: colors.errorStrong }
-    : (PRIORITY_COLOR[task.priority ?? ""] ?? { bg: colors.errorSoft, text: colors.errorStrong });
+    : (PRIORITY_COLOR[normalizedPriority] ?? DEFAULT_PRIORITY_COLOR);
 
   return {
     id: task.id,
@@ -199,16 +210,23 @@ function renderListContent(
   }
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      {visibleItems.map((item) => (
-        <Pressable key={item.id} onPress={() => onPressItem(item)} style={styles.clickableCard}>
-          <TaskCard 
-            {...item} 
-            isMenuOpen={activeMenuId === item.id}
-            onToggleMenu={() => setActiveMenuId(activeMenuId === item.id ? null : item.id)}
-            onDelete={() => onDeleteRequest(item.id, item.itemType)}
-          />
-        </Pressable>
-      ))}
+      {visibleItems.map((item) => {
+        const isMenuOpen = activeMenuId === item.id;
+        return (
+          <Pressable 
+            key={item.id} 
+            onPress={() => onPressItem(item)} 
+            style={[styles.clickableCard, { zIndex: isMenuOpen ? 100 : 1 }]}
+          >
+            <TaskCard 
+              {...item} 
+              isMenuOpen={isMenuOpen}
+              onToggleMenu={() => setActiveMenuId(isMenuOpen ? null : item.id)}
+              onDelete={() => onDeleteRequest(item.id, item.itemType)}
+            />
+          </Pressable>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -300,6 +318,14 @@ export default function ListPage() {
     setActiveFilters(nextFilters);
   };
 
+  const showAlert = (title: string, msg: string) => {
+    if (Platform.OS === "web") {
+      window.alert(`${title}: ${msg}`);
+    } else {
+      Alert.alert(title, msg);
+    }
+  };
+
   const handleDeleteRequest = (id: string, type: "task" | "activity") => {
     const isTask = type === "task";
     const title = isTask ? "Hapus Tugas" : "Hapus Aktivitas";
@@ -307,69 +333,43 @@ export default function ListPage() {
       ? "Apakah Anda yakin ingin menghapus tugas ini?" 
       : "Apakah Anda yakin ingin menghapus aktivitas ini?";
 
-    if (Platform.OS === "web") {
-      const confirmDelete = window.confirm(message);
-      if (confirmDelete) {
-        if (isTask) {
-          deleteTaskMutation.mutate(id, {
-            onSuccess: () => {
-              setActiveMenuId(null);
-              window.alert("Tugas berhasil dihapus.");
-            },
-            onError: (error) => {
-              console.error(error);
-              window.alert("Gagal menghapus tugas. Silakan coba lagi.");
-            }
-          });
-        } else {
-          deleteActivityMutation.mutate(id, {
-            onSuccess: () => {
-              setActiveMenuId(null);
-              window.alert("Aktivitas berhasil dihapus.");
-            },
-            onError: (error) => {
-              console.error(error);
-              window.alert("Gagal menghapus aktivitas. Silakan coba lagi.");
-            }
-          });
-        }
+    const runMutation = () => {
+      if (isTask) {
+        deleteTaskMutation.mutate(id, {
+          onSuccess: () => {
+            setActiveMenuId(null);
+            showAlert("Sukses", "Tugas berhasil dihapus.");
+          },
+          onError: (error) => {
+            console.error(error);
+            showAlert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
+          }
+        });
+      } else {
+        deleteActivityMutation.mutate(id, {
+          onSuccess: () => {
+            setActiveMenuId(null);
+            showAlert("Sukses", "Aktivitas berhasil dihapus.");
+          },
+          onError: (error) => {
+            console.error(error);
+            showAlert("Error", "Gagal menghapus aktivitas. Silakan coba lagi.");
+          }
+        });
       }
-    } 
-    else {
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm(message)) {
+        runMutation();
+      }
+    } else {
       Alert.alert(
         title,
         message,
         [
           { text: "Batal", style: "cancel" },
-          { 
-            text: "Hapus", 
-            style: "destructive", 
-            onPress: () => {
-              if (isTask) {
-                deleteTaskMutation.mutate(id, {
-                  onSuccess: () => {
-                    setActiveMenuId(null);
-                    Alert.alert("Sukses", "Tugas berhasil dihapus.");
-                  },
-                  onError: (error) => {
-                    console.error(error);
-                    Alert.alert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
-                  }
-                });
-              } else {
-                deleteActivityMutation.mutate(id, {
-                  onSuccess: () => {
-                    setActiveMenuId(null);
-                    Alert.alert("Sukses", "Aktivitas berhasil dihapus.");
-                  },
-                  onError: (error) => {
-                    console.error(error);
-                    Alert.alert("Error", "Gagal menghapus aktivitas. Silakan coba lagi.");
-                  }
-                });
-              }
-            } 
-          }
+          { text: "Hapus", style: "destructive", onPress: runMutation }
         ]
       );
     }
@@ -498,8 +498,7 @@ function TaskCard({
   const deadlineIconColor = isActivity ? colors.iconMuted : status === "done" ? colors.success : colors.error;
   const deadlineTextStyle = isActivity ? styles.deadlineTextActivity : status === "done" ? styles.deadlineTextDone : styles.deadlineText;
 
-  // Render priority status tags ONLY if the card is not sourced from ELEARN
-  const shouldRenderPriorityTag = stateText !== "ONGOING" && stateText !== "TERLAMBAT" && stateText !== "DIBATALKAN" && !isElearnSource;
+  const shouldRenderPriorityTag = stateText !== "TERLAMBAT" && stateText !== "DIBATALKAN";
 
   return (
     <View style={[styles.taskCard, status === "done" && styles.taskCardDone]}>
@@ -559,7 +558,7 @@ function TaskCard({
             
             {showCategoryTag ? (
               <View style={[styles.tag, isElearnSource ? styles.elearnTag : styles.categoryTag]}>
-                <Text style={styles.categoryTagText}>{category}</Text>
+                <Text style={styles.categoryTagText} numberOfLines={1}>{category}</Text>
               </View>
             ) : null}
           </View>
@@ -690,6 +689,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, fontFamily: fonts["500"], color: colors.iconMuted, textAlign: "center" },
   content: { padding: 16, paddingBottom: 120 },
   clickableCard: {
+    position: "relative",
     ...Platform.select({ web: { cursor: "pointer" } })
   },
   taskCard: {
@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
   taskTitleDone: { color: colors.onSurfaceVariant },
   taskDescription: { marginTop: 6, fontSize: 13, fontFamily: fonts["400"], color: colors.tertiary },
   taskDescriptionDone: { color: colors.iconMuted },
-  tagRow: { marginTop: 10, flexDirection: "row", gap: 8 },
+  tagRow: { marginTop: 10, flexDirection: "row", gap: 8, flexWrap: "wrap" },
   tag: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
   priorityTag: { backgroundColor: colors.errorSoft },
   doneTag: { backgroundColor: colors.surfaceSuccess },
@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 4,
     elevation: 5,
-    zIndex: 99,
+    zIndex: 999,
     minWidth: 100,
     ...Platform.select({ web: { cursor: "pointer" } })
   },

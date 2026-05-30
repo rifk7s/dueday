@@ -1,5 +1,5 @@
 import { fromApiTime } from "@/api/format";
-import { PRIORITY_DISPLAY, type GoalPoint, type Task } from "@/api/tasks";
+import { PRIORITY_DISPLAY, type GoalPoint } from "@/api/tasks";
 import GoalsChecklistModal from "@/components/GoalsChecklistModal";
 import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
@@ -27,10 +27,16 @@ const MONTHS_ID_FULL = [
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",
 ] as const;
 
+// Combined mapping supporting both English and Indonesian status keys
 const PRIORITY_BADGE: Record<string, { bg: string; text: string }> = {
   high: { bg: colors.errorSoft, text: colors.errorStrong },
+  tinggi: { bg: colors.errorSoft, text: colors.errorStrong },
+  
   medium: { bg: colors.surfaceWarm, text: colors.warning },
+  sedang: { bg: colors.surfaceWarm, text: colors.warning },
+  
   low: { bg: colors.surfaceSuccess, text: colors.success },
+  rendah: { bg: colors.surfaceSuccess, text: colors.success },
 };
 
 function formatLongDate(iso: string | null | undefined): string {
@@ -46,7 +52,7 @@ function formatDottedTime(hms: string | null | undefined): string {
   return hm ? hm.replace(":", ".") : "";
 }
 
-function buildGoalPoints(task: Task): GoalPoint[] {
+function buildGoalPoints(task: any): GoalPoint[] {
   if (task.goal_points && task.goal_points.length > 0) {
     return task.goal_points;
   }
@@ -54,7 +60,7 @@ function buildGoalPoints(task: Task): GoalPoint[] {
   if (task.goals) {
     return task.goals
       .split("\n")
-      .map((line, index) => {
+      .map((line: string, index: number) => {
         const trimmed = line.trim();
         const match = trimmed.match(/^[-•]\s*\[(?<state>[+ xX ])\]\s*(?<text>.+)$/);
 
@@ -72,7 +78,7 @@ function buildGoalPoints(task: Task): GoalPoint[] {
           completed: false,
         };
       })
-      .filter((goalPoint) => goalPoint.text.length > 0);
+      .filter((goalPoint: GoalPoint) => goalPoint.text.length > 0);
   }
 
   return [];
@@ -88,12 +94,15 @@ export default function TaskProgressScreen() {
   const qc = useQueryClient();
 
   const { data: tasks = [], isLoading, isError } = useTasksQuery();
-  const task = tasks.find((t) => t.id === id);
+  
+  // Find task and cast it to any to bypass strict unmapped interface type rules
+  const rawTask = tasks.find((t) => t.id === id);
+  const task = rawTask ? (rawTask as any) : null;
+
   const goalPoints = task ? buildGoalPoints(task) : [];
   const completedGoalCount = goalPoints.filter((goalPoint) => goalPoint.completed).length;
   const calculatedProgress = goalPoints.length > 0 ? Math.round((completedGoalCount / goalPoints.length) * 100) : task?.progress ?? 0;
 
-  // Accurate matching criteria based on your UI list images
   const isElearnSource =
     task?.source?.toLowerCase() === "elearn" ||
     task?.tag?.nama_tag?.toLowerCase() === "elearn";
@@ -185,11 +194,12 @@ export default function TaskProgressScreen() {
   }
 
   const priorityKey = task.priority ?? "";
-  const priorityLabel = PRIORITY_DISPLAY[priorityKey];
+  const priorityLabel = PRIORITY_DISPLAY[priorityKey] || (priorityKey === "sedang" ? "Sedang" : priorityKey);
   const priorityColor = PRIORITY_BADGE[priorityKey];
 
-  const datePart = formatLongDate(task.date);
-  const timePart = formatDottedTime(task.time);
+  // Map to unified schema attributes
+  const datePart = formatLongDate(task.due_date ?? task.date);
+  const timePart = formatDottedTime(task.due_time ?? task.time);
   const deadline = [datePart, timePart].filter(Boolean).join(" | ");
 
   return (
@@ -219,7 +229,7 @@ export default function TaskProgressScreen() {
         </View>
 
         <ProgressCard
-          title={task.task_name}
+          title={task.name ?? task.task_name}
           progress={calculatedProgress}
           hideUpdateButton={isElearnSource} 
           onUpdatePress={() => {
@@ -269,14 +279,13 @@ export default function TaskProgressScreen() {
           </>
         ) : null}
 
-        {task.deskripsi ? (
+        {(task.description || task.deskripsi) ? (
           <>
             <SectionLabel label="DESKRIPSI" />
-            <Text style={styles.description}>{task.deskripsi}</Text>
+            <Text style={styles.description}>{task.description ?? task.deskripsi}</Text>
           </>
         ) : null}
 
-        {/* Informative Source section explicitly matching your list view blue capsules */}
         {isElearnSource && (
           <>
             <SectionLabel label="SUMBER TUGAS" />
@@ -441,7 +450,7 @@ const styles = StyleSheet.create({
     color: colors.tertiary,
   },
   elearnBadge: {
-    backgroundColor: "#2B63E3", // Matches the bright blue capsule from your screens
+    backgroundColor: "#2B63E3",
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 6,
@@ -452,5 +461,22 @@ const styles = StyleSheet.create({
     fontFamily: fonts["800"],
     fontWeight: "bold",
     letterSpacing: 0.5,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    fontFamily: fonts["400"],
+    color: (colors as any).primaryContainerLight ?? "rgba(255,255,255,0.7)",
+  },
+  progressPercent: {
+    fontSize: 24,
+    fontFamily: fonts["800"],
+    color: colors.onPrimary,
+  },
+  track: {
+    height: 8,
+    backgroundColor: (colors as any).primaryContainerDark ?? "rgba(0,0,0,0.15)",
+    borderRadius: 999,
+    overflow: "hidden",
+    marginBottom: 16,
   },
 });

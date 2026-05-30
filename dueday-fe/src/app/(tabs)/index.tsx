@@ -39,13 +39,13 @@ export default function App() {
   const actionOneProgress = React.useRef(new Animated.Value(0)).current;
   const actionTwoProgress = React.useRef(new Animated.Value(0)).current;
 
-  const sortedTasks = [...tasks].sort((a, b) => {
+  const sortedTasks = [...tasks].sort((a: any, b: any) => {
     const aDone = a.status === "completed" || a.status === "completed_late" ? 1 : 0;
     const bDone = b.status === "completed" || b.status === "completed_late" ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
 
-    const aKey = `${a.date ?? "9999-12-31"}T${a.time ?? "23:59:59"}`;
-    const bKey = `${b.date ?? "9999-12-31"}T${b.time ?? "23:59:59"}`;
+    const aKey = `${a.due_date ?? a.date ?? "9999-12-31"}T${a.due_time ?? a.time ?? "23:59:59"}`;
+    const bKey = `${b.due_date ?? b.date ?? "9999-12-31"}T${b.due_time ?? b.time ?? "23:59:59"}`;
     return aDone === 1 ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
   });
 
@@ -352,7 +352,7 @@ function SummaryCard({ accent, icon, title, value, background }: Readonly<Summar
 }
 
 function DashboardTaskCard({
-  task,
+  task: rawTask,
   isMenuOpen,
   onToggleMenu,
   onCloseMenu,
@@ -365,13 +365,30 @@ function DashboardTaskCard({
   onDelete: () => void;
 }>) {
   const router = useRouter();
-  const isDone = task.status === "completed" || task.status === "completed_late";
-  const datePart = fromApiDate(task.date);
-  const timePart = fromApiTime(task.time);
-  const deadline = [datePart, timePart].filter(Boolean).join(" | ") || "—";
-  const isOverdue = !isDone && (task.is_overdue ?? (task.date ? new Date((task.date ?? "") + " " + (task.time ?? "00:00:00")) < new Date() : false));
+  const task = rawTask as any; // Bypasses explicit backend mapping limitations Safely
 
+  const isDone = task.status === "completed" || task.status === "completed_late";
+  
+  // Adjusted alignment properties to pull safely from either backend structural layout key
+  const targetDate = task.due_date ?? task.date;
+  const targetTime = task.due_time ?? task.time;
+
+  const datePart = fromApiDate(targetDate);
+  const timePart = fromApiTime(targetTime);
+  const deadline = [datePart, timePart].filter(Boolean).join(" | ") || "—";
+  
+  const isOverdue = !isDone && (task.is_overdue ?? (targetDate ? new Date((targetDate ?? "") + " " + (targetTime ?? "00:00:00")) < new Date() : false));
   const isElearnSource = task.source?.toLowerCase() === "elearn";
+
+  const priorityKey = task.priority ?? "";
+  
+  // Local priorities lookup including mapping fallbacks for Indonesian payloads like 'sedang'
+  const PRIORITY_LOOKUP: Record<string, string> = {
+    ...PRIORITY_DISPLAY,
+    sedang: "Sedang",
+    tinggi: "Tinggi",
+    rendah: "Rendah"
+  };
 
   const stateText = task.status === "completed_late"
     ? "TERLAMBAT"
@@ -379,7 +396,7 @@ function DashboardTaskCard({
     ? "SELESAI"
     : isOverdue
     ? "TERLAMBAT"
-    : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
+    : (PRIORITY_LOOKUP[priorityKey] ?? "ONGOING");
     
   const stateColor = isDone
     ? task.status === "completed_late"
@@ -387,7 +404,11 @@ function DashboardTaskCard({
       : { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant }
     : isOverdue
     ? { bg: colors.errorSoft, text: colors.errorStrong }
-    : { bg: colors.errorSoft, text: colors.errorStrong };
+    : priorityKey === "high" || priorityKey === "tinggi"
+    ? { bg: colors.errorSoft, text: colors.errorStrong }
+    : priorityKey === "low" || priorityKey === "rendah"
+    ? { bg: colors.surfaceSuccess, text: colors.success }
+    : { bg: colors.surfaceWarm, text: colors.warning }; // Defaults cleanly to warning scheme for 'sedang'/'medium'
 
   let accentColor: string = colors.primaryContainer;
   if (isDone) accentColor = colors.success;
@@ -416,10 +437,10 @@ function DashboardTaskCard({
 
         <View style={styles.taskMainRow}>
           <View style={styles.taskInfo}>
-            <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>{task.task_name}</Text>
-            {task.deskripsi ? (
+            <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>{task.name ?? task.task_name}</Text>
+            {(task.description || task.deskripsi) ? (
               <Text style={[styles.taskDescription, isDone && styles.taskDescriptionDone]}>
-                {task.deskripsi}
+                {task.description ?? task.deskripsi}
               </Text>
             ) : null}
 
@@ -428,7 +449,8 @@ function DashboardTaskCard({
                 <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
                   <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
                 </View>
-              ) : !isDone && !isElearnSource && stateText !== "ONGOING" ? (
+              ) : !isDone && stateText !== "ONGOING" ? (
+                // Removed "!isElearnSource" rule block to allow priority badges on Elearn items
                 <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
                   <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
                 </View>
@@ -729,7 +751,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
-    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.12)",
     shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowRadius: 10,
@@ -804,7 +825,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#366AE5",
   },
   priorityTagText: {
-    color: colors.errorStrong,
     fontSize: 12,
     fontFamily: fonts["800"],
     letterSpacing: 0.7,
