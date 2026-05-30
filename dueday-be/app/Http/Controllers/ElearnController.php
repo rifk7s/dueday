@@ -63,8 +63,23 @@ class ElearnController extends Controller
             abort(404, 'Parent assessment metadata not found.');
         }
 
+        $taskOwnerIds = collect([$user->id]);
+
+        if (! empty($user->nim)) {
+            $taskOwnerIds = $taskOwnerIds->merge(
+                DB::table('users')
+                    ->where('nim', $user->nim)
+                    ->pluck('id')
+            );
+        }
+
+        $taskOwnerIds = $taskOwnerIds
+            ->filter()
+            ->unique()
+            ->values();
+
         // Execute both submission processing and core task tracking updates inside an atomic database transaction
-        DB::transaction(function () use ($request, $detail, $detailId, $assessment, $user) {
+        DB::transaction(function () use ($request, $detail, $detailId, $assessment, $taskOwnerIds) {
 
             // 1. Handle actual data updates depending on required flag configuration type
             if ($detail->file_name === 'txt') {
@@ -99,34 +114,34 @@ class ElearnController extends Controller
             }
 
             // 2. Mark this user's matching elearn task as complete.
-            $taskUpdated = false;
             $hasElearnAssessmentId = Schema::hasColumn('tasks', 'elearn_assessment_id');
             $cleanTitle = trim($assessment->title);
 
-            // Pathway A: match by the stable elearn assessment id, scoped to this user.
+            $taskQuery = Task::query()->whereIn('user_id', $taskOwnerIds);
+
             if ($hasElearnAssessmentId) {
-                $affected = Task::where('user_id', $user->id)
-                    ->where('elearn_assessment_id', $detail->assessment_id)
-                    ->update([
-                        'progress' => 100,
-                        'status' => 'completed',
-                        'updated_at' => now(),
-                    ]);
-
-                $taskUpdated = $affected > 0;
-            }
-
-            // Pathway B: fall back to an exact name match scoped to this user's elearn tasks.
-            if (! $taskUpdated) {
-                Task::where('user_id', $user->id)
-                    ->where('source', 'elearn')
+                $taskQuery->where(function ($query) use ($detail, $assessment, $cleanTitle) {
+                    $query->where('elearn_assessment_id', $detail->assessment_id)
+                        ->orWhere(function ($legacyQuery) use ($assessment, $cleanTitle) {
+                            $legacyQuery
+                                ->where('source', 'elearn')
+                                ->where('name', $cleanTitle)
+                                ->where('description', $assessment->description)
+                                ->whereDate('due_date', $assessment->date);
+                        });
+                });
+            } else {
+                $taskQuery->where('source', 'elearn')
                     ->where('name', $cleanTitle)
-                    ->update([
-                        'progress' => 100,
-                        'status' => 'completed',
-                        'updated_at' => now(),
-                    ]);
+                    ->where('description', $assessment->description)
+                    ->whereDate('due_date', $assessment->date);
             }
+
+            $taskQuery->update([
+                'progress' => 100,
+                'status' => 'completed',
+                'updated_at' => now(),
+            ]);
         });
 
         return redirect()->route('elearn.index')->with('success', 'Assignment submitted and your progress tracker has been marked complete!');
