@@ -43,14 +43,10 @@ type ListItem = {
   isElearnSource?: boolean;
 };
 
-// Case-insulated priority mapping supporting both localized & standard keys
 const PRIORITY_COLOR: Record<string, StateColor> = {
   high: { bg: colors.errorSoft, text: colors.errorStrong },
-  tinggi: { bg: colors.errorSoft, text: colors.errorStrong },
   medium: { bg: colors.surfaceWarm, text: colors.warning },
-  sedang: { bg: colors.surfaceWarm, text: colors.warning },
   low: { bg: colors.surfaceSuccess, text: colors.success },
-  rendah: { bg: colors.surfaceSuccess, text: colors.success },
 };
 
 const DEFAULT_PRIORITY_COLOR: StateColor = { bg: colors.surfaceWarm, text: colors.warning };
@@ -740,7 +736,7 @@ const styles = StyleSheet.create({
   priorityTag: { backgroundColor: colors.errorSoft },
   doneTag: { backgroundColor: colors.surfaceSuccess },
   categoryTag: { backgroundColor: colors.primaryContainer },
-  elearnTag: { backgroundColor: "#366AE5" }, 
+  elearnTag: { backgroundColor: colors.elearn },
   priorityTagText: { color: colors.errorStrong, fontSize: 12, fontFamily: fonts["800"] },
   categoryTagText: { color: colors.onPrimary, fontSize: 12, fontFamily: fonts["800"] },
   progressWrap: { width: 64, height: 64, alignItems: "center", justifyContent: "center" },

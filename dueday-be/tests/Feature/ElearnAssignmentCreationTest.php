@@ -21,7 +21,9 @@ it('creates a detail row for every enrolled student when an assignment is create
         'password' => 'Password123',
     ]);
 
-    // Register admin in the legacy `admin` table so `isAdmin()` returns true.
+    // Grant admin via the guarded `is_admin` column (not mass-assignable).
+    $admin->forceFill(['is_admin' => true])->save();
+
     DB::table('admin')->insert([
         'id' => 1,
         'name' => $admin->name,

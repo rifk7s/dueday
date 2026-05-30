@@ -36,7 +36,9 @@
         </div>
     </form>
 
-    <p>Seeded Elearn admin: <strong>Elearn Admin / password</strong></p>
+    @env('local')
+        <p>Seeded Elearn admin: <strong>Admin123 / Password123</strong></p>
+    @endenv
 
     <script>
         function togglePassword() {

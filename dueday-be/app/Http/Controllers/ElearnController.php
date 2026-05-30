@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use App\Models\Task;
 
 class ElearnController extends Controller
 {
@@ -32,6 +31,7 @@ class ElearnController extends Controller
 
             // Attach objects used by the view for convenience
             $detail->assessment = $assessment ? (object) array_merge((array) $assessment, ['openedClass' => $openedClass ? (object) array_merge((array) $openedClass, ['subject' => $subject]) : null]) : null;
+
             return $detail;
         });
 
@@ -65,7 +65,7 @@ class ElearnController extends Controller
 
         // Execute both submission processing and core task tracking updates inside an atomic database transaction
         DB::transaction(function () use ($request, $detail, $detailId, $assessment, $user) {
-            
+
             // 1. Handle actual data updates depending on required flag configuration type
             if ($detail->file_name === 'txt') {
                 $data = $request->validate([
@@ -73,9 +73,9 @@ class ElearnController extends Controller
                 ]);
 
                 DB::table('detail')->where('id', $detailId)->update([
-                    'submission_text'      => $data['submission_text'],
+                    'submission_text' => $data['submission_text'],
                     'submission_file_path' => null,
-                    'submitted_at'         => now(),
+                    'submitted_at' => now(),
                 ]);
             } else {
                 $data = $request->validate([
@@ -93,75 +93,39 @@ class ElearnController extends Controller
 
                 DB::table('detail')->where('id', $detailId)->update([
                     'submission_file_path' => $path,
-                    'submission_text'      => null,
-                    'submitted_at'         => now(),
+                    'submission_text' => null,
+                    'submitted_at' => now(),
                 ]);
             }
 
-            // ==========================================
-            // 2. HYPER-FLEXIBLE TASK AUTOMATION SYNC ENGINE
-            // ==========================================
+            // 2. Mark this user's matching elearn task as complete.
             $taskUpdated = false;
             $hasElearnAssessmentId = Schema::hasColumn('tasks', 'elearn_assessment_id');
-            
             $cleanTitle = trim($assessment->title);
-            $cleanDesc  = trim($assessment->description);
 
-            // DIAGNOSTIC LOGGING: Let's see what is stored right now
-            Log::info('ELEARN DEBUG ENGINE START', [
-                'auth_user_id'  => $user->id,
-                'auth_user_nim' => $user->nim,
-                'target_title'  => $cleanTitle,
-                'assessment_id' => $detail->assessment_id
-            ]);
-
-            // Pathway A: Match using strict structural tracking ID key column
-            if ($hasElearnAssessmentId && $user->id) {
+            // Pathway A: match by the stable elearn assessment id, scoped to this user.
+            if ($hasElearnAssessmentId) {
                 $affected = Task::where('user_id', $user->id)
                     ->where('elearn_assessment_id', $detail->assessment_id)
                     ->update([
-                        'progress'   => 100, 
-                        'status'     => 'completed', 
-                        'updated_at' => now()
+                        'progress' => 100,
+                        'status' => 'completed',
+                        'updated_at' => now(),
                     ]);
 
-                if ($affected > 0) {
-                    $taskUpdated = true;
-                    Log::info("Pathway A Success: Mapped via ID column. Rows changed: {$affected}");
-                }
+                $taskUpdated = $affected > 0;
             }
 
-            // Pathway B: String fuzzy title match using authenticated User ID
-            if (! $taskUpdated && $user->id) {
-                $affected = Task::where('user_id', $user->id)
-                    ->where('name', 'LIKE', '%' . $cleanTitle . '%')
-                    ->update([
-                        'progress'   => 100, 
-                        'status'     => 'completed', 
-                        'updated_at' => now()
-                    ]);
-
-                if ($affected > 0) {
-                    $taskUpdated = true;
-                    Log::info("Pathway B Success: Mapped via user_id + fuzzy Title. Rows changed: {$affected}");
-                }
-            }
-
-            // Pathway C: Ultimate Safety Net (Matches ONLY by assignment title, regardless of source/user formats)
+            // Pathway B: fall back to an exact name match scoped to this user's elearn tasks.
             if (! $taskUpdated) {
-                $affected = Task::where('name', 'LIKE', '%' . $cleanTitle . '%')
+                Task::where('user_id', $user->id)
+                    ->where('source', 'elearn')
+                    ->where('name', $cleanTitle)
                     ->update([
-                        'progress'   => 100, 
-                        'status'     => 'completed', 
-                        'updated_at' => now()
+                        'progress' => 100,
+                        'status' => 'completed',
+                        'updated_at' => now(),
                     ]);
-
-                if ($affected > 0) {
-                    $taskUpdated = true;
-                    Log::info("Pathway C Success: Mapped globally via fuzzy Title match. Rows changed: {$affected}");
-                } else {
-                    Log::warning("ULTIMATE FAILURE: No tasks anywhere in your database matched the title: '{$cleanTitle}'");
-                }
             }
         });
 

@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'is_subscribed', 'language',
@@ -38,6 +37,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'is_subscribed' => 'boolean',
+            'is_admin' => 'boolean',
             'reminder_task_vibrate' => 'boolean',
             'reminder_activity_vibrate' => 'boolean',
         ];
@@ -70,15 +70,12 @@ class User extends Authenticatable
     /**
      * Determine if this user is an elearn/web admin.
      *
-     * We treat admin membership as authoritative in the `admin` table
-     * rather than relying on a `role` column in `users`.
+     * Admin status is derived from the guarded `is_admin` column, which is not
+     * mass-assignable and cannot be set through the profile API. It is only
+     * granted at web login after the admin password has been verified.
      */
     public function isAdmin(): bool
     {
-        // The `admin` table stores admin accounts by name; fall back to username if needed.
-        return DB::table('admin')
-            ->where('name', $this->name)
-            ->orWhere('name', $this->username)
-            ->exists();
+        return (bool) $this->is_admin;
     }
 }

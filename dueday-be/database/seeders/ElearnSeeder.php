@@ -54,7 +54,7 @@ class ElearnSeeder extends Seeder
                 'id' => (string) Str::uuid(),
                 'student_name' => 'Rifki',
                 'current_semester' => 1,
-                'nim' => '08060022410017',
+                'nim' => '0806022410017',
                 'major_id' => 1,
             ],
             [
@@ -170,7 +170,7 @@ class ElearnSeeder extends Seeder
                         'name' => $subjectName.' Assignment',
                         'due_date' => now()->addDays($assessmentId)->toDateString(),
                         'due_time' => '09:00:00',
-                        'priority' => 'sedang', // Updated fallback to match requirement
+                        'priority' => 'medium',
                         'status' => 'ongoing',
                         'source' => 'elearn',
                         'description' => 'Assignment for '.$student['student_name'].' in '.$subjectName,

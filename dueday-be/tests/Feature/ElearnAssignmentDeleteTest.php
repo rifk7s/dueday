@@ -21,6 +21,9 @@ it('deletes the matching elearn task rows when an assignment is deleted', functi
         'password' => 'Password123',
     ]);
 
+    // Grant admin via the guarded `is_admin` column (not mass-assignable).
+    $admin->forceFill(['is_admin' => true])->save();
+
     DB::table('admin')->insert([
         'id' => 1,
         'name' => $admin->name,
@@ -110,6 +113,7 @@ it('deletes the matching elearn task rows when an assignment is deleted', functi
         'progress' => 0,
         'goals' => null,
         'goal_points' => null,
+        'elearn_assessment_id' => 1,
     ]);
 
     $this->actingAs($admin)

@@ -39,13 +39,13 @@ export default function App() {
   const actionOneProgress = React.useRef(new Animated.Value(0)).current;
   const actionTwoProgress = React.useRef(new Animated.Value(0)).current;
 
-  const sortedTasks = [...tasks].sort((a: any, b: any) => {
+  const sortedTasks = [...tasks].sort((a, b) => {
     const aDone = a.status === "completed" || a.status === "completed_late" ? 1 : 0;
     const bDone = b.status === "completed" || b.status === "completed_late" ? 1 : 0;
     if (aDone !== bDone) return aDone - bDone;
 
-    const aKey = `${a.due_date ?? a.date ?? "9999-12-31"}T${a.due_time ?? a.time ?? "23:59:59"}`;
-    const bKey = `${b.due_date ?? b.date ?? "9999-12-31"}T${b.due_time ?? b.time ?? "23:59:59"}`;
+    const aKey = `${a.date ?? "9999-12-31"}T${a.time ?? "23:59:59"}`;
+    const bKey = `${b.date ?? "9999-12-31"}T${b.time ?? "23:59:59"}`;
     return aDone === 1 ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
   });
 
@@ -365,13 +365,12 @@ function DashboardTaskCard({
   onDelete: () => void;
 }>) {
   const router = useRouter();
-  const task = rawTask as any; // Bypasses explicit backend mapping limitations Safely
+  const task = rawTask;
 
   const isDone = task.status === "completed" || task.status === "completed_late";
-  
-  // Adjusted alignment properties to pull safely from either backend structural layout key
-  const targetDate = task.due_date ?? task.date;
-  const targetTime = task.due_time ?? task.time;
+
+  const targetDate = task.date;
+  const targetTime = task.time;
 
   const datePart = fromApiDate(targetDate);
   const timePart = fromApiTime(targetTime);
@@ -381,14 +380,6 @@ function DashboardTaskCard({
   const isElearnSource = task.source?.toLowerCase() === "elearn";
 
   const priorityKey = task.priority ?? "";
-  
-  // Local priorities lookup including mapping fallbacks for Indonesian payloads like 'sedang'
-  const PRIORITY_LOOKUP: Record<string, string> = {
-    ...PRIORITY_DISPLAY,
-    sedang: "Sedang",
-    tinggi: "Tinggi",
-    rendah: "Rendah"
-  };
 
   const stateText = task.status === "completed_late"
     ? "TERLAMBAT"
@@ -396,19 +387,19 @@ function DashboardTaskCard({
     ? "SELESAI"
     : isOverdue
     ? "TERLAMBAT"
-    : (PRIORITY_LOOKUP[priorityKey] ?? "ONGOING");
-    
+    : (PRIORITY_DISPLAY[priorityKey] ?? "ONGOING");
+
   const stateColor = isDone
     ? task.status === "completed_late"
       ? { bg: colors.errorSoft, text: colors.errorStrong }
       : { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant }
     : isOverdue
     ? { bg: colors.errorSoft, text: colors.errorStrong }
-    : priorityKey === "high" || priorityKey === "tinggi"
+    : priorityKey === "high"
     ? { bg: colors.errorSoft, text: colors.errorStrong }
-    : priorityKey === "low" || priorityKey === "rendah"
+    : priorityKey === "low"
     ? { bg: colors.surfaceSuccess, text: colors.success }
-    : { bg: colors.surfaceWarm, text: colors.warning }; // Defaults cleanly to warning scheme for 'sedang'/'medium'
+    : { bg: colors.surfaceWarm, text: colors.warning };
 
   let accentColor: string = colors.primaryContainer;
   if (isDone) accentColor = colors.success;
@@ -437,10 +428,10 @@ function DashboardTaskCard({
 
         <View style={styles.taskMainRow}>
           <View style={styles.taskInfo}>
-            <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>{task.name ?? task.task_name}</Text>
-            {(task.description || task.deskripsi) ? (
+            <Text style={[styles.taskTitle, isDone && styles.taskTitleDone]}>{task.task_name}</Text>
+            {task.deskripsi ? (
               <Text style={[styles.taskDescription, isDone && styles.taskDescriptionDone]}>
-                {task.description ?? task.deskripsi}
+                {task.deskripsi}
               </Text>
             ) : null}
 
@@ -670,6 +661,10 @@ const styles = StyleSheet.create({
     position: "relative",
     borderRadius: 16,
     backgroundColor: colors.surfaceContainerLowest,
+    // RN 0.76+ universal boxShadow renders the drop shadow on web (where
+    // shadowColor/shadowOffset/etc are ignored). Native still uses the iOS
+    // shadow props + Android elevation below.
+    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.12)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -822,7 +817,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryContainer,
   },
   elearnTag: {
-    backgroundColor: "#366AE5",
+    backgroundColor: colors.elearn,
   },
   priorityTagText: {
     fontSize: 12,

@@ -3,22 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assessment;
 use App\Models\Detail;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use App\Models\Assessment;
 use Illuminate\Support\Str;
 
 class ElearnController extends Controller
 {
     public function majors(Request $request)
     {
-        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
-            abort(403);
-        }
-
         $majors = DB::table('major')->orderBy('id')->get();
 
         return view('admin.majors', ['majors' => $majors]);
@@ -26,10 +22,6 @@ class ElearnController extends Controller
 
     public function assignments(Request $request, $majorId)
     {
-        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
-            abort(403);
-        }
-
         $assignments = DB::table('assessment')
             ->join('opened_class', 'assessment.opened_class_id', '=', 'opened_class.id')
             ->join('subject', 'opened_class.subject_id', '=', 'subject.id')
@@ -44,10 +36,6 @@ class ElearnController extends Controller
 
     public function create(Request $request, $majorId)
     {
-        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
-            abort(403);
-        }
-
         // opened classes for major
         $opened = DB::table('opened_class')
             ->join('subject', 'opened_class.subject_id', '=', 'subject.id')
@@ -62,10 +50,6 @@ class ElearnController extends Controller
 
     public function store(Request $request, $majorId)
     {
-        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
-            abort(403);
-        }
-
         $data = $request->validate([
             'opened_class_id' => 'required|integer',
             'title' => 'required|string',
@@ -108,7 +92,7 @@ class ElearnController extends Controller
                 'name' => $assessment->title,
                 'due_date' => $assessment->date,
                 'due_time' => $assessment->time,
-                'priority' => 'sedang', // Updated fallback directly here to match requirement
+                'priority' => 'medium',
                 'status' => 'ongoing',
                 'source' => 'elearn',
                 'description' => $assessment->description,
@@ -129,10 +113,6 @@ class ElearnController extends Controller
 
     public function edit(Request $request, $majorId, Assessment $assessment)
     {
-        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
-            abort(403);
-        }
-
         $major = DB::table('major')->where('id', $majorId)->first();
 
         return view('admin.assignments.form', ['assessment' => $assessment, 'major' => $major]);
@@ -140,10 +120,6 @@ class ElearnController extends Controller
 
     public function update(Request $request, $majorId, Assessment $assessment)
     {
-        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
-            abort(403);
-        }
-
         $data = $request->validate([
             'title' => 'required|string',
             'description' => 'nullable|string',
@@ -152,17 +128,16 @@ class ElearnController extends Controller
             'file_name' => 'required|string',
         ]);
 
-        // Preserve old values so we can find and update corresponding tasks.
+        // Preserve old values so legacy tasks (created before the id column existed)
+        // can still be matched by their previous title/description.
         $oldTitle = $assessment->title;
         $oldDescription = $assessment->description;
-        $oldDate = $assessment->date;
-        $oldTime = $assessment->time;
 
         $assessment->update($data);
         $hasElearnAssessmentId = Schema::hasColumn('tasks', 'elearn_assessment_id');
 
         // Propagate edits to existing tasks for enrolled users where the task
-        // was created from this elearn assessment (match on old values).
+        // was created from this elearn assessment.
         $enrolledUserIds = DB::table('study_plan_card')
             ->join('reg_student', 'study_plan_card.reg_student_id', '=', 'reg_student.id')
             ->join('students', 'reg_student.student_id', '=', 'students.id')
@@ -171,34 +146,26 @@ class ElearnController extends Controller
             ->pluck('users.id');
 
         if ($enrolledUserIds->isNotEmpty()) {
-            // Prefer stable matching by elearn_assessment_id. This ensures we
-            // update only tasks that were created from this assessment.
+            $query = Task::query()
+                ->whereIn('user_id', $enrolledUserIds)
+                ->where('source', 'elearn');
+
+            // Prefer the stable assessment id; only fall back to the old
+            // title/description when the id column is unavailable.
             if ($hasElearnAssessmentId) {
-                Task::query()
-                    ->whereIn('user_id', $enrolledUserIds)
-                    ->where('source', 'elearn')
-                    ->where('elearn_assessment_id', $assessment->id)
-                    ->update([
-                        'name' => $assessment->title,
-                        'description' => $assessment->description,
-                        'due_date' => $assessment->date,
-                        'due_time' => $assessment->time,
-                        'updated_at' => now(),
-                    ]);
+                $query->where('elearn_assessment_id', $assessment->id);
+            } else {
+                $query->where('name', $oldTitle)
+                    ->where('description', $oldDescription);
             }
 
-            Task::query()
-                ->whereIn('user_id', $enrolledUserIds)
-                ->where('source', 'elearn')
-                ->where('name', $oldTitle)
-                ->where('description', $oldDescription)
-                ->update([
-                    'name' => $assessment->title,
-                    'description' => $assessment->description,
-                    'due_date' => $assessment->date,
-                    'due_time' => $assessment->time,
-                    'updated_at' => now(),
-                ]);
+            $query->update([
+                'name' => $assessment->title,
+                'description' => $assessment->description,
+                'due_date' => $assessment->date,
+                'due_time' => $assessment->time,
+                'updated_at' => now(),
+            ]);
         }
 
         return redirect()->route('admin.elearn.assignments', ['major' => $majorId]);
@@ -206,10 +173,6 @@ class ElearnController extends Controller
 
     public function destroy(Request $request, $majorId, Assessment $assessment)
     {
-        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
-            abort(403);
-        }
-
         $enrolledUserIds = DB::table('study_plan_card')
             ->join('reg_student', 'study_plan_card.reg_student_id', '=', 'reg_student.id')
             ->join('students', 'reg_student.student_id', '=', 'students.id')
@@ -221,18 +184,14 @@ class ElearnController extends Controller
             ->whereIn('user_id', $enrolledUserIds)
             ->where('source', 'elearn')
             ->where(function ($q) use ($assessment) {
-                // Prefer stable id match, but fall back to legacy name/description/date
+                // Prefer the stable id match; only fall back to legacy
+                // name/description/date when the id column is unavailable.
                 if (Schema::hasColumn('tasks', 'elearn_assessment_id')) {
-                    $q->where('elearn_assessment_id', $assessment->id)
-                      ->orWhere(function ($q2) use ($assessment) {
-                          $q2->where('name', $assessment->title)
-                             ->where('description', $assessment->description)
-                             ->whereDate('due_date', $assessment->date);
-                      });
+                    $q->where('elearn_assessment_id', $assessment->id);
                 } else {
                     $q->where('name', $assessment->title)
-                      ->where('description', $assessment->description)
-                      ->whereDate('due_date', $assessment->date);
+                        ->where('description', $assessment->description)
+                        ->whereDate('due_date', $assessment->date);
                 }
             })
             ->delete();

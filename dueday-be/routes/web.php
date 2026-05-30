@@ -1,40 +1,16 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\ElearnController;
+use App\Http\Controllers\ElearnController as StudentElearnController;
 use App\Http\Controllers\FakePaymentController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\Admin\ElearnController;
+use App\Http\Middleware\IsAdmin;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
-use App\Models\User;
-use App\Http\Controllers\ElearnController as StudentElearnController;
-
-// Minimal OpenAPI JSON endpoint used by tests when Scramble isn't installed.
-Route::get('/docs/api.json', function () {
-    // Gate check (tests open the gate to true)
-    if (app()->bound('gate')) {
-        \Illuminate\Support\Facades\Gate::authorize('viewApiDocs');
-    }
-
-    $paths = ['/tasks', '/login', '/tags', '/payments', '/subscriptions', '/activities'];
-
-    $pathsObj = [];
-    foreach ($paths as $p) {
-        $pathsObj[$p] = new stdClass();
-    }
-
-    return response()->json([
-        'openapi' => '3.0.0',
-        'paths' => $pathsObj,
-        'components' => [
-            'securitySchemes' => [
-                'http' => ['type' => 'http', 'scheme' => 'bearer'],
-            ],
-        ],
-    ]);
-});
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
 
 // Lightweight login routes (simple auth against `users` table). No Breeze required.
 Route::get('/login', function () {
@@ -51,7 +27,9 @@ Route::post('/login', function (Request $request) {
     $name = $data['name'];
     $password = $data['password'];
 
-    // 1) Try Elearn admin table
+    // 1) Try Elearn admin table. Admin status is granted here, after the admin
+    //    password is verified, via the guarded `is_admin` column — never derived
+    //    from the user-editable `name`.
     $admin = DB::table('admin')->where('name', $name)->first();
     if ($admin && Hash::check($password, $admin->password)) {
         $user = User::updateOrCreate(
@@ -63,8 +41,12 @@ Route::post('/login', function (Request $request) {
             ]
         );
 
+        // `is_admin` is guarded (not mass-assignable), so set it explicitly.
+        $user->forceFill(['is_admin' => true])->save();
+
         Auth::login($user);
         $request->session()->regenerate();
+
         return redirect()->intended(route('dashboard'));
     }
 
@@ -81,22 +63,17 @@ Route::post('/login', function (Request $request) {
             ]
         );
 
+        // Students are never admins; keep the guarded flag explicitly false.
+        $user->forceFill(['is_admin' => false])->save();
+
         Auth::login($user);
         $request->session()->regenerate();
+
         return redirect()->intended(route('dashboard'));
     }
 
-    // 3) Fallback to existing users table by name
-    $attempt = Auth::attempt([
-        'name' => $name,
-        'password' => $password,
-    ]);
-
-    if ($attempt) {
-        $request->session()->regenerate();
-        return redirect()->intended(route('dashboard'));
-    }
-
+    // No name-based `Auth::attempt` fallback: authenticating an arbitrary `users`
+    // row by its editable `name` would let a renamed user impersonate the admin.
     return back()->withErrors(['name' => 'The provided credentials do not match our records.']);
 });
 
@@ -104,6 +81,7 @@ Route::post('/logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
+
     return redirect()->route('login');
 })->name('logout');
 
@@ -128,7 +106,7 @@ Route::post('/elearn/details/{detail}/submit', [StudentElearnController::class, 
 // (registration removed — app uses seeded Elearn users and lightweight login only)
 
 // Admin elearn routes
-Route::prefix('admin')->middleware(['auth', \App\Http\Middleware\IsAdmin::class])->group(function () {
+Route::prefix('admin')->middleware(['auth', IsAdmin::class])->group(function () {
     Route::get('elearn/majors', [ElearnController::class, 'majors'])->name('admin.elearn.majors');
     Route::get('elearn/majors/{major}/assignments', [ElearnController::class, 'assignments'])->name('admin.elearn.assignments');
     Route::get('elearn/majors/{major}/assignments/create', [ElearnController::class, 'create'])->name('admin.elearn.assignments.create');

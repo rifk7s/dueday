@@ -4,6 +4,16 @@
     <div class="container">
         <h1>{{ isset($assessment) ? 'Edit' : 'Create' }} Assignment — {{ $major->name }}</h1>
 
+        @if($errors->any())
+            <div style="color: red;">
+                <ul>
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <form method="POST" action="{{ isset($assessment) ? route('admin.elearn.assignments.update', ['major' => $major->id, 'assessment' => $assessment->id]) : route('admin.elearn.assignments.store', ['major' => $major->id]) }}">
             @csrf
             @if(isset($assessment))
@@ -12,7 +22,7 @@
 
             <div>
                 <label>Opened Class</label>
-                <select name="opened_class_id">
+                <select name="opened_class_id" {{ isset($assessment) ? '' : 'required' }}>
                     @foreach($opened ?? [] as $o)
                         <option value="{{ $o->id }}">{{ $o->subject_name }} ({{ $o->parallel }})</option>
                     @endforeach
@@ -21,7 +31,7 @@
 
             <div>
                 <label>Title</label>
-                <input name="title" value="{{ $assessment->title ?? old('title') }}" />
+                <input name="title" value="{{ $assessment->title ?? old('title') }}" required />
             </div>
 
             <div>

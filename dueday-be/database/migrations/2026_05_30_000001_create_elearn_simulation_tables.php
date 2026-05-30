@@ -33,7 +33,7 @@ return new class extends Migration
 
         Schema::create('admin', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name')->unique();
             $table->unsignedBigInteger('title_id')->nullable();
             $table->string('password');
 
