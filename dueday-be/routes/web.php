@@ -130,7 +130,7 @@ Route::post('/elearn/details/{detail}/submit', [StudentElearnController::class, 
 // (registration removed — app uses seeded Elearn users and lightweight login only)
 
 // Admin elearn routes
-Route::prefix('admin')->middleware('auth')->group(function () {
+Route::prefix('admin')->middleware(['auth', \App\Http\Middleware\IsAdmin::class])->group(function () {
     Route::get('elearn/majors', [ElearnController::class, 'majors'])->name('admin.elearn.majors');
     Route::get('elearn/majors/{major}/assignments', [ElearnController::class, 'assignments'])->name('admin.elearn.assignments');
     Route::get('elearn/majors/{major}/assignments/create', [ElearnController::class, 'create'])->name('admin.elearn.assignments.create');

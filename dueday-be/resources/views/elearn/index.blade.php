@@ -26,7 +26,7 @@
     <div class="topbar">
         <div>
             <h1>Welcome to Elearn</h1>
-            <p class="muted">Logged in as <strong>{{ auth()->user()->name }}</strong> (role: {{ auth()->user()->role ?? 'n/a' }})</p>
+            <p class="muted">Logged in as <strong>{{ auth()->user()->name }}</strong> (role: {{ method_exists(auth()->user(), 'isAdmin') && auth()->user()->isAdmin() ? 'admin' : 'student' }})</p>
         </div>
         <div>
             <a href="/dashboard" style="margin-right: 12px;">Dashboard</a>
@@ -43,7 +43,7 @@
         </div>
     @endif
 
-    @if(auth()->user()->role === 'admin')
+    @if(method_exists(auth()->user(), 'isAdmin') && auth()->user()->isAdmin())
         <div class="card">
             <p>You are logged in as admin. Use the dashboard to manage Elearn assignments.</p>
             <p><a href="{{ route('admin.elearn.majors') }}">Go to Admin Majors</a></p>

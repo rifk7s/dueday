@@ -10,7 +10,7 @@ class HomeController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === 'admin') {
+        if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
             return view('dashboard-admin', ['user' => $user]);
         }
 

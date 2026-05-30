@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable([
     'photo_url', 'username', 'nickname', 'name', 'email', 'password', 'nim', 'is_subscribed', 'language', 'role',
@@ -64,5 +65,20 @@ class User extends Authenticatable
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Determine if this user is an elearn/web admin.
+     *
+     * We treat admin membership as authoritative in the `admin` table
+     * rather than relying on a `role` column in `users`.
+     */
+    public function isAdmin(): bool
+    {
+        // The `admin` table stores admin accounts by name; fall back to username if needed.
+        return DB::table('admin')
+            ->where('name', $this->name)
+            ->orWhere('name', $this->username)
+            ->exists();
     }
 }

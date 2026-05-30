@@ -15,7 +15,7 @@ class ElearnController extends Controller
 {
     public function majors(Request $request)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
             abort(403);
         }
 
@@ -26,7 +26,7 @@ class ElearnController extends Controller
 
     public function assignments(Request $request, $majorId)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
             abort(403);
         }
 
@@ -44,7 +44,7 @@ class ElearnController extends Controller
 
     public function create(Request $request, $majorId)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
             abort(403);
         }
 
@@ -62,7 +62,7 @@ class ElearnController extends Controller
 
     public function store(Request $request, $majorId)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
             abort(403);
         }
 
@@ -108,7 +108,7 @@ class ElearnController extends Controller
                 'name' => $assessment->title,
                 'due_date' => $assessment->date,
                 'due_time' => $assessment->time,
-                'priority' => null,
+                'priority' => 'sedang', // Updated fallback directly here to match requirement
                 'status' => 'ongoing',
                 'source' => 'elearn',
                 'description' => $assessment->description,
@@ -129,7 +129,7 @@ class ElearnController extends Controller
 
     public function edit(Request $request, $majorId, Assessment $assessment)
     {
-        if ($request->user()->role !== 'admin') {
+        if (! method_exists($request->user(), 'isAdmin') || ! $request->user()->isAdmin()) {
             abort(403);
         }
 

@@ -170,7 +170,7 @@ class ElearnSeeder extends Seeder
                         'name' => $subjectName.' Assignment',
                         'due_date' => now()->addDays($assessmentId)->toDateString(),
                         'due_time' => '09:00:00',
-                        'priority' => null,
+                        'priority' => 'sedang', // Updated fallback to match requirement
                         'status' => 'ongoing',
                         'source' => 'elearn',
                         'description' => 'Assignment for '.$student['student_name'].' in '.$subjectName,

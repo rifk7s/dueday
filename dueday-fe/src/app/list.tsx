@@ -3,7 +3,7 @@ import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
 import { ULANGI_DISPLAY, type Activity } from "@/api/activities";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useActivitiesQuery, useDeleteActivityMutation } from "@/hooks/useActivities";
-import { useTasksQuery, useDeleteTaskMutation } from "@/hooks/useTasks"; // Imported our delete hook
+import { useTasksQuery, useDeleteTaskMutation } from "@/hooks/useTasks"; 
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
 import { useFocusEffect } from "@react-navigation/native";
@@ -40,6 +40,7 @@ type ListItem = {
   status: "open" | "done";
   rawStatus: string;
   progress?: number;
+  isElearnSource?: boolean;
 };
 
 const PRIORITY_COLOR: Record<string, StateColor> = {
@@ -60,6 +61,7 @@ function taskToListItem(task: Task): ListItem {
   const deadline = [datePart, timePart].filter(Boolean).join(" | ");
   const isDone = isTaskDone(task.status);
 
+  const isElearnSource = task.source?.toLowerCase() === "elearn";
   const isOverdue = !isDone && (task.is_overdue ?? (task.date ? new Date((task.date ?? "") + " " + (task.time ?? "00:00:00")) < new Date() : false));
 
   const stateText = task.status === "completed_late"
@@ -90,11 +92,12 @@ function taskToListItem(task: Task): ListItem {
     deadline: deadline || "—",
     title: task.task_name,
     description: task.deskripsi ?? "",
-    category: task.tag?.nama_tag ?? "—",
-    showCategoryTag: task.id_tag !== null,
+    category: isElearnSource ? "ELEARN" : (task.tag?.nama_tag ?? "—"),
+    showCategoryTag: isElearnSource || task.id_tag !== null,
     status: isDone ? "done" : "open",
     rawStatus: task.status,
     progress: task.progress / 100,
+    isElearnSource,
   };
 }
 
@@ -137,6 +140,7 @@ function activityToListItem(activity: Activity): ListItem {
     status: isDone ? "done" : "open",
     rawStatus: activity.status ?? "not_started",
     progress: activity.progress / 100,
+    isElearnSource: false,
   };
 }
 
@@ -223,7 +227,7 @@ export default function ListPage() {
   const { data: activities = [], isLoading: activitiesLoading, isError: activitiesError } = useActivitiesQuery();
   
   const deleteActivityMutation = useDeleteActivityMutation();
-  const deleteTaskMutation = useDeleteTaskMutation(); // Instantiated the delete task mutation hook
+  const deleteTaskMutation = useDeleteTaskMutation(); 
 
   useFocusEffect(
     React.useCallback(() => {
@@ -303,7 +307,6 @@ export default function ListPage() {
       ? "Apakah Anda yakin ingin menghapus tugas ini?" 
       : "Apakah Anda yakin ingin menghapus aktivitas ini?";
 
-    // --- WEB PLATFORM ENGINE ---
     if (Platform.OS === "web") {
       const confirmDelete = window.confirm(message);
       if (confirmDelete) {
@@ -332,7 +335,6 @@ export default function ListPage() {
         }
       }
     } 
-    // --- NATIVE MOBILE APP ENGINE ---
     else {
       Alert.alert(
         title,
@@ -489,11 +491,15 @@ function TaskCard({
   isMenuOpen,
   onToggleMenu,
   onDelete,
+  isElearnSource = false,
 }: Readonly<TaskCardProps>) {
   const isActivity = itemType === "activity";
   const deadlineIconName = isActivity ? "calendar-outline" : status === "done" ? "checkmark-circle-outline" : "warning-outline";
   const deadlineIconColor = isActivity ? colors.iconMuted : status === "done" ? colors.success : colors.error;
   const deadlineTextStyle = isActivity ? styles.deadlineTextActivity : status === "done" ? styles.deadlineTextDone : styles.deadlineText;
+
+  // Render priority status tags ONLY if the card is not sourced from ELEARN
+  const shouldRenderPriorityTag = stateText !== "ONGOING" && stateText !== "TERLAMBAT" && stateText !== "DIBATALKAN" && !isElearnSource;
 
   return (
     <View style={[styles.taskCard, status === "done" && styles.taskCardDone]}>
@@ -545,13 +551,14 @@ function TaskCard({
               <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
                 <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>{stateText}</Text>
               </View>
-            ) : status !== "done" ? (
+            ) : status !== "done" && shouldRenderPriorityTag ? (
               <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
                 <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
               </View>
             ) : null}
+            
             {showCategoryTag ? (
-              <View style={[styles.tag, styles.categoryTag]}>
+              <View style={[styles.tag, isElearnSource ? styles.elearnTag : styles.categoryTag]}>
                 <Text style={styles.categoryTagText}>{category}</Text>
               </View>
             ) : null}
@@ -733,6 +740,7 @@ const styles = StyleSheet.create({
   priorityTag: { backgroundColor: colors.errorSoft },
   doneTag: { backgroundColor: colors.surfaceSuccess },
   categoryTag: { backgroundColor: colors.primaryContainer },
+  elearnTag: { backgroundColor: "#366AE5" }, 
   priorityTagText: { color: colors.errorStrong, fontSize: 12, fontFamily: fonts["800"] },
   categoryTagText: { color: colors.onPrimary, fontSize: 12, fontFamily: fonts["800"] },
   progressWrap: { width: 64, height: 64, alignItems: "center", justifyContent: "center" },
