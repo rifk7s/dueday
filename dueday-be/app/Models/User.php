@@ -37,6 +37,7 @@ class User extends Authenticatable
         return [
             'password' => 'hashed',
             'is_subscribed' => 'boolean',
+            'is_admin' => 'boolean',
             'reminder_task_vibrate' => 'boolean',
             'reminder_activity_vibrate' => 'boolean',
         ];
@@ -64,5 +65,17 @@ class User extends Authenticatable
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Determine if this user is an elearn/web admin.
+     *
+     * Admin status is derived from the guarded `is_admin` column, which is not
+     * mass-assignable and cannot be set through the profile API. It is only
+     * granted at web login after the admin password has been verified.
+     */
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
     }
 }

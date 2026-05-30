@@ -1,5 +1,5 @@
 import { fromApiTime } from "@/api/format";
-import { PRIORITY_DISPLAY, type GoalPoint, type Task } from "@/api/tasks";
+import { PRIORITY_DISPLAY, type GoalPoint } from "@/api/tasks";
 import GoalsChecklistModal from "@/components/GoalsChecklistModal";
 import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
@@ -46,7 +46,7 @@ function formatDottedTime(hms: string | null | undefined): string {
   return hm ? hm.replace(":", ".") : "";
 }
 
-function buildGoalPoints(task: Task): GoalPoint[] {
+function buildGoalPoints(task: any): GoalPoint[] {
   if (task.goal_points && task.goal_points.length > 0) {
     return task.goal_points;
   }
@@ -54,7 +54,7 @@ function buildGoalPoints(task: Task): GoalPoint[] {
   if (task.goals) {
     return task.goals
       .split("\n")
-      .map((line, index) => {
+      .map((line: string, index: number) => {
         const trimmed = line.trim();
         const match = trimmed.match(/^[-•]\s*\[(?<state>[+ xX ])\]\s*(?<text>.+)$/);
 
@@ -72,7 +72,7 @@ function buildGoalPoints(task: Task): GoalPoint[] {
           completed: false,
         };
       })
-      .filter((goalPoint) => goalPoint.text.length > 0);
+      .filter((goalPoint: GoalPoint) => goalPoint.text.length > 0);
   }
 
   return [];
@@ -88,13 +88,19 @@ export default function TaskProgressScreen() {
   const qc = useQueryClient();
 
   const { data: tasks = [], isLoading, isError } = useTasksQuery();
-  const task = tasks.find((t) => t.id === id);
+  
+  const task = tasks.find((t) => t.id === id) ?? null;
+
   const goalPoints = task ? buildGoalPoints(task) : [];
   const completedGoalCount = goalPoints.filter((goalPoint) => goalPoint.completed).length;
   const calculatedProgress = goalPoints.length > 0 ? Math.round((completedGoalCount / goalPoints.length) * 100) : task?.progress ?? 0;
 
+  const isElearnSource =
+    task?.source?.toLowerCase() === "elearn" ||
+    task?.tag?.nama_tag?.toLowerCase() === "elearn";
+
   const handleSaveGoals = (updatedGoalPoints: GoalPoint[]) => {
-    if (!task) return;
+    if (!task || isElearnSource) return;
 
     updateTaskMutation.mutate(
       {
@@ -111,7 +117,7 @@ export default function TaskProgressScreen() {
   };
 
   const handleDeleteTask = () => {
-    if (!task?.id) return;
+    if (!task?.id || isElearnSource) return;
 
     const message = "Apakah Anda yakin ingin menghapus tugas ini?";
 
@@ -180,7 +186,7 @@ export default function TaskProgressScreen() {
   }
 
   const priorityKey = task.priority ?? "";
-  const priorityLabel = PRIORITY_DISPLAY[priorityKey];
+  const priorityLabel = PRIORITY_DISPLAY[priorityKey] || priorityKey;
   const priorityColor = PRIORITY_BADGE[priorityKey];
 
   const datePart = formatLongDate(task.date);
@@ -201,9 +207,11 @@ export default function TaskProgressScreen() {
           <Text style={styles.headerTitle}>Progress Tugas</Text>
           
           <View style={styles.headerActions}>
-            <Pressable hitSlop={12} onPress={handleDeleteTask} style={styles.headerActionButton}>
-              <Ionicons name="trash-outline" size={24} color={colors.errorStrong} />
-            </Pressable>
+            {!isElearnSource && (
+              <Pressable hitSlop={12} onPress={handleDeleteTask} style={styles.headerActionButton}>
+                <Ionicons name="trash-outline" size={24} color={colors.errorStrong} />
+              </Pressable>
+            )}
             
             <Pressable hitSlop={12} onPress={() => router.push({ pathname: "/edit-task", params: { id: task.id } })}>
               <Ionicons name="create-outline" size={24} color={colors.primaryContainer} />
@@ -214,6 +222,7 @@ export default function TaskProgressScreen() {
         <ProgressCard
           title={task.task_name}
           progress={calculatedProgress}
+          hideUpdateButton={isElearnSource} 
           onUpdatePress={() => {
             setModalVisible(true);
           }}
@@ -268,7 +277,18 @@ export default function TaskProgressScreen() {
           </>
         ) : null}
 
-        {task.tag?.nama_tag ? (
+        {isElearnSource && (
+          <>
+            <SectionLabel label="SUMBER TUGAS" />
+            <View style={styles.tagRow}>
+              <View style={styles.elearnBadge}>
+                <Text style={styles.elearnBadgeText}>ELEARN</Text>
+              </View>
+            </View>
+          </>
+        )}
+
+        {task.tag?.nama_tag && task.tag.nama_tag.toLowerCase() !== "elearn" ? (
           <>
             <SectionLabel label="TAG" />
             <View style={styles.tagRow}>
@@ -420,60 +440,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts["500"],
     color: colors.tertiary,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
+  elearnBadge: {
+    backgroundColor: colors.elearn,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
   },
-  modalCard: {
-    width: "100%",
-    borderRadius: 14,
-    backgroundColor: colors.surfaceContainerLowest,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.surfaceContainer,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontFamily: fonts["700"],
-    color: colors.onSurface,
-    marginBottom: 12,
-  },
-  modalRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 8,
-  },
-  checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    backgroundColor: colors.surfaceContainerLowest,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  checkboxChecked: {
-    backgroundColor: colors.primaryContainer,
-    borderColor: colors.primaryContainer,
-  },
-  checkboxCheck: {
+  elearnBadgeText: {
     color: colors.onPrimary,
-    fontFamily: fonts["700"],
-  },
-  modalRowTitle: {
-    fontSize: 14,
-    fontFamily: fonts["500"],
-    color: colors.onSurfaceVariant,
-  },
-  modalActions: {
-    marginTop: 12,
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
+    fontSize: 12,
+    fontFamily: fonts["800"],
+    letterSpacing: 0.5,
   },
 });

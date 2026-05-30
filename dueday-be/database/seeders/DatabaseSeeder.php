@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             ActivitySeeder::class,
             SubscriptionSeeder::class,
             PaymentSeeder::class,
+            ElearnSeeder::class,
         ]);
     }
 }

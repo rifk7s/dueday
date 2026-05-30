@@ -27,8 +27,10 @@ class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
 
         // Document Sanctum bearer-token auth in the generated OpenAPI spec.
-        Scramble::afterOpenApiGenerated(function (OpenApi $openApi): void {
-            $openApi->secure(SecurityScheme::http('bearer'));
-        });
+        if (class_exists(Scramble::class)) {
+            Scramble::afterOpenApiGenerated(function (OpenApi $openApi): void {
+                $openApi->secure(SecurityScheme::http('bearer'));
+            });
+        }
     }
 }

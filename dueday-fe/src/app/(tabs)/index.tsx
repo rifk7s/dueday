@@ -10,15 +10,15 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
-    Animated,
+  Animated,
   Alert,
-    Image,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -352,7 +352,7 @@ function SummaryCard({ accent, icon, title, value, background }: Readonly<Summar
 }
 
 function DashboardTaskCard({
-  task,
+  task: rawTask,
   isMenuOpen,
   onToggleMenu,
   onCloseMenu,
@@ -365,11 +365,21 @@ function DashboardTaskCard({
   onDelete: () => void;
 }>) {
   const router = useRouter();
+  const task = rawTask;
+
   const isDone = task.status === "completed" || task.status === "completed_late";
-  const datePart = fromApiDate(task.date);
-  const timePart = fromApiTime(task.time);
+
+  const targetDate = task.date;
+  const targetTime = task.time;
+
+  const datePart = fromApiDate(targetDate);
+  const timePart = fromApiTime(targetTime);
   const deadline = [datePart, timePart].filter(Boolean).join(" | ") || "—";
-  const isOverdue = !isDone && (task.is_overdue ?? (task.date ? new Date((task.date ?? "") + " " + (task.time ?? "00:00:00")) < new Date() : false));
+  
+  const isOverdue = !isDone && (task.is_overdue ?? (targetDate ? new Date((targetDate ?? "") + " " + (targetTime ?? "00:00:00")) < new Date() : false));
+  const isElearnSource = task.source?.toLowerCase() === "elearn";
+
+  const priorityKey = task.priority ?? "";
 
   const stateText = task.status === "completed_late"
     ? "TERLAMBAT"
@@ -377,17 +387,22 @@ function DashboardTaskCard({
     ? "SELESAI"
     : isOverdue
     ? "TERLAMBAT"
-    : (PRIORITY_DISPLAY[task.priority ?? ""] ?? "ONGOING");
+    : (PRIORITY_DISPLAY[priorityKey] ?? "ONGOING");
+
   const stateColor = isDone
     ? task.status === "completed_late"
       ? { bg: colors.errorSoft, text: colors.errorStrong }
       : { bg: colors.surfaceContainerLow, text: colors.onSurfaceVariant }
     : isOverdue
     ? { bg: colors.errorSoft, text: colors.errorStrong }
-    : { bg: colors.errorSoft, text: colors.errorStrong };
+    : priorityKey === "high"
+    ? { bg: colors.errorSoft, text: colors.errorStrong }
+    : priorityKey === "low"
+    ? { bg: colors.surfaceSuccess, text: colors.success }
+    : { bg: colors.surfaceWarm, text: colors.warning };
 
   let accentColor: string = colors.primaryContainer;
-    if (isDone) accentColor = colors.success;
+  if (isDone) accentColor = colors.success;
 
   return (
     <View style={[styles.taskCard, isDone && styles.taskCardDone]}>
@@ -425,12 +440,18 @@ function DashboardTaskCard({
                 <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
                   <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
                 </View>
-              ) : !isDone ? (
+              ) : !isDone && stateText !== "ONGOING" ? (
+                // Removed "!isElearnSource" rule block to allow priority badges on Elearn items
                 <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
                   <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
                 </View>
               ) : null}
-              {task.id_tag !== null ? (
+              
+              {isElearnSource ? (
+                <View style={[styles.tag, styles.elearnTag]}>
+                  <Text style={styles.categoryTagText}>ELEARN</Text>
+                </View>
+              ) : task.id_tag !== null ? (
                 <View style={[styles.tag, styles.categoryTag]}>
                   <Text style={styles.categoryTagText}>{task.tag?.nama_tag ?? "—"}</Text>
                 </View>
@@ -640,6 +661,10 @@ const styles = StyleSheet.create({
     position: "relative",
     borderRadius: 16,
     backgroundColor: colors.surfaceContainerLowest,
+    // RN 0.76+ universal boxShadow renders the drop shadow on web (where
+    // shadowColor/shadowOffset/etc are ignored). Native still uses the iOS
+    // shadow props + Android elevation below.
+    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.12)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -721,10 +746,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceContainerLowest,
     borderWidth: 1,
     borderColor: colors.surfaceContainerLow,
-    // RN 0.76+ universal boxShadow renders the drop shadow on web (where
-    // shadowColor/shadowOffset/etc are ignored). Native still uses the iOS
-    // shadow props + Android elevation below.
-    boxShadow: "0px 4px 10px rgba(0, 0, 0, 0.12)",
     shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowRadius: 10,
@@ -795,8 +816,10 @@ const styles = StyleSheet.create({
   categoryTag: {
     backgroundColor: colors.primaryContainer,
   },
+  elearnTag: {
+    backgroundColor: colors.elearn,
+  },
   priorityTagText: {
-    color: colors.errorStrong,
     fontSize: 12,
     fontFamily: fonts["800"],
     letterSpacing: 0.7,

@@ -57,6 +57,9 @@ export default function EditTaskPage() {
   const { data: tasks = [], isLoading, isError } = useTasksQuery();
   const task = tasks.find((t) => t.id === id);
 
+  // Check if the current task source is synchronized from Elearn
+  const isElearnTask = task?.source?.toLowerCase() === "elearn";
+
   const [namatugas, setNamaTugas] = useState("");
   const [tanggal, setTanggal] = useState("");
   const [jam, setJam] = useState("");
@@ -108,18 +111,32 @@ export default function EditTaskPage() {
     }
     setValidationError("");
 
+    // Package payload safely using standard object construction
+    let updatePayload: UpdateTask;
+
+    if (isElearnTask) {
+      updatePayload = {
+        // If prioritas is cleared/null, use undefined to match type restrictions
+        priority: prioritas ? PRIORITY_API_MAP[prioritas] : undefined,
+      };
+    } else {
+      updatePayload = {
+        task_name: namatugas.trim() || undefined,
+        date: tanggal ? toApiDate(tanggal) : undefined,
+        // Use undefined instead of null to fix the time type mismatch error
+        time: jam ? toApiTime(jam) : undefined,
+        priority: prioritas ? PRIORITY_API_MAP[prioritas] : undefined,
+        id_tag: tag?.id_tag ?? undefined, // Swapped to undefined just in case
+        goals: goals.trim() || undefined,
+        deskripsi: deskripsi.trim() || undefined,
+      };
+    }
+
+    // Run mutation safely with clean types
     updateMutation.mutate(
       {
         id: task.id,
-        data: {
-          ...(namatugas ? { task_name: namatugas.trim() } : {}),
-          ...(tanggal ? { date: toApiDate(tanggal) } : {}),
-          ...(jam ? { time: toApiTime(jam) } : { time: null }),
-          ...(prioritas ? { priority: PRIORITY_API_MAP[prioritas] } : { priority: null }),
-          id_tag: tag?.id_tag ?? null,
-          ...(goals.trim() ? { goals: goals.trim() } : {}),
-          ...(deskripsi.trim() ? { deskripsi: deskripsi.trim() } : {}),
-        } as UpdateTask,
+        data: updatePayload,
       },
       {
         onSuccess: () => {
@@ -190,28 +207,44 @@ export default function EditTaskPage() {
           </Text>
         ) : null}
 
-        <View style={styles.section}>
+        {isElearnTask && (
+          <View style={styles.elearnNotice}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.primaryContainer} />
+            <Text style={styles.elearnNoticeText}>
+              Tugas ini disinkronisasi dari Elearn. Anda hanya dapat mengubah tingkat prioritas.
+            </Text>
+          </View>
+        )}
+
+        <View style={[styles.section, isElearnTask && styles.disabledSection]}>
           <Text style={styles.label}>Nama Tugas</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, isElearnTask && styles.disabledInput]}
             placeholder="Contoh: Laporan RPL Bab 3"
             placeholderTextColor={colors.iconMuted}
             value={namatugas}
             onChangeText={setNamaTugas}
+            editable={!isElearnTask}
           />
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, isElearnTask && styles.disabledSection]}>
           <Text style={styles.label}>Tenggat Waktu</Text>
-          <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
-            <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
-            <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
+          <Pressable 
+            style={[styles.dateTimeContainer, isElearnTask && styles.disabledInput]} 
+            onPress={() => !isElearnTask && setShowCalendar(true)}
+          >
+            <Ionicons name="calendar-outline" size={20} color={isElearnTask ? colors.iconMuted : colors.primaryContainer} style={styles.dateIcon} />
+            <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder, isElearnTask && styles.disabledText]}>
               {tanggal || "Pilih tanggal"}
             </Text>
           </Pressable>
-          <Pressable style={styles.dateTimeContainer} onPress={() => setShowTimePicker(true)}>
-            <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
-            <Text style={[styles.dateTimeText, !jam && styles.dateTimePlaceholder]}>
+          <Pressable 
+            style={[styles.dateTimeContainer, isElearnTask && styles.disabledInput]} 
+            onPress={() => !isElearnTask && setShowTimePicker(true)}
+          >
+            <Ionicons name="time-outline" size={20} color={isElearnTask ? colors.iconMuted : colors.primaryContainer} style={styles.dateIcon} />
+            <Text style={[styles.dateTimeText, !jam && styles.dateTimePlaceholder, isElearnTask && styles.disabledText]}>
               {jam || "Pilih waktu"}
             </Text>
           </Pressable>
@@ -243,18 +276,24 @@ export default function EditTaskPage() {
           </View>
         </View>
 
-        <TagSelector selectedTag={tag} onSelectTag={setTag} />
+        <View style={isElearnTask && styles.disabledSection}>
+          <TagSelector 
+            selectedTag={tag} 
+            onSelectTag={isElearnTask ? () => {} : setTag} 
+          />
+        </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, isElearnTask && styles.disabledSection]}>
           <Text style={styles.label}>Goals</Text>
           <TextInput
-            style={[styles.input, styles.goalsInput]}
+            style={[styles.input, styles.goalsInput, isElearnTask && styles.disabledInput]}
             placeholder="Isi dalam bentuk poin"
             placeholderTextColor={colors.iconMuted}
             value={goals}
             onChangeText={setGoals}
             multiline
             textAlignVertical="top"
+            editable={!isElearnTask}
             onFocus={() => {
               isGoalsFocused.current = true;
             }}
@@ -271,16 +310,17 @@ export default function EditTaskPage() {
           />
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, isElearnTask && styles.disabledSection]}>
           <Text style={styles.label}>Deskripsi</Text>
           <TextInput
-            style={[styles.input, styles.descriptionInput]}
+            style={[styles.input, styles.descriptionInput, isElearnTask && styles.disabledInput]}
             placeholder="Catatan tambahan (opsional)..."
             placeholderTextColor={colors.iconMuted}
             value={deskripsi}
             onChangeText={setDeskripsi}
             multiline
             textAlignVertical="top"
+            editable={!isElearnTask}
             onFocus={() => {
               isDescFocused.current = true;
             }}
@@ -316,26 +356,19 @@ export default function EditTaskPage() {
       </Animated.View>
 
       <DatePickerCalendar
-        visible={showCalendar}
+        visible={!isElearnTask && showCalendar}
         onClose={() => setShowCalendar(false)}
         onDateSelect={setTanggal}
         selectedDate={tanggal}
       />
       <TimePicker
-        visible={showTimePicker}
+        visible={!isElearnTask && showTimePicker}
         onClose={() => setShowTimePicker(false)}
         onTimeSelect={setJam}
         selectedTime={jam}
       />
     </View>
   );
-}
-
-function getPriorityColor(priority: PriorityType) {
-  if (priority === "Tinggi") return colors.error;
-  if (priority === "Sedang") return colors.primaryContainer;
-  if (priority === "Rendah") return colors.success;
-  return colors.surfaceContainerLow;
 }
 
 const styles = StyleSheet.create({
@@ -368,6 +401,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, 
     paddingTop: 20 
   },
+  elearnNotice: {
+    flexDirection: "row",
+    backgroundColor: colors.surfaceContainerLow,
+    padding: 12,
+    borderRadius: 10,
+    gap: 8,
+    alignItems: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.primaryContainer,
+  },
+  elearnNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fonts["500"],
+    color: colors.onSurfaceVariant,
+    lineHeight: 16,
+  },
   errorText: { 
     fontSize: 13, 
     fontFamily: fonts["500"], 
@@ -377,6 +428,9 @@ const styles = StyleSheet.create({
   },
   section: { 
     marginBottom: 24 
+  },
+  disabledSection: {
+    opacity: 0.65,
   },
   label: { 
     fontSize: 14, 
@@ -394,6 +448,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts["400"], 
     color: colors.onSurface, 
     backgroundColor: colors.surfaceContainerLowest 
+  },
+  disabledInput: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderColor: colors.surfaceContainerLow,
+  },
+  disabledText: {
+    color: colors.iconMuted,
   },
   goalsInput: { 
     minHeight: 120, 

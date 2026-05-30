@@ -6,6 +6,7 @@ type ProgressCardProps = {
   title: string;
   progress: number;
   onUpdatePress?: () => void;
+  hideUpdateButton?: boolean; // Added to handle elearn visibility securely
 };
 
 const RING_SIZE = 140;
@@ -13,7 +14,12 @@ const STROKE_WIDTH = 14;
 const RADIUS = (RING_SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export function ProgressCard({ title, progress, onUpdatePress }: Readonly<ProgressCardProps>) {
+export function ProgressCard({ 
+  title, 
+  progress, 
+  onUpdatePress, 
+  hideUpdateButton = false 
+}: Readonly<ProgressCardProps>) {
   const clamped = Math.max(0, Math.min(100, progress));
   const dashOffset = CIRCUMFERENCE * (1 - clamped / 100);
 
@@ -52,9 +58,12 @@ export function ProgressCard({ title, progress, onUpdatePress }: Readonly<Progre
         </View>
       </View>
 
-      <Pressable style={styles.button} onPress={onUpdatePress}>
-        <Text style={styles.buttonText}>Update progress</Text>
-      </Pressable>
+      {/* Renders the button only if hideUpdateButton is false */}
+      {!hideUpdateButton && (
+        <Pressable style={styles.button} onPress={onUpdatePress}>
+          <Text style={styles.buttonText}>Update progress</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

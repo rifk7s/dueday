@@ -74,6 +74,9 @@ export const colors = {
   iconSubtle: "#b9b9b9",
   progressTrack: "#e5e7eb",
   inputBorder: "#d1d5db",
+
+  // Elearn source badge
+  elearn: "#366AE5",
 } as const;
 
 /**

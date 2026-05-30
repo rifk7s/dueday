@@ -24,5 +24,29 @@ class UserSeeder extends Seeder
             'is_subscribed' => false,
             'language' => 'Indonesia',
         ]);
+
+        User::create([
+            'id' => 'a1c3e5f7-1111-4222-8333-444455556666',
+            'email' => 'mrifki01@student.ciputra.ac.id',
+            'username' => 'mrifki01',
+            'nickname' => 'rifki',
+            'name' => 'Rifki',
+            'password' => Hash::make('Password123'),
+            'nim' => '0806022410017',
+            'is_subscribed' => false,
+            'language' => 'Indonesia',
+        ]);
+
+        User::create([
+            'id' => 'b2d4f6a8-7777-4888-8999-aaaabbbbcccc',
+            'email' => 'ccallistan@student.ciputra.ac.id',
+            'username' => 'ccallistan',
+            'nickname' => 'cherryl',
+            'name' => 'Cherryl',
+            'password' => Hash::make('Password123'),
+            'nim' => '0806022410023',
+            'is_subscribed' => false,
+            'language' => 'Indonesia',
+        ]);
     }
 }

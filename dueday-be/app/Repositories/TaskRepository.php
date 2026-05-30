@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\Task;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class TaskRepository
@@ -27,7 +28,9 @@ class TaskRepository
             'goals' => $data['goals'] ?? null,
             'goal_points' => $data['goal_points'] ?? null,
             'progress' => $data['progress'] ?? 0,
-        ]);
+        ] + (Schema::hasColumn('tasks', 'elearn_assessment_id') ? [
+            'elearn_assessment_id' => $data['elearn_assessment_id'] ?? null,
+        ] : []));
 
         return $task->load('tag');
     }
