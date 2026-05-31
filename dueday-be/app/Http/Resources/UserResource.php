@@ -13,19 +13,19 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $isSubscribed = (bool) $this->is_subscribed;
-        $latestActiveSub = null;
+        $latestActiveSub = $this->subscriptions()
+            ->where('status', 'active')
+            ->latest()
+            ->first();
 
-        if ($isSubscribed) {
-            $latestActiveSub = $this->subscriptions()
-                ->where('status', 'active')
-                ->latest()
-                ->first();
+        $isSubscribed = $latestActiveSub
+            && ! Carbon::parse($latestActiveSub->expired_at)->isPast();
 
-            if (! $latestActiveSub || Carbon::parse($latestActiveSub->expired_at)->isPast()) {
-                $isSubscribed = false;
+        if ((bool) $this->is_subscribed !== $isSubscribed) {
+            $this->resource->update(['is_subscribed' => $isSubscribed]);
+
+            if (! $isSubscribed) {
                 $latestActiveSub = null;
-                $this->resource->update(['is_subscribed' => false]);
             }
         }
 
