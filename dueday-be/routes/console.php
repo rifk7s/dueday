@@ -13,4 +13,4 @@ Artisan::command('inspire', function () {
 Schedule::command('activities:reset-recurring')->everyMinute();
 
 // Keep subscription statuses in sync with their expiry timestamps.
-Schedule::command('subscriptions:expire-expired')->everyMinute();
+Schedule::command('subscriptions:expire-expired')->everyMinute()->withoutOverlapping();

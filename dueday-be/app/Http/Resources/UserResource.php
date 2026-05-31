@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\SubscriptionService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,15 +19,21 @@ class UserResource extends JsonResource
             ->latest()
             ->first();
 
-        $isSubscribed = $latestActiveSub
-            && ! Carbon::parse($latestActiveSub->expired_at)->isPast();
+        // If the latest active row is past its expiry, expire it the same way the scheduled
+        // command does (status => 'expired' + is_subscribed cleared) so the lazy path and
+        // subscriptions:expire-expired can't disagree and leave a stale 'active' row behind.
+        // A lingering 'active' row would make activateOrExtendUserSubscription() extend from a
+        // past expired_at instead of from now().
+        if ($latestActiveSub && Carbon::parse($latestActiveSub->expired_at)->isPast()) {
+            app(SubscriptionService::class)->expireDueSubscriptions();
+            $this->resource->refresh();
+            $latestActiveSub = null;
+        }
+
+        $isSubscribed = (bool) $latestActiveSub;
 
         if ((bool) $this->is_subscribed !== $isSubscribed) {
             $this->resource->update(['is_subscribed' => $isSubscribed]);
-
-            if (! $isSubscribed) {
-                $latestActiveSub = null;
-            }
         }
 
         return [
