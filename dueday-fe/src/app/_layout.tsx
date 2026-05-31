@@ -18,6 +18,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React from "react";
 import { Alert } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -55,16 +56,18 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <SafeAreaProvider>
-      <KeyboardProvider>
-        <QueryClientProvider client={queryClient}>
-          <SessionProvider>
-            <SplashScreenController />
-            <RootNavigator />
-          </SessionProvider>
-        </QueryClientProvider>
-      </KeyboardProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <KeyboardProvider>
+          <QueryClientProvider client={queryClient}>
+            <SessionProvider>
+              <SplashScreenController />
+              <RootNavigator />
+            </SessionProvider>
+          </QueryClientProvider>
+        </KeyboardProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
