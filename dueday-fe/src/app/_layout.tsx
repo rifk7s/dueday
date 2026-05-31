@@ -3,7 +3,7 @@ import { SplashScreenController } from "@/auth/splash";
 import { modalScreenOptions, stackScreenOptions, successScreenOptions } from "@/constants/navigation";
 import "@/global.css";
 import { scheduleSyncReminderNotifications } from "@/hooks/useReminders";
-import { recordDelivered, syncPresented } from "@/lib/notificationHistory";
+import { parseReminderId, recordDelivered, syncPresented } from "@/lib/notificationHistory";
 import { ensureAndroidChannel, setupNotificationHandler } from "@/lib/notifications";
 import {
     Lexend_400Regular,
@@ -16,7 +16,7 @@ import {
 } from "@expo-google-fonts/lexend";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React from "react";
 import { Alert, AppState } from "react-native";
@@ -73,31 +73,47 @@ export default function RootLayout() {
   );
 }
 
-// Global notification handling: record deliveries into the in-app history and
-// show a popup for payment-success notifications.
+// Deep-link a tapped OS notification to the matching screen, mirroring the
+// in-app Notifikasi screen's navigation. Reminder identifiers carry the entity
+// (e.g. `reminder:task:42:h-hari`); anything unrecognized just opens the app.
+function routeFromNotification(notification: Notifications.Notification): void {
+  const { kind, sourceId } = parseReminderId(notification.request.identifier);
+  if (kind === "task" && sourceId) {
+    router.push({ pathname: "/taskprogress", params: { id: sourceId, tab: "tugas" } });
+  } else if (kind === "activity" && sourceId) {
+    router.push({ pathname: "/activityprogress", params: { id: sourceId } });
+  } else if (kind === "premium") {
+    router.push("/premium-plan");
+  } else if (kind === "summary") {
+    router.push("/list");
+  }
+}
+
+function showPaymentSuccessAlert(data: any): void {
+  try {
+    const planName = data.planName ?? "Paket Premium";
+    const features = data.features ? JSON.parse(data.features) : null;
+    const message = features
+      ? `Kamu mendapatkan: \n- ${features.map((f: any) => f.title).join("\n- ")}`
+      : "Langganan premium sudah aktif.";
+    Alert.alert(planName, message, [{ text: "OK" }], { cancelable: true });
+  } catch {
+    // ignore malformed payloads
+  }
+}
+
+// Global notification handling: record deliveries into the in-app history,
+// deep-link a tapped notification to the right screen, and show a popup for
+// payment-success notifications.
 function useNotificationResponseHandler() {
+  // Covers both a tap while the app runs AND a cold start (app launched by
+  // tapping a notification) — the hook returns that launching response too.
+  const lastResponse = Notifications.useLastNotificationResponse();
+
   React.useEffect(() => {
-    // Foreground deliveries.
+    // Foreground deliveries (not taps).
     const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
       void recordDelivered(notification);
-    });
-
-    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
-      // Tapping a notification delivered while backgrounded/killed — log it too.
-      void recordDelivered(response.notification);
-      try {
-        const data = response.notification.request.content.data as any;
-        if (data?.type === "payment-success") {
-          const planName = data.planName ?? "Paket Premium";
-          const features = data.features ? JSON.parse(data.features) : null;
-          const message = features
-            ? `Kamu mendapatkan: \n- ${features.map((f: any) => f.title).join("\n- ")}`
-            : "Langganan premium sudah aktif.";
-          Alert.alert(planName, message, [{ text: "OK" }], { cancelable: true });
-        }
-      } catch (e) {
-        // ignore malformed payloads
-      }
     });
 
     // Pull anything sitting in the OS tray on launch, and again whenever the
@@ -109,10 +125,25 @@ function useNotificationResponseHandler() {
 
     return () => {
       receivedSub.remove();
-      responseSub.remove();
       appStateSub.remove();
     };
   }, []);
+
+  React.useEffect(() => {
+    // Only the default tap (not custom action buttons), once per response.
+    if (!lastResponse || lastResponse.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+
+    const notification = lastResponse.notification;
+    void recordDelivered(notification);
+
+    const data = notification.request.content.data as any;
+    if (data?.type === "payment-success") {
+      showPaymentSuccessAlert(data);
+      return;
+    }
+    // Defer one tick so the router is mounted on a cold start before we push.
+    setTimeout(() => routeFromNotification(notification), 0);
+  }, [lastResponse]);
 }
 
 function RootNavigator() {
