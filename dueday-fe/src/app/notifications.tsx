@@ -20,6 +20,23 @@ import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Reanimated, { LinearTransition, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+function IconForItem({ kind }: { kind: string }) {
+  if (kind === "premium") {
+    return (
+      <View style={styles.premiumIconWrap}>
+        <Ionicons name="diamond" size={18} color={colors.primaryContainer} />
+      </View>
+    );
+  }
+
+  // default: task/activity
+  return (
+    <View style={styles.taskIconWrap}>
+      <Ionicons name="document-text" size={18} color="#fff" />
+    </View>
+  );
+}
+
 const PREMIUM_PREFIX = "reminder:premium:";
 const DISMISS_ACTION_WIDTH = 96;
 // The real DueDay app mark — same icon the OS shows on a delivered notification.
@@ -147,6 +164,11 @@ export default function NotificationsScreen(): React.JSX.Element {
   );
 }
 
+function accentColorForBucket(bucket: TimeBucket): string {
+  // Use the same orange accent for all buckets so cards appear consistent.
+  return colors.primaryContainer;
+}
+
 function BucketSection({
   bucket,
   count,
@@ -188,9 +210,10 @@ function NotificationCard({
           accessibilityRole="button"
           accessibilityLabel={`Buka ${item.title}`}
           onPress={() => onOpen(item)}
-          style={[styles.card, unread && styles.cardUnread]}
+          style={[styles.card, unread && styles.cardUnread, styles.cardDefault]}
         >
-          <Image source={APP_ICON} style={styles.appIcon} resizeMode="cover" />
+          <View style={[styles.leftAccent, { backgroundColor: accentColorForBucket(item.bucket) }]} />
+          <IconForItem kind={item.kind} />
           <View style={styles.cardBody}>
             <View style={styles.cardTopRow}>
               <Text style={[styles.cardTitle, unread && styles.cardTitleUnread]} numberOfLines={1}>
@@ -280,37 +303,38 @@ function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.
     setScheduling(false);
   }, []);
 
+  // Render premium notification using the exact same layout as regular notifications
+  // so it visually matches the rest of the feed.
   return (
-    <View style={[styles.card, styles.premiumCard]}>
-      <View style={styles.premiumTop}>
-        <Image source={APP_ICON} style={styles.appIcon} resizeMode="cover" />
-        <View style={styles.cardBody}>
-          <View style={styles.cardTopRow}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.title}
+    <Reanimated.View layout={LinearTransition}>
+      <Swipeable
+        friction={2}
+        rightThreshold={40}
+        renderRightActions={(_progress, translation) => <DismissAction drag={translation} />}
+        onSwipeableOpen={() => { /* premium items aren't dismissible in current UX */ }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Buka ${item.title}`}
+          onPress={() => router.push("/premium-plan")}
+          style={[styles.card, styles.cardDefault]}
+        >
+          <View style={[styles.leftAccent, { backgroundColor: colors.primaryContainer }]} />
+          <IconForItem kind={item.kind === "premium" ? "premium" : item.kind} />
+          <View style={styles.cardBody}>
+            <View style={styles.cardTopRow}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              {item.timeLabel ? <Text style={styles.cardTime}>{item.timeLabel}</Text> : null}
+            </View>
+            <Text style={styles.cardMessage} numberOfLines={3}>
+              {item.body}
             </Text>
-            {item.timeLabel ? <Text style={styles.cardTime}>{item.timeLabel}</Text> : null}
           </View>
-          <Text style={styles.cardMessage} numberOfLines={3}>
-            {item.body}
-          </Text>
-        </View>
-      </View>
-
-      {expired ? (
-        <Pressable style={styles.premiumButton} onPress={() => router.push("/premium-plan")}>
-          <Text style={styles.premiumButtonText}>Perpanjang Premium</Text>
         </Pressable>
-      ) : premiumScheduled ? (
-        <Pressable style={styles.premiumButton} onPress={onCancel} disabled={scheduling}>
-          <Text style={styles.premiumButtonText}>{scheduling ? "Memproses..." : "Batalkan Peringatan Kadaluarsa"}</Text>
-        </Pressable>
-      ) : (
-        <Pressable style={styles.premiumButton} onPress={onSchedule} disabled={scheduling}>
-          <Text style={styles.premiumButtonText}>{scheduling ? "Menjadwalkan..." : "Jadwalkan Peringatan Kadaluarsa"}</Text>
-        </Pressable>
-      )}
-    </View>
+      </Swipeable>
+    </Reanimated.View>
   );
 }
 
@@ -419,16 +443,16 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 18,
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: "#ffffff",
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
     padding: 14,
-    shadowColor: colors.onSurface,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   cardUnread: {
     backgroundColor: colors.surfaceContainerLow,
@@ -438,6 +462,24 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 11,
     backgroundColor: colors.surfaceContainerHigh,
+  },
+  taskIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    backgroundColor: colors.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    backgroundColor: colors.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.primaryContainer,
   },
   cardBody: {
     flex: 1,
@@ -472,12 +514,26 @@ const styles = StyleSheet.create({
   },
   unreadDot: {
     position: "absolute",
-    top: 10,
-    right: 10,
+    top: "50%",
+    marginTop: -4,
+    right: 14,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primaryContainer,
+  },
+  leftAccent: {
+    width: 8,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
+    marginRight: 12,
+    alignSelf: "stretch",
+  },
+  cardOverdue: {
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  cardDefault: {
+    backgroundColor: colors.surfaceContainerLowest,
   },
   dismissAction: {
     width: DISMISS_ACTION_WIDTH,
