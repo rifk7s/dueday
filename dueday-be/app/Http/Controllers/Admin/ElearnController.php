@@ -80,13 +80,13 @@ class ElearnController extends Controller
             ->join('students', 'reg_student.student_id', '=', 'students.id')
             ->join('users', 'students.nim', '=', 'users.nim')
             ->where('study_plan_card.opened_class_id', $data['opened_class_id'])
-            ->select('users.id as user_id')
+            ->select('users.id as user_id', 'users.is_subscribed')
             ->distinct()
             ->get();
 
-        // Gate the freemium cap on a genuinely active, non-expired subscription rather than the
-        // users.is_subscribed flag, which is only reset lazily when a profile is serialized and so
-        // can leave an expired subscriber looking premium. One query, O(1) membership in the loop.
+        // A user must still be marked subscribed and have an active, non-expired subscription row
+        // to bypass the freemium cap. That keeps stale active rows from bypassing the limit while
+        // still allowing current subscribers to receive unlimited elearn tasks.
         $activeSubscriberIds = DB::table('subscriptions')
             ->whereIn('user_id', $enrolledUsers->pluck('user_id'))
             ->where('status', 'active')
@@ -98,7 +98,10 @@ class ElearnController extends Controller
         $monthEnd = now()->endOfMonth();
 
         foreach ($enrolledUsers as $enrolledUser) {
-            if (! $activeSubscriberIds->has($enrolledUser->user_id)) {
+            $isCurrentlySubscribed = (bool) $enrolledUser->is_subscribed
+                && $activeSubscriberIds->has($enrolledUser->user_id);
+
+            if (! $isCurrentlySubscribed) {
                 $monthlyElearnTaskCount = Task::query()
                     ->where('user_id', $enrolledUser->user_id)
                     ->where('source', 'elearn')

@@ -196,6 +196,29 @@ it('skips elearn task creation for unsubscribed users after three tasks in the c
         ['id' => 12, 'student_id' => $studentTwoId, 'student_year' => 1, 'major_id' => 1],
     ]);
 
+    DB::table('subscriptions')->insert([
+        [
+            'id' => (string) Str::uuid(),
+            'user_id' => $unsubscribedUser->id,
+            'plan' => 'satu_bulan',
+            'status' => 'active',
+            'started_at' => now()->subDay(),
+            'expired_at' => now()->addMonth(),
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ],
+        [
+            'id' => (string) Str::uuid(),
+            'user_id' => $otherUser->id,
+            'plan' => 'satu_bulan',
+            'status' => 'active',
+            'started_at' => now()->subDay(),
+            'expired_at' => now()->addMonth(),
+            'created_at' => now()->subDay(),
+            'updated_at' => now()->subDay(),
+        ],
+    ]);
+
     DB::table('subject')->insert([
         'id' => 1,
         'name' => 'Management Basics',
@@ -362,4 +385,116 @@ it('treats an expired subscriber as free and applies the monthly cap', function 
         ->assertRedirect(route('admin.elearn.assignments', ['major' => 1]));
 
     expect(DB::table('tasks')->where('user_id', $expiredUser->id)->where('source', 'elearn')->count())->toBe(3);
+});
+
+it('lets active subscribers receive unlimited elearn tasks', function () {
+    DB::table('title')->insert([
+        ['id' => 1, 'name' => 'admin'],
+        ['id' => 2, 'name' => 'student'],
+    ]);
+
+    DB::table('major')->insert([
+        ['id' => 1, 'name' => 'MAN'],
+    ]);
+
+    $admin = User::query()->create([
+        'id' => 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+        'name' => 'Admin Tester',
+        'username' => 'admin_tester_active',
+        'email' => 'admin-active@test.local',
+        'password' => 'Password123',
+    ]);
+
+    $admin->forceFill(['is_admin' => true])->save();
+
+    DB::table('admin')->insert([
+        'id' => 1,
+        'name' => $admin->name,
+        'password' => bcrypt('Password123'),
+    ]);
+
+    $subscribedUser = User::query()->create([
+        'id' => 'abababab-abab-abab-abab-abababababab',
+        'name' => 'Subscribed User',
+        'username' => 'subscribed_user',
+        'email' => 'subscribed@test.local',
+        'nim' => '0806010104',
+        'password' => 'Password123',
+        'is_subscribed' => true,
+    ]);
+
+    DB::table('subscriptions')->insert([
+        'id' => (string) Str::uuid(),
+        'user_id' => $subscribedUser->id,
+        'plan' => 'satu_bulan',
+        'status' => 'active',
+        'started_at' => now()->subDay(),
+        'expired_at' => now()->addMonth(),
+        'created_at' => now()->subDay(),
+        'updated_at' => now()->subDay(),
+    ]);
+
+    $studentId = '66666666-6666-6666-6666-666666666666';
+
+    DB::table('students')->insert([
+        'id' => $studentId,
+        'student_name' => 'Subscribed Student',
+        'title_id' => 2,
+        'current_semester' => 1,
+        'nim' => '0806010104',
+        'password' => bcrypt('Password123'),
+    ]);
+
+    DB::table('reg_student')->insert([
+        ['id' => 31, 'student_id' => $studentId, 'student_year' => 1, 'major_id' => 1],
+    ]);
+
+    DB::table('subject')->insert([
+        'id' => 1,
+        'name' => 'Management Basics',
+        'major_id' => 1,
+        'semester' => 1,
+        'sks' => 3,
+        'period' => '2025_1',
+    ]);
+
+    DB::table('opened_class')->insert([
+        'id' => 1,
+        'subject_id' => 1,
+        'parallel' => 'A',
+        'student_num' => 30,
+        'session' => 16,
+    ]);
+
+    DB::table('study_plan_card')->insert([
+        ['id' => 31, 'period' => '2025_1', 'reg_student_id' => 31, 'opened_class_id' => 1],
+    ]);
+
+    $monthCreatedAt = now()->startOfMonth()->addDay();
+
+    for ($index = 1; $index <= 3; $index++) {
+        DB::table('tasks')->insert([
+            'id' => (string) Str::uuid(),
+            'user_id' => $subscribedUser->id,
+            'name' => "Existing Elearn Task {$index}",
+            'source' => 'elearn',
+            'status' => 'ongoing',
+            'progress' => 0,
+            'created_at' => $monthCreatedAt,
+            'updated_at' => $monthCreatedAt,
+        ]);
+    }
+
+    $this->actingAs($admin)
+        ->post(route('admin.elearn.assignments.store', ['major' => 1]), [
+            'opened_class_id' => 1,
+            'title' => 'Management Basics Assignment',
+            'description' => 'Assignment for Management Basics',
+            'date' => now()->toDateString(),
+            'time' => '09:00',
+            'file_name' => 'pdf',
+        ])
+        ->assertRedirect(route('admin.elearn.assignments', ['major' => 1]));
+
+    expect(DB::table('tasks')->where('user_id', $subscribedUser->id)->where('source', 'elearn')->count())->toBe(4);
 });

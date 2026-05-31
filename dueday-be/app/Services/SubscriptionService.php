@@ -122,6 +122,54 @@ class SubscriptionService
         return $this->subscriptionRepository->delete($subscriptionId);
     }
 
+    public function expireDueSubscriptions(): int
+    {
+        $now = now();
+
+        $subscriptionsToExpire = DB::table('subscriptions')
+            ->where('status', 'active')
+            ->whereNotNull('expired_at')
+            ->where('expired_at', '<=', $now)
+            ->orderBy('expired_at')
+            ->get(['id', 'user_id']);
+
+        if ($subscriptionsToExpire->isEmpty()) {
+            return 0;
+        }
+
+        $subscriptionIds = $subscriptionsToExpire->pluck('id')->all();
+        $affectedUserIds = $subscriptionsToExpire->pluck('user_id')->unique()->values()->all();
+
+        DB::transaction(function () use ($subscriptionIds, $affectedUserIds, $now): void {
+            DB::table('subscriptions')
+                ->whereIn('id', $subscriptionIds)
+                ->update([
+                    'status' => 'expired',
+                    'updated_at' => $now,
+                ]);
+
+            foreach ($affectedUserIds as $userId) {
+                $hasActiveSubscription = DB::table('subscriptions')
+                    ->where('user_id', $userId)
+                    ->where('status', 'active')
+                    ->whereNotNull('expired_at')
+                    ->where('expired_at', '>', $now)
+                    ->exists();
+
+                if (! $hasActiveSubscription) {
+                    DB::table('users')
+                        ->where('id', $userId)
+                        ->update([
+                            'is_subscribed' => false,
+                            'updated_at' => $now,
+                        ]);
+                }
+            }
+        });
+
+        return $subscriptionsToExpire->count();
+    }
+
     private function syncMissingElearnTasksForUser(User $user): void
     {
         if (empty($user->nim)) {
