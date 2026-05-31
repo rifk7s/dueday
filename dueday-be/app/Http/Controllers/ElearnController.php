@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -63,72 +64,125 @@ class ElearnController extends Controller
             abort(404, 'Parent assessment metadata not found.');
         }
 
-        // Execute both submission processing and core task tracking updates inside an atomic database transaction
-        DB::transaction(function () use ($request, $detail, $detailId, $assessment, $user) {
+        $taskOwnerIds = collect([$user->id]);
 
-            // 1. Handle actual data updates depending on required flag configuration type
-            if ($detail->file_name === 'txt') {
-                $data = $request->validate([
-                    'submission_text' => 'required|string',
-                ]);
+        if (! empty($user->nim)) {
+            $taskOwnerIds = $taskOwnerIds->merge(
+                DB::table('users')
+                    ->where('nim', $user->nim)
+                    ->pluck('id')
+            );
+        }
 
-                DB::table('detail')->where('id', $detailId)->update([
-                    'submission_text' => $data['submission_text'],
-                    'submission_file_path' => null,
-                    'submitted_at' => now(),
-                ]);
-            } else {
-                $data = $request->validate([
-                    'submission_file' => 'required|file|mimes:pdf|max:12288', // Max 12MB limit safety cap
-                ]);
+        $taskOwnerIds = $taskOwnerIds
+            ->filter()
+            ->unique()
+            ->values();
 
-                $file = $data['submission_file'];
-                $path = $file->store('elearn_submissions', 'public');
+        // Validate before opening the transaction so a validation failure never
+        // leaves a half-stored upload behind.
+        if ($detail->file_name === 'txt') {
+            $data = $request->validate([
+                'submission_text' => 'required|string',
+            ]);
+        } else {
+            $data = $request->validate([
+                'submission_file' => 'required|file|mimes:pdf|max:12288', // Max 12MB limit safety cap
+            ]);
+        }
 
-                // Clear previous files from disk if performing an assignment overwrite rewrite step
-                $oldPath = $detail->submission_file_path;
-                if ($oldPath) {
-                    Storage::disk('public')->delete($oldPath);
+        // Store the new upload outside the transaction. Filesystem writes are not
+        // transactional, so we keep the transaction body limited to DB writes and
+        // defer deleting the replaced file until after a successful commit.
+        $oldPath = $detail->submission_file_path;
+        $newPath = null;
+        if ($detail->file_name !== 'txt') {
+            $newPath = $data['submission_file']->store('elearn_submissions', 'public');
+        }
+
+        try {
+            DB::transaction(function () use ($detail, $detailId, $assessment, $taskOwnerIds, $data, $newPath) {
+
+                // 1. Persist the submission for this detail row.
+                if ($detail->file_name === 'txt') {
+                    DB::table('detail')->where('id', $detailId)->update([
+                        'submission_text' => $data['submission_text'],
+                        'submission_file_path' => null,
+                        'submitted_at' => now(),
+                    ]);
+                } else {
+                    DB::table('detail')->where('id', $detailId)->update([
+                        'submission_file_path' => $newPath,
+                        'submission_text' => null,
+                        'submitted_at' => now(),
+                    ]);
                 }
 
-                DB::table('detail')->where('id', $detailId)->update([
-                    'submission_file_path' => $path,
-                    'submission_text' => null,
-                    'submitted_at' => now(),
+                // 2. Mark this user's matching elearn task as complete.
+                $hasElearnAssessmentId = Schema::hasColumn('tasks', 'elearn_assessment_id');
+                $cleanTitle = trim($assessment->title);
+
+                $taskQuery = Task::query()->whereIn('user_id', $taskOwnerIds);
+
+                if ($hasElearnAssessmentId) {
+                    $taskQuery->where(function ($query) use ($detail, $assessment, $cleanTitle) {
+                        $query->where('elearn_assessment_id', $detail->assessment_id)
+                            ->orWhere(function ($legacyQuery) use ($assessment, $cleanTitle) {
+                                // Legacy fallback: only target rows that predate the stable
+                                // id column, otherwise a sibling task tagged to a different
+                                // assessment but sharing name/description/date is also completed.
+                                $legacyQuery
+                                    ->whereNull('elearn_assessment_id')
+                                    ->where('source', 'elearn')
+                                    ->where('name', $cleanTitle)
+                                    ->where('description', $assessment->description);
+
+                                $this->scopeToAssessmentDate($legacyQuery, $assessment->date);
+                            });
+                    });
+                } else {
+                    $taskQuery->where('source', 'elearn')
+                        ->where('name', $cleanTitle)
+                        ->where('description', $assessment->description);
+
+                    $this->scopeToAssessmentDate($taskQuery, $assessment->date);
+                }
+
+                $taskQuery->update([
+                    'progress' => 100,
+                    'status' => 'completed',
+                    'updated_at' => now(),
                 ]);
+            });
+        } catch (\Throwable $e) {
+            // The DB never committed, so discard the orphaned upload we stored above.
+            if ($newPath) {
+                Storage::disk('public')->delete($newPath);
             }
 
-            // 2. Mark this user's matching elearn task as complete.
-            $taskUpdated = false;
-            $hasElearnAssessmentId = Schema::hasColumn('tasks', 'elearn_assessment_id');
-            $cleanTitle = trim($assessment->title);
+            throw $e;
+        }
 
-            // Pathway A: match by the stable elearn assessment id, scoped to this user.
-            if ($hasElearnAssessmentId) {
-                $affected = Task::where('user_id', $user->id)
-                    ->where('elearn_assessment_id', $detail->assessment_id)
-                    ->update([
-                        'progress' => 100,
-                        'status' => 'completed',
-                        'updated_at' => now(),
-                    ]);
-
-                $taskUpdated = $affected > 0;
-            }
-
-            // Pathway B: fall back to an exact name match scoped to this user's elearn tasks.
-            if (! $taskUpdated) {
-                Task::where('user_id', $user->id)
-                    ->where('source', 'elearn')
-                    ->where('name', $cleanTitle)
-                    ->update([
-                        'progress' => 100,
-                        'status' => 'completed',
-                        'updated_at' => now(),
-                    ]);
-            }
-        });
+        // Commit succeeded: now it is safe to remove the file we replaced (covers
+        // both a PDF overwrite and a txt re-submission that cleared a previous file).
+        if ($oldPath && $oldPath !== $newPath) {
+            Storage::disk('public')->delete($oldPath);
+        }
 
         return redirect()->route('elearn.index')->with('success', 'Assignment submitted and your progress tracker has been marked complete!');
+    }
+
+    /**
+     * Constrain a task query to the assessment's due date. Assessments may have a
+     * null date, where a plain `whereDate` comparison against null never matches,
+     * so we match a null `due_date` explicitly instead.
+     */
+    private function scopeToAssessmentDate(Builder $query, ?string $date): void
+    {
+        if ($date) {
+            $query->whereDate('due_date', $date);
+        } else {
+            $query->whereNull('due_date');
+        }
     }
 }
