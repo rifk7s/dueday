@@ -2,8 +2,10 @@
 
 use App\Models\Subscription;
 use App\Models\User;
+use App\Repositories\UserRepository;
 use App\Services\SubscriptionService;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 test('activateOrExtendUserSubscription picks the latest-expiring active subscription when multiple exist', function () {
     $user = User::factory()->create();
@@ -144,4 +146,99 @@ test('activateOrExtendUserSubscription backfills missed elearn tasks for newly s
     expect(DB::table('tasks')->where('user_id', $user->id)->where('source', 'elearn')->count())->toBe(2);
     expect(DB::table('tasks')->where('user_id', $user->id)->where('elearn_assessment_id', 1)->exists())->toBeTrue();
     expect(DB::table('tasks')->where('user_id', $user->id)->where('elearn_assessment_id', 2)->exists())->toBeTrue();
+});
+
+test('backfill adopts legacy elearn tasks instead of duplicating them', function () {
+    DB::table('title')->insert([['id' => 1, 'name' => 'student']]);
+    DB::table('major')->insert([['id' => 1, 'name' => 'MAN']]);
+
+    $user = User::query()->create([
+        'id' => '88888888-8888-8888-8888-888888888888',
+        'name' => 'Legacy Task User',
+        'username' => 'legacy_task_user',
+        'email' => 'legacy@test.local',
+        'nim' => '0806019902',
+        'password' => 'Password123',
+        'is_subscribed' => false,
+    ]);
+
+    $studentId = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff';
+
+    DB::table('students')->insert([
+        'id' => $studentId,
+        'student_name' => $user->name,
+        'title_id' => 1,
+        'current_semester' => 1,
+        'nim' => $user->nim,
+        'password' => bcrypt('Password123'),
+    ]);
+
+    DB::table('reg_student')->insert([
+        'id' => 1, 'student_id' => $studentId, 'student_year' => 1, 'major_id' => 1,
+    ]);
+
+    DB::table('subject')->insert([
+        'id' => 1, 'name' => 'Management Basics', 'major_id' => 1, 'semester' => 1, 'sks' => 3, 'period' => '2025_1',
+    ]);
+
+    DB::table('opened_class')->insert([
+        'id' => 1, 'subject_id' => 1, 'parallel' => 'A', 'student_num' => 30, 'session' => 16,
+    ]);
+
+    DB::table('study_plan_card')->insert([
+        'id' => 1, 'period' => '2025_1', 'reg_student_id' => 1, 'opened_class_id' => 1,
+    ]);
+
+    $assessmentDate = now()->subWeek()->toDateString();
+
+    DB::table('assessment')->insert([
+        'id' => 1,
+        'opened_class_id' => 1,
+        'title' => 'Legacy Assignment',
+        'description' => 'Legacy description',
+        'date' => $assessmentDate,
+        'time' => '09:00:00',
+    ]);
+
+    DB::table('detail')->insert([
+        'id' => 1, 'assessment_id' => 1, 'reg_student_id' => 1, 'file_name' => 'pdf', 'nilai' => null,
+    ]);
+
+    // A legacy task created before the elearn_assessment_id column existed: matching title /
+    // description / date but a NULL id. The backfill must adopt it, not insert a duplicate.
+    $legacyTaskId = (string) Str::uuid();
+    DB::table('tasks')->insert([
+        'id' => $legacyTaskId,
+        'user_id' => $user->id,
+        'name' => 'Legacy Assignment',
+        'description' => 'Legacy description',
+        'due_date' => $assessmentDate,
+        'source' => 'elearn',
+        'status' => 'ongoing',
+        'progress' => 0,
+        'elearn_assessment_id' => null,
+        'created_at' => now()->subWeek(),
+        'updated_at' => now()->subWeek(),
+    ]);
+
+    app(SubscriptionService::class)->activateOrExtendUserSubscription($user->id, 'satu_bulan', 1);
+
+    expect(DB::table('tasks')->where('user_id', $user->id)->where('source', 'elearn')->count())->toBe(1);
+    expect(DB::table('tasks')->where('id', $legacyTaskId)->value('elearn_assessment_id'))->toBe(1);
+});
+
+test('a sync failure rolls back the subscription activation', function () {
+    $user = User::factory()->create(['is_subscribed' => false]);
+
+    // Force a failure after the subscription row is written but before the flag/sync commits.
+    $this->mock(UserRepository::class, function ($mock) use ($user) {
+        $mock->shouldReceive('findById')->andReturn($user);
+        $mock->shouldReceive('update')->andThrow(new RuntimeException('sync boom'));
+    });
+
+    expect(fn () => app(SubscriptionService::class)->activateOrExtendUserSubscription($user->id, 'satu_bulan', 1))
+        ->toThrow(RuntimeException::class);
+
+    expect(DB::table('subscriptions')->where('user_id', $user->id)->count())->toBe(0);
+    expect($user->refresh()->is_subscribed)->toBeFalse();
 });
