@@ -1,21 +1,19 @@
 import { colors, fonts, typography } from "@/constants/theme";
-import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
+import { useNotificationHistory } from "@/hooks/useNotificationHistory";
 import { useNotificationState } from "@/hooks/useNotificationState";
-import { useTasksQuery } from "@/hooks/useTasks";
 import {
   BUCKET_ORDER,
   bucketLabel,
-  buildNotifications,
+  buildDeliveredNotifications,
+  buildPremiumItem,
   type NotificationItem,
   type TimeBucket,
 } from "@/lib/notificationFeed";
-import { cancelByIdentifierPrefix, ensureNotificationPermission, scheduleReminder } from "@/lib/notifications";
 import { Ionicons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Reanimated, { LinearTransition, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,20 +35,23 @@ function IconForItem({ kind }: { kind: string }) {
   );
 }
 
-const PREMIUM_PREFIX = "reminder:premium:";
 const DISMISS_ACTION_WIDTH = 96;
-// The real DueDay app mark — same icon the OS shows on a delivered notification.
-const APP_ICON = require("@/assets/images/icon.png");
 
 export default function NotificationsScreen(): React.JSX.Element {
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
-  const { data: tasks = [], isLoading: tasksLoading } = useTasksQuery();
-  const { data: activities = [], isLoading: activitiesLoading } = useActivitiesQuery();
+  const { ready: historyReady, delivered } = useNotificationHistory();
   const { data: user } = useCurrentUserQuery();
   const { ready, isRead, isDismissed, markRead, markAllRead, dismiss, prune } = useNotificationState();
 
-  const allItems = useMemo(() => buildNotifications(tasks, activities, user, new Date()), [tasks, activities, user]);
+  const allItems = useMemo(() => {
+    const now = new Date();
+    const items = buildDeliveredNotifications(delivered, now);
+    // Premium expiry warning comes from live subscription state, not delivered
+    // history — prepend so it pins to the top of "Hari ini".
+    const premium = buildPremiumItem(user, now);
+    return premium ? [premium, ...items] : items;
+  }, [delivered, user]);
 
   // Drop persisted read/dismissed ids that no longer map to a live notification.
   useEffect(() => {
@@ -75,15 +76,16 @@ export default function NotificationsScreen(): React.JSX.Element {
     [visible, isRead],
   );
 
-  const loading = tasksLoading || activitiesLoading;
+  const loading = !historyReady;
 
   const handleOpen = useCallback(
     (item: NotificationItem) => {
       markRead(item.id);
-      if (item.kind === "task") {
-        router.push({ pathname: "/taskprogress", params: { id: item.sourceId ?? "", tab: "tugas" } });
-      } else if (item.kind === "activity") {
-        router.push({ pathname: "/activityprogress", params: { id: item.sourceId ?? "" } });
+      // Test/manual notifications carry no source id — nothing to navigate to.
+      if (item.kind === "task" && item.sourceId) {
+        router.push({ pathname: "/taskprogress", params: { id: item.sourceId, tab: "tugas" } });
+      } else if (item.kind === "activity" && item.sourceId) {
+        router.push({ pathname: "/activityprogress", params: { id: item.sourceId } });
       } else if (item.kind === "summary") {
         router.push("/list");
       }
@@ -164,11 +166,6 @@ export default function NotificationsScreen(): React.JSX.Element {
   );
 }
 
-function accentColorForBucket(bucket: TimeBucket): string {
-  // Use the same orange accent for all buckets so cards appear consistent.
-  return colors.primaryContainer;
-}
-
 function BucketSection({
   bucket,
   count,
@@ -212,18 +209,14 @@ function NotificationCard({
           onPress={() => onOpen(item)}
           style={[styles.card, unread && styles.cardUnread, styles.cardDefault]}
         >
-          <View style={[styles.leftAccent, { backgroundColor: accentColorForBucket(item.bucket) }]} />
           <IconForItem kind={item.kind} />
           <View style={styles.cardBody}>
             <View style={styles.cardTopRow}>
-              <Text style={[styles.cardTitle, unread && styles.cardTitleUnread]} numberOfLines={1}>
-                {item.title}
-              </Text>
+              <Text style={[styles.cardTitle, unread && styles.cardTitleUnread]}>{item.title}</Text>
+              {unread ? <View style={styles.unreadDot} /> : null}
               <Text style={styles.cardTime}>{item.timeLabel}</Text>
             </View>
-            <Text style={styles.cardMessage} numberOfLines={2}>
-              {item.body}
-            </Text>
+            <Text style={styles.cardMessage}>{item.body}</Text>
           </View>
           {unread ? <View style={styles.unreadDot} /> : null}
         </Pressable>
@@ -247,61 +240,6 @@ function DismissAction({ drag }: Readonly<{ drag: SharedValue<number> }>): React
 
 function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.Element {
   const router = useRouter();
-  const expired = item.premium?.expired ?? false;
-  const subscriptionEnd = item.premium?.subscriptionEnd ?? null;
-
-  const [premiumScheduled, setPremiumScheduled] = useState<boolean | null>(null);
-  const [scheduling, setScheduling] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    if (expired) {
-      setPremiumScheduled(null);
-      return;
-    }
-    Notifications.getAllScheduledNotificationsAsync()
-      .then((list) => {
-        if (!active) return;
-        setPremiumScheduled(list.some((n) => n.identifier.startsWith(PREMIUM_PREFIX)));
-      })
-      .catch(() => {
-        if (active) setPremiumScheduled(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [expired]);
-
-  const onSchedule = useCallback(async () => {
-    setScheduling(true);
-    const granted = await ensureNotificationPermission();
-    if (!granted) {
-      setScheduling(false);
-      return;
-    }
-    await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-
-    const subEnd = subscriptionEnd ? new Date(subscriptionEnd) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
-    for (const daysBefore of [7, 1]) {
-      const when = new Date(subEnd.getTime() - daysBefore * 24 * 60 * 60 * 1000);
-      if (when.getTime() <= Date.now()) continue;
-      await scheduleReminder({
-        id: `${PREMIUM_PREFIX}expiry:${subEnd.toISOString().slice(0, 10)}:${daysBefore}`,
-        title: "Peringatan Langganan",
-        body: `Langgananmu berakhir dalam ${daysBefore} hari.`,
-        date: when,
-      });
-    }
-    setPremiumScheduled(true);
-    setScheduling(false);
-  }, [subscriptionEnd]);
-
-  const onCancel = useCallback(async () => {
-    setScheduling(true);
-    await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-    setPremiumScheduled(false);
-    setScheduling(false);
-  }, []);
 
   // Render premium notification using the exact same layout as regular notifications
   // so it visually matches the rest of the feed.
@@ -319,18 +257,13 @@ function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.
           onPress={() => router.push("/premium-plan")}
           style={[styles.card, styles.cardDefault]}
         >
-          <View style={[styles.leftAccent, { backgroundColor: colors.primaryContainer }]} />
           <IconForItem kind={item.kind === "premium" ? "premium" : item.kind} />
           <View style={styles.cardBody}>
             <View style={styles.cardTopRow}>
-              <Text style={styles.cardTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
+              <Text style={styles.cardTitle}>{item.title}</Text>
               {item.timeLabel ? <Text style={styles.cardTime}>{item.timeLabel}</Text> : null}
             </View>
-            <Text style={styles.cardMessage} numberOfLines={3}>
-              {item.body}
-            </Text>
+            <Text style={styles.cardMessage}>{item.body}</Text>
           </View>
         </Pressable>
       </Swipeable>
@@ -457,12 +390,6 @@ const styles = StyleSheet.create({
   cardUnread: {
     backgroundColor: colors.surfaceContainerLow,
   },
-  appIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
-    backgroundColor: colors.surfaceContainerHigh,
-  },
   taskIconWrap: {
     width: 40,
     height: 40,
@@ -487,7 +414,7 @@ const styles = StyleSheet.create({
   },
   cardTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
   },
@@ -505,6 +432,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     fontSize: 12,
     fontFamily: fonts["500"],
+    flexShrink: 0,
+    // Nudge down so it lines up with the title's first line.
+    marginTop: 2,
   },
   cardMessage: {
     color: colors.onSurfaceVariant,
@@ -513,24 +443,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts["500"],
   },
   unreadDot: {
-    position: "absolute",
-    top: "50%",
-    marginTop: -4,
-    right: 14,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primaryContainer,
-  },
-  leftAccent: {
-    width: 8,
-    borderTopLeftRadius: 18,
-    borderBottomLeftRadius: 18,
-    marginRight: 12,
-    alignSelf: "stretch",
-  },
-  cardOverdue: {
-    backgroundColor: colors.surfaceContainerLowest,
+    marginTop: 6,
   },
   cardDefault: {
     backgroundColor: colors.surfaceContainerLowest,
@@ -548,28 +465,6 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
     fontSize: 12,
     fontFamily: fonts["700"],
-  },
-  premiumCard: {
-    flexDirection: "column",
-    gap: 12,
-  },
-  premiumTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  premiumButton: {
-    height: 46,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: colors.primaryContainer,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  premiumButtonText: {
-    color: colors.primaryContainer,
-    fontSize: 15,
-    fontFamily: fonts["800"],
   },
   emptyState: {
     alignItems: "center",

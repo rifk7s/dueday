@@ -76,6 +76,41 @@ function asStyle(s: string | null | undefined): ReminderStyle | null {
   return null;
 }
 
+function dueState(dateStr: string | null | undefined, now: Date): "today" | "overdue" | "other" {
+  if (!dateStr) return "other";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "other";
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (day === today) return "today";
+  if (day < today) return "overdue";
+  return "other";
+}
+
+/**
+ * Concrete daily-summary line so the notification is actionable instead of a
+ * generic "lihat ringkasan". Counts incomplete items due today and already
+ * overdue — recomputed every time reminders re-sync.
+ */
+function buildDailySummaryBody(tasks: Task[], activities: Activity[], now: Date): string {
+  let dueToday = 0;
+  let overdue = 0;
+  const tally = (state: "today" | "overdue" | "other") => {
+    if (state === "today") dueToday++;
+    else if (state === "overdue") overdue++;
+  };
+  for (const t of tasks.filter(isActiveTask)) tally(dueState(t.date, now));
+  for (const a of activities.filter(isActiveActivity)) tally(dueState(a.tanggal, now));
+
+  if (dueToday === 0 && overdue === 0) {
+    return "Tidak ada yang jatuh tempo hari ini. Mantap, jaga terus ritmemu!";
+  }
+  const parts: string[] = [];
+  if (dueToday > 0) parts.push(`${dueToday} jatuh tempo hari ini`);
+  if (overdue > 0) parts.push(`${overdue} sudah terlambat`);
+  return `${parts.join(", ")}. Selesaikan sekarang sebelum menumpuk.`;
+}
+
 function summarizeFireTimes(fireTimes: Date[]): FireTimeSummary {
   const sorted = [...fireTimes].sort((a, b) => a.getTime() - b.getTime());
   return {
@@ -251,7 +286,7 @@ export async function syncReminderNotifications(token: string | null): Promise<S
         identifier: dailyId,
         content: {
           title: "Ringkasan Harian",
-          body: "Lihat ringkasan tugas & aktivitasmu hari ini.",
+          body: buildDailySummaryBody(tasks, activities, new Date()),
           sound: "default",
         },
         trigger: dailyTrigger,

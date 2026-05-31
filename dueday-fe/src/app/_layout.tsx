@@ -2,6 +2,8 @@ import { SessionProvider, useSession } from "@/auth/ctx";
 import { SplashScreenController } from "@/auth/splash";
 import { modalScreenOptions, stackScreenOptions, successScreenOptions } from "@/constants/navigation";
 import "@/global.css";
+import { scheduleSyncReminderNotifications } from "@/hooks/useReminders";
+import { recordDelivered, syncPresented } from "@/lib/notificationHistory";
 import { ensureAndroidChannel, setupNotificationHandler } from "@/lib/notifications";
 import {
     Lexend_400Regular,
@@ -17,7 +19,7 @@ import * as Notifications from "expo-notifications";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React from "react";
-import { Alert } from "react-native";
+import { Alert, AppState } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -71,10 +73,18 @@ export default function RootLayout() {
   );
 }
 
-// Global notification response handler: show popup for payment success notifications
+// Global notification handling: record deliveries into the in-app history and
+// show a popup for payment-success notifications.
 function useNotificationResponseHandler() {
   React.useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+    // Foreground deliveries.
+    const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+      void recordDelivered(notification);
+    });
+
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      // Tapping a notification delivered while backgrounded/killed — log it too.
+      void recordDelivered(response.notification);
       try {
         const data = response.notification.request.content.data as any;
         if (data?.type === "payment-success") {
@@ -90,12 +100,32 @@ function useNotificationResponseHandler() {
       }
     });
 
-    return () => sub.remove();
+    // Pull anything sitting in the OS tray on launch, and again whenever the
+    // app returns to the foreground (captures deliveries from background/killed).
+    void syncPresented();
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void syncPresented();
+    });
+
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+      appStateSub.remove();
+    };
   }, []);
 }
 
 function RootNavigator() {
   const { token } = useSession();
+
+  // Reminder scheduling is otherwise only triggered by in-app task/activity CRUD
+  // and reminder-settings changes. Server-created tasks (e-learn backfill, etc.)
+  // never trigger it, so their reminders go unscheduled. Sync once per logged-in
+  // session so every active task — manual or server-created — gets its reminders.
+  // (The sync is internally debounced, so a duplicate call is harmless.)
+  React.useEffect(() => {
+    if (token) scheduleSyncReminderNotifications(token);
+  }, [token]);
 
   return (
     <Stack screenOptions={stackScreenOptions}>
