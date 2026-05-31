@@ -1,151 +1,78 @@
-import { type Activity } from "@/api/activities";
-import { fromApiDate, fromApiTime } from "@/api/format";
-import { type Task } from "@/api/tasks";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
+import { useNotificationState } from "@/hooks/useNotificationState";
 import { useTasksQuery } from "@/hooks/useTasks";
+import {
+  BUCKET_ORDER,
+  bucketLabel,
+  buildNotifications,
+  type NotificationItem,
+  type TimeBucket,
+} from "@/lib/notificationFeed";
 import { cancelByIdentifierPrefix, ensureNotificationPermission, scheduleReminder } from "@/lib/notifications";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
+import Reanimated, { LinearTransition, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type FeedType = "task" | "activity";
-
-type FeedItem = {
-  id: string;
-  type: FeedType;
-  title: string;
-  subtitle: string;
-  dueLabel: string;
-  dueAt: Date;
-  tone: "overdue" | "soon" | "today" | "done";
-  accentColor: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  actionLabel: string;
-  sourceId: string;
-};
-
-
-function isTaskDone(status: Task["status"]): boolean {
-  return status === "completed" || status === "completed_late";
-}
-
-function isActivityDone(status: Activity["status"]): boolean {
-  return status === "completed" || status === "cancelled";
-}
-
-function parseDateTime(date: string | null | undefined, time: string | null | undefined): Date | null {
-  if (!date) return null;
-
-  // Laravel 'date' cast returns full ISO datetime (e.g. "2026-05-24T00:00:00.000000Z");
-  // strip to YYYY-MM-DD before concatenating with the time.
-  const datePart = date.substring(0, 10);
-  const timePart = (time ?? "23:59:59").substring(0, 8);
-  const parsed = new Date(`${datePart}T${timePart}`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function formatDeadlineLabel(date: string | null | undefined, time: string | null | undefined): string {
-  const dateLabel = fromApiDate(date);
-  const timeLabel = fromApiTime(time);
-  return [dateLabel, timeLabel].filter(Boolean).join(" | ") || "Jadwal belum diatur";
-}
-
-function extractTriggerDate(trigger: unknown): Date | null {
-  if (!trigger || typeof trigger !== "object") return null;
-
-  const payload = trigger as Record<string, unknown>;
-
-  if (typeof payload.value === "number") {
-    const ms = payload.value > 1e11 ? payload.value : payload.value * 1000;
-    const date = new Date(ms);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  const components = payload.dateComponents as Record<string, number | undefined> | undefined;
-  if (components && typeof components === "object") {
-    const year = components.year ?? new Date().getFullYear();
-    const month = (components.month ?? 1) - 1;
-    const day = components.day ?? 1;
-    const hour = components.hour ?? 0;
-    const minute = components.minute ?? 0;
-    const second = components.second ?? 0;
-    const date = new Date(year, month, day, hour, minute, second);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  if (payload.date != null) {
-    const raw = payload.date as string | number | Date;
-    const date = raw instanceof Date ? raw : new Date(raw);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  return null;
-}
-
-function sameDay(left: Date, right: Date): boolean {
-  return left.toDateString() === right.toDateString();
-}
+const PREMIUM_PREFIX = "reminder:premium:";
+const DISMISS_ACTION_WIDTH = 96;
+// The real DueDay app mark — same icon the OS shows on a delivered notification.
+const APP_ICON = require("@/assets/images/icon.png");
 
 export default function NotificationsScreen(): React.JSX.Element {
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const { data: tasks = [], isLoading: tasksLoading } = useTasksQuery();
   const { data: activities = [], isLoading: activitiesLoading } = useActivitiesQuery();
-  const { data: user, isLoading: userLoading } = useCurrentUserQuery();
+  const { data: user } = useCurrentUserQuery();
+  const { ready, isRead, isDismissed, markRead, markAllRead, dismiss, prune } = useNotificationState();
 
-  const feedItems = useMemo<FeedItem[]>(() => {
-    const now = new Date();
+  const allItems = useMemo(() => buildNotifications(tasks, activities, user, new Date()), [tasks, activities, user]);
 
-    const taskItems = tasks
-      .filter((task) => !isTaskDone(task.status))
-      .map((task) => buildTaskFeedItem(task, now));
+  // Drop persisted read/dismissed ids that no longer map to a live notification.
+  useEffect(() => {
+    if (!ready) return;
+    prune(allItems.map((item) => item.id));
+  }, [ready, allItems, prune]);
 
-    const activityItems = activities
-      .filter((activity) => !isActivityDone(activity.status))
-      .map((activity) => buildActivityFeedItem(activity, now));
+  const visible = useMemo(() => allItems.filter((item) => !isDismissed(item.id)), [allItems, isDismissed]);
 
-    return [...taskItems, ...activityItems].sort((left, right) => {
-      const toneRank = toneOrder(left.tone) - toneOrder(right.tone);
-      if (toneRank !== 0) return toneRank;
-      return left.dueAt.getTime() - right.dueAt.getTime();
-    });
-  }, [activities, tasks]);
+  const grouped = useMemo(() => {
+    const map = new Map<TimeBucket, NotificationItem[]>();
+    for (const item of visible) {
+      const arr = map.get(item.bucket);
+      if (arr) arr.push(item);
+      else map.set(item.bucket, [item]);
+    }
+    return map;
+  }, [visible]);
 
-  const totalCount = feedItems.length;
+  const unreadIds = useMemo(
+    () => visible.filter((item) => item.kind !== "premium" && !isRead(item.id)).map((item) => item.id),
+    [visible, isRead],
+  );
+
   const loading = tasksLoading || activitiesLoading;
 
-  const [premiumScheduled, setPremiumScheduled] = useState<boolean | null>(null);
-  const [scheduling, setScheduling] = useState(false);
-
-  const PREMIUM_PREFIX = "reminder:premium:";
-
-  useEffect(() => {
-    let active = true;
-    if (!user || user.status !== "subscribed") {
-      setPremiumScheduled(null);
-      return;
-    }
-
-    Notifications.getAllScheduledNotificationsAsync()
-      .then((list) => {
-        if (!active) return;
-        const hasPremium = list.some((n) => n.identifier.startsWith(PREMIUM_PREFIX));
-        setPremiumScheduled(hasPremium);
-      })
-      .catch(() => {
-        if (!active) return;
-        setPremiumScheduled(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [user]);
+  const handleOpen = useCallback(
+    (item: NotificationItem) => {
+      markRead(item.id);
+      if (item.kind === "task") {
+        router.push({ pathname: "/taskprogress", params: { id: item.sourceId ?? "", tab: "tugas" } });
+      } else if (item.kind === "activity") {
+        router.push({ pathname: "/activityprogress", params: { id: item.sourceId ?? "" } });
+      } else if (item.kind === "summary") {
+        router.push("/list");
+      }
+    },
+    [markRead, router],
+  );
 
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
@@ -170,271 +97,231 @@ export default function NotificationsScreen(): React.JSX.Element {
           <View style={styles.headerSpacer} />
         </View>
 
-        <Text style={styles.tabSummary}>{totalCount} notifikasi</Text>
-
-        <SectionHeader title="Perlu Dicek" subtitle="Tugas dan aktivitas yang paling dekat tenggatnya" />
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryText}>
+            {unreadIds.length > 0 ? `${unreadIds.length} belum dibaca` : "Semua sudah dibaca"}
+          </Text>
+          {unreadIds.length > 0 ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Tandai semua dibaca"
+              onPress={() => markAllRead(unreadIds)}
+              hitSlop={8}
+            >
+              <Text style={styles.summaryAction}>Tandai semua dibaca</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         {loading ? (
           <View style={styles.loadingState}>
             <ActivityIndicator size="large" color={colors.primaryContainer} />
           </View>
-        ) : feedItems.length > 0 ? (
-          <View style={styles.cardList}>
-            {feedItems.map((item) => (
-              <Pressable
-                key={item.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Buka ${item.title}`}
-                onPress={() => {
-                  if (item.type === "task") {
-                    router.push({ pathname: "/taskprogress", params: { id: item.sourceId, tab: "tugas" } });
-                  } else {
-                    router.push({ pathname: "/activityprogress", params: { id: item.sourceId } });
-                  }
-                }}
-                style={[
-                  styles.feedCard,
-                  item.tone === "overdue" && styles.feedCardOverdue,
-                  item.tone === "today" && styles.feedCardToday,
-                  item.tone === "soon" && styles.feedCardSoon,
-                  item.tone === "done" && styles.feedCardDone,
-                ]}
-              >
-                <View style={[styles.feedAccent, { backgroundColor: item.accentColor }]} />
-
-                <View style={styles.feedBody}>
-                  <View style={styles.feedTopRow}>
-                    <View style={styles.feedTitleRow}>
-                      <View style={[styles.feedIconWrap, { backgroundColor: item.accentColor }]}>
-                        <Ionicons name={item.icon} size={16} color={colors.onPrimary} />
-                      </View>
-                      <View style={styles.feedTitleBlock}>
-                        <Text style={styles.feedTitle}>{item.title}</Text>
-                        <Text style={styles.feedSubtitle}>{item.subtitle}</Text>
-                      </View>
-                    </View>
-
-                    <View style={[styles.statusPill, { backgroundColor: toneBackground(item.tone) }]}>
-                      <Text style={[styles.statusPillText, { color: toneText(item.tone) }]}>{toneLabel(item.tone)}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.feedDeadline}>{item.dueLabel}</Text>
-                  <Text style={styles.feedHint}>{item.actionLabel}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
+        ) : visible.length === 0 ? (
+          <EmptyState />
         ) : (
-          <EmptyState text="Belum ada notifikasi yang perlu dicek." />
+          BUCKET_ORDER.map((bucket) => {
+            const items = grouped.get(bucket);
+            if (!items || items.length === 0) return null;
+            return (
+              <BucketSection key={bucket} bucket={bucket} count={items.length}>
+                {items.map((item) =>
+                  item.kind === "premium" ? (
+                    <PremiumCard key={item.id} item={item} />
+                  ) : (
+                    <NotificationCard
+                      key={item.id}
+                      item={item}
+                      unread={!isRead(item.id)}
+                      onOpen={handleOpen}
+                      onDismiss={dismiss}
+                    />
+                  ),
+                )}
+              </BucketSection>
+            );
+          })
         )}
-
-        {/* Scheduled notifications removed per request */}
-
-        {/* 'Buka Daftar Pengingat' removed per request */}
-
-        {/* Premium expiry section - always visible; content varies by user status */}
-        <>
-          <SectionHeader title="Langganan Premium" subtitle="Peringatan kedaluwarsa" />
-          <View style={styles.cardList}>
-            <View style={styles.scheduledCard}>
-              <View style={styles.scheduledRow}>
-                <View style={styles.scheduledIconWrap}>
-                  <Ionicons name="time-outline" size={16} color={colors.primaryContainer} />
-                </View>
-
-                <View style={styles.scheduledBody}>
-                  {user?.status === "subscribed" ? (
-                    (user.subscription_end ? (
-                      <>
-                        <Text style={styles.scheduledTitle}>Berakhir pada</Text>
-                        <Text style={styles.scheduledBodyText}>{formatScheduledTime(new Date(user.subscription_end))}</Text>
-                        <Text style={styles.scheduledMeta}>{Math.max(0, Math.ceil((new Date(user.subscription_end).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))} hari lagi</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={styles.scheduledTitle}>Tanggal berakhir tidak tersedia</Text>
-                        <Text style={styles.scheduledBodyText}>Server belum mengembalikan tanggal akhir langganan.</Text>
-                      </>
-                    ))) : (
-                    <>
-                      <Text style={styles.scheduledTitle}>Belum berlangganan</Text>
-                      <Text style={styles.scheduledBodyText}>Dapatkan reminder eksklusif dan fitur premium dengan berlangganan.</Text>
-                    </>
-                  )}
-                </View>
-              </View>
-
-              {user?.status === "subscribed" ? (
-                premiumScheduled ? (
-                  <Pressable
-                    style={styles.footerButton}
-                    onPress={async () => {
-                      setScheduling(true);
-                      await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-                      setPremiumScheduled(false);
-                      setScheduling(false);
-                    }}
-                  >
-                    <Text style={styles.footerButtonText}>Batalkan Peringatan Kadaluarsa</Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    style={styles.footerButton}
-                    onPress={async () => {
-                      setScheduling(true);
-                      const granted = await ensureNotificationPermission();
-                      if (!granted) {
-                        setScheduling(false);
-                        return;
-                      }
-
-                      await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-
-                      const offsets = [7, 1];
-                      const subEnd = user?.subscription_end ? new Date(user.subscription_end) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
-
-                      for (const daysBefore of offsets) {
-                        const when = new Date(subEnd.getTime() - daysBefore * 24 * 60 * 60 * 1000);
-                        if (when.getTime() <= Date.now()) continue;
-                        const id = `${PREMIUM_PREFIX}expiry:${subEnd.toISOString().slice(0, 10)}:${daysBefore}`;
-                        await scheduleReminder({
-                          id,
-                          title: "Peringatan Langganan",
-                          body: `Langgananmu berakhir dalam ${daysBefore} hari.`,
-                          date: when,
-                        });
-                      }
-
-                      setPremiumScheduled(true);
-                      setScheduling(false);
-                    }}
-                  >
-                    <Text style={styles.footerButtonText}>{scheduling ? "Menjadwalkan..." : "Jadwalkan Peringatan Kadaluarsa"}</Text>
-                  </Pressable>
-                )
-              ) : (
-                <Pressable style={styles.footerButton} onPress={() => router.push("/premium-plan")}>
-                  <Text style={styles.footerButtonText}>Lihat Paket Premium</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        </>
       </ScrollView>
     </View>
   );
 }
 
-function buildTaskFeedItem(task: Task, now: Date): FeedItem {
-  const dueAt = parseDateTime(task.date, task.time) ?? new Date(8640000000000000);
-  const overdue = task.is_overdue ?? (task.date ? dueAt.getTime() < now.getTime() : false);
-  const tone = overdue ? "overdue" : sameDay(dueAt, now) ? "today" : isWithinDays(dueAt, now, 3) ? "soon" : "soon";
-
-  return {
-    id: `task-${task.id}`,
-    type: "task",
-    title: task.task_name,
-    subtitle: task.tag?.nama_tag ? `Tugas · ${task.tag.nama_tag}` : "Tugas aktif",
-    dueLabel: formatDeadlineLabel(task.date, task.time),
-    dueAt,
-    tone,
-    accentColor: overdue ? colors.errorStrong : colors.primaryContainer,
-    icon: overdue ? "warning" : "document-text-outline",
-    actionLabel: overdue ? "Segera buka detail tugas ini." : "Tap untuk melihat progres tugas.",
-    sourceId: task.id,
-  };
-}
-
-function buildActivityFeedItem(activity: Activity, now: Date): FeedItem {
-  const dueAt = parseDateTime(activity.tanggal, activity.time_start) ?? new Date(8640000000000000);
-  const overdue = activity.status !== "completed" && activity.status !== "cancelled" && dueAt.getTime() < now.getTime();
-  const tone = overdue ? "overdue" : sameDay(dueAt, now) ? "today" : isWithinDays(dueAt, now, 3) ? "soon" : "soon";
-
-  return {
-    id: `activity-${activity.id}`,
-    type: "activity",
-    title: activity.activity_name,
-    subtitle: activity.tag?.nama_tag ? `Aktivitas · ${activity.tag.nama_tag}` : "Aktivitas aktif",
-    dueLabel: formatDeadlineLabel(activity.tanggal, activity.time_start),
-    dueAt,
-    tone,
-    accentColor: overdue ? colors.errorStrong : colors.secondaryContainer,
-    icon: overdue ? "alert-circle-outline" : "sparkles-outline",
-    actionLabel: overdue ? "Aktivitas ini sudah lewat jadwal." : "Tap untuk melihat detail aktivitas.",
-    sourceId: activity.id,
-  };
-}
-
-function isWithinDays(target: Date, now: Date, days: number): boolean {
-  const diff = target.getTime() - now.getTime();
-  return diff >= 0 && diff <= days * 24 * 60 * 60 * 1000;
-}
-
-function toneOrder(tone: FeedItem["tone"]): number {
-  if (tone === "overdue") return 0;
-  if (tone === "today") return 1;
-  if (tone === "soon") return 2;
-  return 3;
-}
-
-function toneLabel(tone: FeedItem["tone"]): string {
-  if (tone === "overdue") return "TERLAMBAT";
-  if (tone === "today") return "HARI INI";
-  if (tone === "soon") return "SEGERA";
-  return "SELESAI";
-}
-
-function toneBackground(tone: FeedItem["tone"]): string {
-  if (tone === "overdue") return colors.errorSoft;
-  if (tone === "today") return colors.surfaceWarm;
-  if (tone === "soon") return colors.surfaceContainerLow;
-  return colors.surfaceSuccess;
-}
-
-function toneText(tone: FeedItem["tone"]): string {
-  if (tone === "overdue") return colors.errorStrong;
-  if (tone === "today") return colors.warning;
-  if (tone === "soon") return colors.onSurfaceVariant;
-  return colors.success;
-}
-
-function formatScheduledTime(date: Date): string {
-  const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  const day = dayNames[date.getDay()] ?? "";
-  const month = monthNames[date.getMonth()] ?? "";
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mm = String(date.getMinutes()).padStart(2, "0");
-  return `${day}, ${date.getDate()} ${month} ${date.getFullYear()} · ${hh}:${mm}`;
-}
-
-function SectionHeader({ title, subtitle }: Readonly<{ title: string; subtitle: string }>): React.JSX.Element {
+function BucketSection({
+  bucket,
+  count,
+  children,
+}: Readonly<{ bucket: TimeBucket; count: number; children: React.ReactNode }>): React.JSX.Element {
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.sectionSubtitle}>{subtitle}</Text>
-    </View>
-  );
-}
-
-function StatCard({ label, value, icon }: Readonly<{ label: string; value: number; icon: React.ComponentProps<typeof Ionicons>["name"] }>): React.JSX.Element {
-  return (
-    <View style={styles.statCard}>
-      <View style={styles.statIconWrap}>
-        <Ionicons name={icon} size={16} color={colors.onPrimary} />
+    <Reanimated.View layout={LinearTransition} style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>{bucketLabel(bucket)}</Text>
+        <View style={styles.sectionCount}>
+          <Text style={styles.sectionCountText}>{count}</Text>
+        </View>
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <View style={styles.cardList}>{children}</View>
+    </Reanimated.View>
+  );
+}
+
+function NotificationCard({
+  item,
+  unread,
+  onOpen,
+  onDismiss,
+}: Readonly<{
+  item: NotificationItem;
+  unread: boolean;
+  onOpen: (item: NotificationItem) => void;
+  onDismiss: (id: string) => void;
+}>): React.JSX.Element {
+  return (
+    <Reanimated.View layout={LinearTransition}>
+      <Swipeable
+        friction={2}
+        rightThreshold={40}
+        renderRightActions={(_progress, translation) => <DismissAction drag={translation} />}
+        onSwipeableOpen={() => onDismiss(item.id)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Buka ${item.title}`}
+          onPress={() => onOpen(item)}
+          style={[styles.card, unread && styles.cardUnread]}
+        >
+          <Image source={APP_ICON} style={styles.appIcon} resizeMode="cover" />
+          <View style={styles.cardBody}>
+            <View style={styles.cardTopRow}>
+              <Text style={[styles.cardTitle, unread && styles.cardTitleUnread]} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.cardTime}>{item.timeLabel}</Text>
+            </View>
+            <Text style={styles.cardMessage} numberOfLines={2}>
+              {item.body}
+            </Text>
+          </View>
+          {unread ? <View style={styles.unreadDot} /> : null}
+        </Pressable>
+      </Swipeable>
+    </Reanimated.View>
+  );
+}
+
+function DismissAction({ drag }: Readonly<{ drag: SharedValue<number> }>): React.JSX.Element {
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: drag.value + DISMISS_ACTION_WIDTH }],
+  }));
+
+  return (
+    <Reanimated.View style={[styles.dismissAction, animatedStyle]}>
+      <Ionicons name="close-circle-outline" size={20} color={colors.onPrimary} />
+      <Text style={styles.dismissActionText}>Tutup</Text>
+    </Reanimated.View>
+  );
+}
+
+function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.Element {
+  const router = useRouter();
+  const expired = item.premium?.expired ?? false;
+  const subscriptionEnd = item.premium?.subscriptionEnd ?? null;
+
+  const [premiumScheduled, setPremiumScheduled] = useState<boolean | null>(null);
+  const [scheduling, setScheduling] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (expired) {
+      setPremiumScheduled(null);
+      return;
+    }
+    Notifications.getAllScheduledNotificationsAsync()
+      .then((list) => {
+        if (!active) return;
+        setPremiumScheduled(list.some((n) => n.identifier.startsWith(PREMIUM_PREFIX)));
+      })
+      .catch(() => {
+        if (active) setPremiumScheduled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [expired]);
+
+  const onSchedule = useCallback(async () => {
+    setScheduling(true);
+    const granted = await ensureNotificationPermission();
+    if (!granted) {
+      setScheduling(false);
+      return;
+    }
+    await cancelByIdentifierPrefix(PREMIUM_PREFIX);
+
+    const subEnd = subscriptionEnd ? new Date(subscriptionEnd) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
+    for (const daysBefore of [7, 1]) {
+      const when = new Date(subEnd.getTime() - daysBefore * 24 * 60 * 60 * 1000);
+      if (when.getTime() <= Date.now()) continue;
+      await scheduleReminder({
+        id: `${PREMIUM_PREFIX}expiry:${subEnd.toISOString().slice(0, 10)}:${daysBefore}`,
+        title: "Peringatan Langganan",
+        body: `Langgananmu berakhir dalam ${daysBefore} hari.`,
+        date: when,
+      });
+    }
+    setPremiumScheduled(true);
+    setScheduling(false);
+  }, [subscriptionEnd]);
+
+  const onCancel = useCallback(async () => {
+    setScheduling(true);
+    await cancelByIdentifierPrefix(PREMIUM_PREFIX);
+    setPremiumScheduled(false);
+    setScheduling(false);
+  }, []);
+
+  return (
+    <View style={[styles.card, styles.premiumCard]}>
+      <View style={styles.premiumTop}>
+        <Image source={APP_ICON} style={styles.appIcon} resizeMode="cover" />
+        <View style={styles.cardBody}>
+          <View style={styles.cardTopRow}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {item.timeLabel ? <Text style={styles.cardTime}>{item.timeLabel}</Text> : null}
+          </View>
+          <Text style={styles.cardMessage} numberOfLines={3}>
+            {item.body}
+          </Text>
+        </View>
+      </View>
+
+      {expired ? (
+        <Pressable style={styles.premiumButton} onPress={() => router.push("/premium-plan")}>
+          <Text style={styles.premiumButtonText}>Perpanjang Premium</Text>
+        </Pressable>
+      ) : premiumScheduled ? (
+        <Pressable style={styles.premiumButton} onPress={onCancel} disabled={scheduling}>
+          <Text style={styles.premiumButtonText}>{scheduling ? "Memproses..." : "Batalkan Peringatan Kadaluarsa"}</Text>
+        </Pressable>
+      ) : (
+        <Pressable style={styles.premiumButton} onPress={onSchedule} disabled={scheduling}>
+          <Text style={styles.premiumButtonText}>{scheduling ? "Menjadwalkan..." : "Jadwalkan Peringatan Kadaluarsa"}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
 
-function EmptyState({ text }: Readonly<{ text: string }>): React.JSX.Element {
+function EmptyState(): React.JSX.Element {
   return (
     <View style={styles.emptyState}>
-      <Ionicons name="notifications-off-outline" size={22} color={colors.iconSubtle} />
-      <Text style={styles.emptyText}>{text}</Text>
+      <View style={styles.emptyIconWrap}>
+        <Ionicons name="notifications-off-outline" size={26} color={colors.success} />
+      </View>
+      <Text style={styles.emptyTitle}>Belum ada notifikasi</Text>
+      <Text style={styles.emptyText}>Pemberitahuan tugas, aktivitas, dan langgananmu akan muncul di sini.</Text>
     </View>
   );
 }
@@ -448,7 +335,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 5,
     paddingBottom: 20,
-    gap: 10,
+    gap: 16,
   },
   headerRow: {
     flexDirection: "row",
@@ -479,259 +366,183 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
   },
-  
-  /* Stat card used by small summary cards */
-  statCard: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceContainerLow,
-  },
-  statIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceWarm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statValue: {
-    color: colors.onSurface,
-    fontSize: 18,
-    fontFamily: fonts["800"],
-  },
-  statLabel: {
-    color: colors.onSurfaceVariant,
-    fontSize: 12,
-    fontFamily: fonts["500"],
-  },
-  tabSummary: {
-    color: colors.onSurfaceVariant,
-    fontSize: 12,
-    fontFamily: fonts["500"],
-  },
-  heroCard: {
-    borderRadius: 24,
-    backgroundColor: colors.surfaceContainerLow,
-    padding: 18,
-  },
-  heroTextRow: {
+  summaryRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: -6,
   },
-  heroIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: colors.surfaceContainerLowest,
+  summaryText: {
+    color: colors.onSurfaceVariant,
+    fontSize: 13,
+    fontFamily: fonts["500"],
+  },
+  summaryAction: {
+    color: colors.primaryContainer,
+    fontSize: 13,
+    fontFamily: fonts["700"],
+  },
+  loadingState: {
+    paddingVertical: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  heroTextBlock: {
-    flex: 1,
-    gap: 6,
-  },
-  heroTitle: {
-    color: colors.onSurface,
-    fontSize: typography.h3.fontSize,
-    fontFamily: typography.h3.fontFamily,
-  },
-  heroSubtitle: {
-    color: colors.onSurfaceVariant,
-    fontSize: typography.bodyLg.fontSize,
-    lineHeight: 22,
-    fontFamily: typography.bodyLg.fontFamily,
+  section: {
+    gap: 10,
   },
   sectionHeader: {
-    gap: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   sectionTitle: {
     color: colors.onSurface,
     fontSize: typography.h3.fontSize,
     fontFamily: typography.h3.fontFamily,
   },
-  sectionSubtitle: {
-    color: colors.onSurfaceVariant,
-    fontSize: typography.bodySm.fontSize,
-    fontFamily: typography.bodySm.fontFamily,
-  },
-  loadingState: {
-    paddingVertical: 28,
+  sectionCount: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 7,
+    borderRadius: 11,
+    backgroundColor: colors.surfaceContainerHigh,
     alignItems: "center",
     justifyContent: "center",
   },
-  cardList: {
-    gap: 12,
-  },
-  feedCard: {
-    borderRadius: 20,
-    backgroundColor: colors.surfaceContainerLowest,
-    flexDirection: "row",
-    overflow: "hidden",
-    shadowColor: colors.onSurface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  feedCardOverdue: {
-    backgroundColor: colors.errorSoft,
-  },
-  feedCardToday: {
-    backgroundColor: colors.surfaceWarm,
-  },
-  feedCardSoon: {
-    backgroundColor: colors.surfaceContainerLow,
-  },
-  feedCardDone: {
-    backgroundColor: colors.surfaceSuccess,
-  },
-  feedAccent: {
-    width: 5,
-  },
-  feedBody: {
-    flex: 1,
-    padding: 14,
-    gap: 8,
-  },
-  feedTopRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  feedTitleRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-  },
-  feedIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 1,
-  },
-  feedTitleBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  feedTitle: {
-    color: colors.onSurface,
-    fontSize: 16,
-    lineHeight: 20,
-    fontFamily: fonts["800"],
-  },
-  feedSubtitle: {
-    color: colors.onSurfaceVariant,
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: fonts["500"],
-  },
-  statusPill: {
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontFamily: fonts["800"],
-    letterSpacing: 0.5,
-  },
-  feedDeadline: {
-    color: colors.onSurface,
-    fontSize: 14,
-    fontFamily: fonts["700"],
-  },
-  feedHint: {
+  sectionCountText: {
     color: colors.onSurfaceVariant,
     fontSize: 12,
-    lineHeight: 18,
-    fontFamily: fonts["500"],
+    fontFamily: fonts["700"],
   },
-  scheduledCard: {
+  cardList: {
+    gap: 10,
+  },
+  card: {
     borderRadius: 18,
     backgroundColor: colors.surfaceContainerLowest,
-    padding: 14,
-    flexDirection: "column",
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
+    padding: 14,
     shadowColor: colors.onSurface,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 2,
   },
-  scheduledRow: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "flex-start",
+  cardUnread: {
+    backgroundColor: colors.surfaceContainerLow,
   },
-  scheduledIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surfaceWarm,
-    alignItems: "center",
-    justifyContent: "center",
+  appIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    backgroundColor: colors.surfaceContainerHigh,
   },
-  scheduledBody: {
+  cardBody: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
-  scheduledTitle: {
+  cardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cardTitle: {
+    flex: 1,
     color: colors.onSurface,
     fontSize: 15,
+    lineHeight: 20,
     fontFamily: fonts["700"],
   },
-  scheduledBodyText: {
+  cardTitleUnread: {
+    fontFamily: fonts["800"],
+  },
+  cardTime: {
+    color: colors.onSurfaceVariant,
+    fontSize: 12,
+    fontFamily: fonts["500"],
+  },
+  cardMessage: {
     color: colors.onSurfaceVariant,
     fontSize: 13,
     lineHeight: 18,
     fontFamily: fonts["500"],
   },
-  scheduledTime: {
-    color: colors.primaryContainer,
-    fontSize: 12,
-    fontFamily: fonts["600"],
+  unreadDot: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primaryContainer,
   },
-  scheduledMeta: {
-    color: colors.onSurfaceVariant,
-    fontSize: 12,
-    fontFamily: fonts["500"],
-  },
-  emptyState: {
+  dismissAction: {
+    width: DISMISS_ACTION_WIDTH,
+    backgroundColor: colors.primaryContainer,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceContainerLow,
+    gap: 4,
+    marginLeft: 10,
   },
-  emptyText: {
-    color: colors.onSurfaceVariant,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
-    fontFamily: fonts["500"],
+  dismissActionText: {
+    color: colors.onPrimary,
+    fontSize: 12,
+    fontFamily: fonts["700"],
   },
-  footerButton: {
+  premiumCard: {
+    flexDirection: "column",
+    gap: 12,
+  },
+  premiumTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  premiumButton: {
     height: 46,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: colors.primaryContainer,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 4,
   },
-  footerButtonText: {
+  premiumButtonText: {
     color: colors.primaryContainer,
     fontSize: 15,
     fontFamily: fonts["800"],
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  emptyIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.surfaceSuccess,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
+  },
+  emptyTitle: {
+    color: colors.onSurface,
+    fontSize: 16,
+    fontFamily: fonts["700"],
+  },
+  emptyText: {
+    color: colors.onSurfaceVariant,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+    fontFamily: fonts["500"],
   },
 });
