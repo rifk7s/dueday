@@ -3,9 +3,14 @@
 namespace App\Services;
 
 use App\Models\Subscription;
+use App\Models\Task;
+use App\Models\User;
 use App\Repositories\SubscriptionRepository;
 use App\Repositories\UserRepository;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class SubscriptionService
 {
@@ -59,6 +64,8 @@ class SubscriptionService
             $this->userRepository->update($user, [
                 'is_subscribed' => true,
             ]);
+
+            $this->syncMissingElearnTasksForUser($user);
         }
 
         return $subscription;
@@ -108,5 +115,73 @@ class SubscriptionService
         }
 
         return $this->subscriptionRepository->delete($subscriptionId);
+    }
+
+    private function syncMissingElearnTasksForUser(User $user): void
+    {
+        if (empty($user->nim)) {
+            return;
+        }
+
+        $hasElearnAssessmentId = Schema::hasColumn('tasks', 'elearn_assessment_id');
+
+        $missingAssignments = DB::table('detail')
+            ->join('reg_student', 'detail.reg_student_id', '=', 'reg_student.id')
+            ->join('students', 'reg_student.student_id', '=', 'students.id')
+            ->join('users', 'students.nim', '=', 'users.nim')
+            ->join('assessment', 'detail.assessment_id', '=', 'assessment.id')
+            ->where('users.id', $user->id)
+            ->select(
+                'assessment.id as assessment_id',
+                'assessment.title',
+                'assessment.description',
+                'assessment.date',
+                'assessment.time'
+            )
+            ->orderBy('assessment.id')
+            ->get();
+
+        foreach ($missingAssignments as $assignment) {
+            $taskQuery = Task::query()
+                ->where('user_id', $user->id)
+                ->where('source', 'elearn');
+
+            if ($hasElearnAssessmentId) {
+                $taskQuery->where('elearn_assessment_id', $assignment->assessment_id);
+            } else {
+                $taskQuery->where('name', $assignment->title)
+                    ->where('description', $assignment->description);
+
+                if ($assignment->date) {
+                    $taskQuery->whereDate('due_date', $assignment->date);
+                } else {
+                    $taskQuery->whereNull('due_date');
+                }
+            }
+
+            if ($taskQuery->exists()) {
+                continue;
+            }
+
+            Task::create([
+                'id' => (string) Str::uuid(),
+                'user_id' => $user->id,
+                'tag_id' => null,
+                'name' => $assignment->title,
+                'due_date' => $assignment->date,
+                'due_time' => $assignment->time,
+                'priority' => 'medium',
+                'status' => 'ongoing',
+                'source' => 'elearn',
+                'description' => $assignment->description,
+                'progress' => 0,
+                'goals' => null,
+                'goal_points' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ] + ($hasElearnAssessmentId ? [
+                'elearn_assessment_id' => $assignment->assessment_id,
+            ] : []));
+        }
     }
 }

@@ -80,11 +80,26 @@ class ElearnController extends Controller
             ->join('students', 'reg_student.student_id', '=', 'students.id')
             ->join('users', 'students.nim', '=', 'users.nim')
             ->where('study_plan_card.opened_class_id', $data['opened_class_id'])
-            ->select('users.id as user_id')
+            ->select('users.id as user_id', 'users.is_subscribed')
             ->distinct()
             ->get();
 
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+
         foreach ($enrolledUsers as $enrolledUser) {
+            if (! $enrolledUser->is_subscribed) {
+                $monthlyElearnTaskCount = Task::query()
+                    ->where('user_id', $enrolledUser->user_id)
+                    ->where('source', 'elearn')
+                    ->whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->count();
+
+                if ($monthlyElearnTaskCount >= 3) {
+                    continue;
+                }
+            }
+
             $taskData = [
                 'id' => (string) Str::uuid(),
                 'user_id' => $enrolledUser->user_id,

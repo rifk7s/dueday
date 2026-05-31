@@ -38,3 +38,110 @@ test('activateOrExtendUserSubscription picks the latest-expiring active subscrip
     // The earlier-expiring subscription must NOT have been touched.
     expect(Carbon::parse($earlier->expired_at)->isSameDay(Carbon::now()->addDays(10)))->toBeTrue();
 });
+
+test('activateOrExtendUserSubscription backfills missed elearn tasks for newly subscribed users', function () {
+    DB::table('title')->insert([
+        ['id' => 1, 'name' => 'student'],
+    ]);
+
+    DB::table('major')->insert([
+        ['id' => 1, 'name' => 'MAN'],
+    ]);
+
+    $user = User::query()->create([
+        'id' => '99999999-9999-9999-9999-999999999999',
+        'name' => 'Premium Later User',
+        'username' => 'premium_later',
+        'email' => 'premium-later@test.local',
+        'nim' => '0806019901',
+        'password' => 'Password123',
+        'is_subscribed' => false,
+    ]);
+
+    $studentId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+    DB::table('students')->insert([
+        'id' => $studentId,
+        'student_name' => $user->name,
+        'title_id' => 1,
+        'current_semester' => 1,
+        'nim' => $user->nim,
+        'password' => bcrypt('Password123'),
+    ]);
+
+    DB::table('reg_student')->insert([
+        'id' => 1,
+        'student_id' => $studentId,
+        'student_year' => 1,
+        'major_id' => 1,
+    ]);
+
+    DB::table('subject')->insert([
+        'id' => 1,
+        'name' => 'Management Basics',
+        'major_id' => 1,
+        'semester' => 1,
+        'sks' => 3,
+        'period' => '2025_1',
+    ]);
+
+    DB::table('opened_class')->insert([
+        'id' => 1,
+        'subject_id' => 1,
+        'parallel' => 'A',
+        'student_num' => 30,
+        'session' => 16,
+    ]);
+
+    DB::table('study_plan_card')->insert([
+        'id' => 1,
+        'period' => '2025_1',
+        'reg_student_id' => 1,
+        'opened_class_id' => 1,
+    ]);
+
+    DB::table('assessment')->insert([
+        [
+            'id' => 1,
+            'opened_class_id' => 1,
+            'title' => 'Management Basics Assignment 1',
+            'description' => 'First assignment',
+            'date' => now()->subWeeks(2)->toDateString(),
+            'time' => '09:00:00',
+        ],
+        [
+            'id' => 2,
+            'opened_class_id' => 1,
+            'title' => 'Management Basics Assignment 2',
+            'description' => 'Second assignment',
+            'date' => now()->subWeek()->toDateString(),
+            'time' => '10:00:00',
+        ],
+    ]);
+
+    DB::table('detail')->insert([
+        [
+            'id' => 1,
+            'assessment_id' => 1,
+            'reg_student_id' => 1,
+            'file_name' => 'pdf',
+            'nilai' => null,
+        ],
+        [
+            'id' => 2,
+            'assessment_id' => 2,
+            'reg_student_id' => 1,
+            'file_name' => 'pdf',
+            'nilai' => null,
+        ],
+    ]);
+
+    expect(DB::table('tasks')->where('user_id', $user->id)->where('source', 'elearn')->count())->toBe(0);
+
+    app(SubscriptionService::class)->activateOrExtendUserSubscription($user->id, 'satu_tahun', 12);
+
+    expect($user->refresh()->is_subscribed)->toBeTrue();
+    expect(DB::table('tasks')->where('user_id', $user->id)->where('source', 'elearn')->count())->toBe(2);
+    expect(DB::table('tasks')->where('user_id', $user->id)->where('elearn_assessment_id', 1)->exists())->toBeTrue();
+    expect(DB::table('tasks')->where('user_id', $user->id)->where('elearn_assessment_id', 2)->exists())->toBeTrue();
+});
