@@ -3,9 +3,15 @@
 namespace App\Services;
 
 use App\Models\Subscription;
+use App\Models\Task;
+use App\Models\User;
 use App\Repositories\SubscriptionRepository;
 use App\Repositories\UserRepository;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class SubscriptionService
 {
@@ -48,20 +54,26 @@ class SubscriptionService
             'expired_at' => $expiredAt,
         ];
 
-        if ($latestSubscription) {
-            $subscription = $this->subscriptionRepository->update($latestSubscription->id, $payload);
-        } else {
-            $subscription = $this->createSubscription($userId, $payload);
-        }
+        // Keep the subscription write, the is_subscribed flag, and the elearn backfill atomic so a
+        // failure mid-sync doesn't leave a user marked premium with only some tasks created.
+        return DB::transaction(function () use ($userId, $latestSubscription, $payload) {
+            if ($latestSubscription) {
+                $subscription = $this->subscriptionRepository->update($latestSubscription->id, $payload);
+            } else {
+                $subscription = $this->createSubscription($userId, $payload);
+            }
 
-        $user = $this->userRepository->findById($userId);
-        if ($user) {
-            $this->userRepository->update($user, [
-                'is_subscribed' => true,
-            ]);
-        }
+            $user = $this->userRepository->findById($userId);
+            if ($user) {
+                $this->userRepository->update($user, [
+                    'is_subscribed' => true,
+                ]);
 
-        return $subscription;
+                $this->syncMissingElearnTasksForUser($user);
+            }
+
+            return $subscription;
+        });
     }
 
     public function createSubscription(string $userId, array $data): Subscription
@@ -108,5 +120,99 @@ class SubscriptionService
         }
 
         return $this->subscriptionRepository->delete($subscriptionId);
+    }
+
+    private function syncMissingElearnTasksForUser(User $user): void
+    {
+        if (empty($user->nim)) {
+            return;
+        }
+
+        $hasElearnAssessmentId = Schema::hasColumn('tasks', 'elearn_assessment_id');
+
+        $missingAssignments = DB::table('detail')
+            ->join('reg_student', 'detail.reg_student_id', '=', 'reg_student.id')
+            ->join('students', 'reg_student.student_id', '=', 'students.id')
+            ->join('users', 'students.nim', '=', 'users.nim')
+            ->join('assessment', 'detail.assessment_id', '=', 'assessment.id')
+            ->where('users.id', $user->id)
+            ->select(
+                'assessment.id as assessment_id',
+                'assessment.title',
+                'assessment.description',
+                'assessment.date',
+                'assessment.time'
+            )
+            ->orderBy('assessment.id')
+            ->get();
+
+        foreach ($missingAssignments as $assignment) {
+            if ($hasElearnAssessmentId) {
+                // Stable id match for tasks created since the elearn_assessment_id column existed.
+                if (Task::query()
+                    ->where('user_id', $user->id)
+                    ->where('source', 'elearn')
+                    ->where('elearn_assessment_id', $assignment->assessment_id)
+                    ->exists()
+                ) {
+                    continue;
+                }
+
+                // Legacy tasks created before the id column have a NULL id and won't match above.
+                // Adopt one (by title/description/date) instead of inserting a duplicate.
+                $legacyTask = $this->matchLegacyElearnTask($user, $assignment)
+                    ->whereNull('elearn_assessment_id')
+                    ->first();
+
+                if ($legacyTask) {
+                    $legacyTask->update(['elearn_assessment_id' => $assignment->assessment_id]);
+
+                    continue;
+                }
+            } elseif ($this->matchLegacyElearnTask($user, $assignment)->exists()) {
+                continue;
+            }
+
+            Task::create([
+                'id' => (string) Str::uuid(),
+                'user_id' => $user->id,
+                'tag_id' => null,
+                'name' => $assignment->title,
+                'due_date' => $assignment->date,
+                'due_time' => $assignment->time,
+                'priority' => 'medium',
+                'status' => 'ongoing',
+                'source' => 'elearn',
+                'description' => $assignment->description,
+                'progress' => 0,
+                'goals' => null,
+                'goal_points' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ] + ($hasElearnAssessmentId ? [
+                'elearn_assessment_id' => $assignment->assessment_id,
+            ] : []));
+        }
+    }
+
+    /**
+     * Build a query matching a legacy elearn task (one created before the elearn_assessment_id
+     * column existed) by its title, description, and due date.
+     */
+    private function matchLegacyElearnTask(User $user, object $assignment): Builder
+    {
+        $query = Task::query()
+            ->where('user_id', $user->id)
+            ->where('source', 'elearn')
+            ->where('name', $assignment->title)
+            ->where('description', $assignment->description);
+
+        if ($assignment->date) {
+            $query->whereDate('due_date', $assignment->date);
+        } else {
+            $query->whereNull('due_date');
+        }
+
+        return $query;
     }
 }

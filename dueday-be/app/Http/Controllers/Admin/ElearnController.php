@@ -84,7 +84,32 @@ class ElearnController extends Controller
             ->distinct()
             ->get();
 
+        // Gate the freemium cap on a genuinely active, non-expired subscription rather than the
+        // users.is_subscribed flag, which is only reset lazily when a profile is serialized and so
+        // can leave an expired subscriber looking premium. One query, O(1) membership in the loop.
+        $activeSubscriberIds = DB::table('subscriptions')
+            ->whereIn('user_id', $enrolledUsers->pluck('user_id'))
+            ->where('status', 'active')
+            ->where('expired_at', '>=', now())
+            ->pluck('user_id')
+            ->flip();
+
+        $monthStart = now()->startOfMonth();
+        $monthEnd = now()->endOfMonth();
+
         foreach ($enrolledUsers as $enrolledUser) {
+            if (! $activeSubscriberIds->has($enrolledUser->user_id)) {
+                $monthlyElearnTaskCount = Task::query()
+                    ->where('user_id', $enrolledUser->user_id)
+                    ->where('source', 'elearn')
+                    ->whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->count();
+
+                if ($monthlyElearnTaskCount >= 3) {
+                    continue;
+                }
+            }
+
             $taskData = [
                 'id' => (string) Str::uuid(),
                 'user_id' => $enrolledUser->user_id,
