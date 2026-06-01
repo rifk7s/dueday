@@ -51,13 +51,19 @@ function setTimeOfDay(d: Date, h: number, m: number): Date {
  * Reminder cadence as "days before the deadline" to fire on, per priority.
  * Reminders get denser as the deadline approaches and ALWAYS include the day
  * before (1) and the day of (0). Higher priority = earlier and more frequent
- * nagging. Bounded so we stay well under iOS's 64 pending-notification cap.
+ * nagging.
+ *
+ * NOTE: iOS keeps only the 64 soonest-firing pending notifications per app, so
+ * many high-priority tasks at once can drop the farthest-out reminders.
  */
 const OFFSETS_BY_PRIORITY: Record<Priority, readonly number[]> = {
-  high: [0, 1, 2, 3, 5, 7, 10, 14],
-  medium: [0, 1, 3, 5, 7],
-  low: [0, 1, 3],
+  high: [0, 1, 2, 3, 4, 5, 6, 7, 10, 12, 14],
+  medium: [0, 1, 2, 3, 5, 7, 11],
+  low: [0, 1, 3, 7],
 };
+
+// High priority fires twice (a +30min second ping) on its most urgent days.
+const HIGH_DOUBLE_PING_OFFSETS: ReadonlySet<number> = new Set([0, 1, 2]);
 
 function slotLabelFor(offset: number, isKickOff: boolean): string {
   if (offset === 0) return "h-hari";
@@ -98,11 +104,12 @@ export function slotsForTask(
   // duplicates) and any slot whose time already passed is simply skipped.
   for (const offset of [...offsets].sort((a, b) => b - a)) {
     const isKickOff = offset === daysUntil && !baseOffsets.includes(offset);
+    const label = slotLabelFor(offset, isKickOff);
     const fireAt = setTimeOfDay(addDays(deadline, -offset), hour, minute);
-    slots.push({ slotLabel: slotLabelFor(offset, isKickOff), fireAt });
-    // High priority gets a second ping 30 min after the deadline-day reminder.
-    if (priority === "high" && offset === 0) {
-      slots.push({ slotLabel: "h-hari-pulse-2", fireAt: new Date(fireAt.getTime() + SECOND_PULSE_OFFSET_MINUTES * 60_000) });
+    slots.push({ slotLabel: label, fireAt });
+    // High priority gets a second ping 30 min later on its most urgent days.
+    if (priority === "high" && HIGH_DOUBLE_PING_OFFSETS.has(offset)) {
+      slots.push({ slotLabel: `${label}-pulse-2`, fireAt: new Date(fireAt.getTime() + SECOND_PULSE_OFFSET_MINUTES * 60_000) });
     }
   }
   return slots;
