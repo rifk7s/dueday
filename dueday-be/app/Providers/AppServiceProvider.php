@@ -29,7 +29,20 @@ class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
 
         ResetPassword::createUrlUsing(function (User $user, string $token): string {
-            return rtrim((string) config('app.frontend_url'), '/').'/reset-password?'.http_build_query([
+            $frontend = (string) config('app.frontend_url');
+
+            // If the frontend is an app scheme (starts with scheme://), embed
+            // the web-path as the path component so deep-links like
+            // `duedayfe://reset-password?email=...&token=...` open the app.
+            if (preg_match('/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//', $frontend)) {
+                return rtrim($frontend, '/').'/reset-password?'.http_build_query([
+                    'email' => $user->email,
+                    'token' => $token,
+                ]);
+            }
+
+            // Fallback to web URL
+            return rtrim($frontend, '/').'/reset-password?'.http_build_query([
                 'email' => $user->email,
                 'token' => $token,
             ]);

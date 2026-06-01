@@ -18,6 +18,21 @@ class PasswordResetController extends Controller
             'email' => ['required', 'email'],
         ]);
 
+        $user = User::query()->where('email', $data['email'])->first();
+
+        if ($user && app()->environment('local', 'testing')) {
+            $token = Password::broker()->createToken($user);
+            $user->sendPasswordResetNotification($token);
+
+            return response()->json([
+                'message' => 'Cek emailmu untuk tautan reset password.',
+                'reset_url' => rtrim((string) config('app.frontend_url'), '/').'/reset-password?'.http_build_query([
+                    'email' => $user->email,
+                    'token' => $token,
+                ]),
+            ]);
+        }
+
         $status = Password::sendResetLink($data);
 
         if ($status !== Password::RESET_LINK_SENT) {

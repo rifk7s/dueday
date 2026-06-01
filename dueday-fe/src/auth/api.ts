@@ -74,6 +74,7 @@ export type LoginResponse = {
 
 export type ForgotPasswordResponse = {
   message: string;
+  reset_url?: string;
 };
 
 export type ResetPasswordResponse = {
