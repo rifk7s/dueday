@@ -1,39 +1,57 @@
 import { colors, fonts, typography } from "@/constants/theme";
-import { useActivitiesQuery } from "@/hooks/useActivities";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
+import { useNotificationHistory } from "@/hooks/useNotificationHistory";
 import { useNotificationState } from "@/hooks/useNotificationState";
-import { useTasksQuery } from "@/hooks/useTasks";
 import {
   BUCKET_ORDER,
   bucketLabel,
-  buildNotifications,
+  buildDeliveredNotifications,
+  buildPremiumItem,
   type NotificationItem,
   type TimeBucket,
 } from "@/lib/notificationFeed";
-import { cancelByIdentifierPrefix, ensureNotificationPermission, scheduleReminder } from "@/lib/notifications";
 import { Ionicons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Reanimated, { LinearTransition, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const PREMIUM_PREFIX = "reminder:premium:";
+function IconForItem({ kind }: { kind: string }) {
+  if (kind === "premium") {
+    return (
+      <View style={styles.premiumIconWrap}>
+        <Ionicons name="diamond" size={18} color={colors.primaryContainer} />
+      </View>
+    );
+  }
+
+  // default: task/activity
+  return (
+    <View style={styles.taskIconWrap}>
+      <Ionicons name="document-text" size={18} color="#fff" />
+    </View>
+  );
+}
+
 const DISMISS_ACTION_WIDTH = 96;
-// The real DueDay app mark — same icon the OS shows on a delivered notification.
-const APP_ICON = require("@/assets/images/icon.png");
 
 export default function NotificationsScreen(): React.JSX.Element {
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
-  const { data: tasks = [], isLoading: tasksLoading } = useTasksQuery();
-  const { data: activities = [], isLoading: activitiesLoading } = useActivitiesQuery();
+  const { ready: historyReady, delivered } = useNotificationHistory();
   const { data: user } = useCurrentUserQuery();
   const { ready, isRead, isDismissed, markRead, markAllRead, dismiss, prune } = useNotificationState();
 
-  const allItems = useMemo(() => buildNotifications(tasks, activities, user, new Date()), [tasks, activities, user]);
+  const allItems = useMemo(() => {
+    const now = new Date();
+    const items = buildDeliveredNotifications(delivered, now);
+    // Premium expiry warning comes from live subscription state, not delivered
+    // history — prepend so it pins to the top of "Hari ini".
+    const premium = buildPremiumItem(user, now);
+    return premium ? [premium, ...items] : items;
+  }, [delivered, user]);
 
   // Drop persisted read/dismissed ids that no longer map to a live notification.
   useEffect(() => {
@@ -58,15 +76,16 @@ export default function NotificationsScreen(): React.JSX.Element {
     [visible, isRead],
   );
 
-  const loading = tasksLoading || activitiesLoading;
+  const loading = !historyReady;
 
   const handleOpen = useCallback(
     (item: NotificationItem) => {
       markRead(item.id);
-      if (item.kind === "task") {
-        router.push({ pathname: "/taskprogress", params: { id: item.sourceId ?? "", tab: "tugas" } });
-      } else if (item.kind === "activity") {
-        router.push({ pathname: "/activityprogress", params: { id: item.sourceId ?? "" } });
+      // Test/manual notifications carry no source id — nothing to navigate to.
+      if (item.kind === "task" && item.sourceId) {
+        router.push({ pathname: "/taskprogress", params: { id: item.sourceId, tab: "tugas" } });
+      } else if (item.kind === "activity" && item.sourceId) {
+        router.push({ pathname: "/activityprogress", params: { id: item.sourceId } });
       } else if (item.kind === "summary") {
         router.push("/list");
       }
@@ -188,19 +207,16 @@ function NotificationCard({
           accessibilityRole="button"
           accessibilityLabel={`Buka ${item.title}`}
           onPress={() => onOpen(item)}
-          style={[styles.card, unread && styles.cardUnread]}
+          style={[styles.card, unread && styles.cardUnread, styles.cardDefault]}
         >
-          <Image source={APP_ICON} style={styles.appIcon} resizeMode="cover" />
+          <IconForItem kind={item.kind} />
           <View style={styles.cardBody}>
             <View style={styles.cardTopRow}>
-              <Text style={[styles.cardTitle, unread && styles.cardTitleUnread]} numberOfLines={1}>
-                {item.title}
-              </Text>
+              <Text style={[styles.cardTitle, unread && styles.cardTitleUnread]}>{item.title}</Text>
+              {unread ? <View style={styles.unreadDot} /> : null}
               <Text style={styles.cardTime}>{item.timeLabel}</Text>
             </View>
-            <Text style={styles.cardMessage} numberOfLines={2}>
-              {item.body}
-            </Text>
+            <Text style={styles.cardMessage}>{item.body}</Text>
           </View>
           {unread ? <View style={styles.unreadDot} /> : null}
         </Pressable>
@@ -224,93 +240,34 @@ function DismissAction({ drag }: Readonly<{ drag: SharedValue<number> }>): React
 
 function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.Element {
   const router = useRouter();
-  const expired = item.premium?.expired ?? false;
-  const subscriptionEnd = item.premium?.subscriptionEnd ?? null;
 
-  const [premiumScheduled, setPremiumScheduled] = useState<boolean | null>(null);
-  const [scheduling, setScheduling] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    if (expired) {
-      setPremiumScheduled(null);
-      return;
-    }
-    Notifications.getAllScheduledNotificationsAsync()
-      .then((list) => {
-        if (!active) return;
-        setPremiumScheduled(list.some((n) => n.identifier.startsWith(PREMIUM_PREFIX)));
-      })
-      .catch(() => {
-        if (active) setPremiumScheduled(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [expired]);
-
-  const onSchedule = useCallback(async () => {
-    setScheduling(true);
-    const granted = await ensureNotificationPermission();
-    if (!granted) {
-      setScheduling(false);
-      return;
-    }
-    await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-
-    const subEnd = subscriptionEnd ? new Date(subscriptionEnd) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
-    for (const daysBefore of [7, 1]) {
-      const when = new Date(subEnd.getTime() - daysBefore * 24 * 60 * 60 * 1000);
-      if (when.getTime() <= Date.now()) continue;
-      await scheduleReminder({
-        id: `${PREMIUM_PREFIX}expiry:${subEnd.toISOString().slice(0, 10)}:${daysBefore}`,
-        title: "Peringatan Langganan",
-        body: `Langgananmu berakhir dalam ${daysBefore} hari.`,
-        date: when,
-      });
-    }
-    setPremiumScheduled(true);
-    setScheduling(false);
-  }, [subscriptionEnd]);
-
-  const onCancel = useCallback(async () => {
-    setScheduling(true);
-    await cancelByIdentifierPrefix(PREMIUM_PREFIX);
-    setPremiumScheduled(false);
-    setScheduling(false);
-  }, []);
-
+  // Render premium notification using the exact same layout as regular notifications
+  // so it visually matches the rest of the feed.
   return (
-    <View style={[styles.card, styles.premiumCard]}>
-      <View style={styles.premiumTop}>
-        <Image source={APP_ICON} style={styles.appIcon} resizeMode="cover" />
-        <View style={styles.cardBody}>
-          <View style={styles.cardTopRow}>
-            <Text style={styles.cardTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            {item.timeLabel ? <Text style={styles.cardTime}>{item.timeLabel}</Text> : null}
+    <Reanimated.View layout={LinearTransition}>
+      <Swipeable
+        friction={2}
+        rightThreshold={40}
+        renderRightActions={(_progress, translation) => <DismissAction drag={translation} />}
+        onSwipeableOpen={() => { /* premium items aren't dismissible in current UX */ }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Buka ${item.title}`}
+          onPress={() => router.push("/premium-plan")}
+          style={[styles.card, styles.cardDefault]}
+        >
+          <IconForItem kind={item.kind === "premium" ? "premium" : item.kind} />
+          <View style={styles.cardBody}>
+            <View style={styles.cardTopRow}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              {item.timeLabel ? <Text style={styles.cardTime}>{item.timeLabel}</Text> : null}
+            </View>
+            <Text style={styles.cardMessage}>{item.body}</Text>
           </View>
-          <Text style={styles.cardMessage} numberOfLines={3}>
-            {item.body}
-          </Text>
-        </View>
-      </View>
-
-      {expired ? (
-        <Pressable style={styles.premiumButton} onPress={() => router.push("/premium-plan")}>
-          <Text style={styles.premiumButtonText}>Perpanjang Premium</Text>
         </Pressable>
-      ) : premiumScheduled ? (
-        <Pressable style={styles.premiumButton} onPress={onCancel} disabled={scheduling}>
-          <Text style={styles.premiumButtonText}>{scheduling ? "Memproses..." : "Batalkan Peringatan Kadaluarsa"}</Text>
-        </Pressable>
-      ) : (
-        <Pressable style={styles.premiumButton} onPress={onSchedule} disabled={scheduling}>
-          <Text style={styles.premiumButtonText}>{scheduling ? "Menjadwalkan..." : "Jadwalkan Peringatan Kadaluarsa"}</Text>
-        </Pressable>
-      )}
-    </View>
+      </Swipeable>
+    </Reanimated.View>
   );
 }
 
@@ -419,25 +376,37 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 18,
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: "#ffffff",
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12,
     padding: 14,
-    shadowColor: colors.onSurface,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
   },
   cardUnread: {
     backgroundColor: colors.surfaceContainerLow,
   },
-  appIcon: {
+  taskIconWrap: {
     width: 40,
     height: 40,
     borderRadius: 11,
-    backgroundColor: colors.surfaceContainerHigh,
+    backgroundColor: colors.primaryContainer,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  premiumIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    backgroundColor: colors.surfaceContainerLowest,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.primaryContainer,
   },
   cardBody: {
     flex: 1,
@@ -445,7 +414,7 @@ const styles = StyleSheet.create({
   },
   cardTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     gap: 8,
   },
@@ -463,6 +432,9 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     fontSize: 12,
     fontFamily: fonts["500"],
+    flexShrink: 0,
+    // Nudge down so it lines up with the title's first line.
+    marginTop: 2,
   },
   cardMessage: {
     color: colors.onSurfaceVariant,
@@ -471,13 +443,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts["500"],
   },
   unreadDot: {
-    position: "absolute",
-    top: 10,
-    right: 10,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primaryContainer,
+    marginTop: 6,
+  },
+  cardDefault: {
+    backgroundColor: colors.surfaceContainerLowest,
   },
   dismissAction: {
     width: DISMISS_ACTION_WIDTH,
@@ -492,28 +465,6 @@ const styles = StyleSheet.create({
     color: colors.onPrimary,
     fontSize: 12,
     fontFamily: fonts["700"],
-  },
-  premiumCard: {
-    flexDirection: "column",
-    gap: 12,
-  },
-  premiumTop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  premiumButton: {
-    height: 46,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: colors.primaryContainer,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  premiumButtonText: {
-    color: colors.primaryContainer,
-    fontSize: 15,
-    fontFamily: fonts["800"],
   },
   emptyState: {
     alignItems: "center",

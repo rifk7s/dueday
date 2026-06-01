@@ -47,81 +47,40 @@ function setTimeOfDay(d: Date, h: number, m: number): Date {
   return x;
 }
 
-type DateEntry = { date: Date; slotLabel: string };
+/**
+ * Reminder cadence as "days before the deadline" to fire on, per priority.
+ * Reminders get denser as the deadline approaches and ALWAYS include the day
+ * before (1) and the day of (0). Higher priority = earlier and more frequent
+ * nagging.
+ *
+ * NOTE: iOS keeps only the 64 soonest-firing pending notifications per app, so
+ * many high-priority tasks at once can drop the farthest-out reminders.
+ */
+const OFFSETS_BY_PRIORITY: Record<Priority, readonly number[]> = {
+  high: [0, 1, 2, 3, 4, 5, 6, 7, 10, 12, 14],
+  medium: [0, 1, 2, 3, 5, 7, 11],
+  low: [0, 1, 3, 7],
+};
 
-function highFar(now: Date, deadline: Date): DateEntry[] {
-  const dates: DateEntry[] = [{ date: now, slotLabel: "kick-off" }];
-  let cursor = addDays(now, 2);
-  while (cursor.getTime() <= deadline.getTime()) {
-    dates.push({ date: cursor, slotLabel: "reminder" });
-    cursor = addDays(cursor, 2);
-  }
-  return dates;
-}
+// Days (offset-before-deadline) that fire a second +30min ping, per priority.
+// High doubles up on its 3 most urgent days; medium doubles only on the deadline.
+const DOUBLE_PING_OFFSETS: Record<Priority, ReadonlySet<number>> = {
+  high: new Set([0, 1, 2]),
+  medium: new Set([0]),
+  low: new Set(),
+};
 
-function everyDay(now: Date, deadline: Date): DateEntry[] {
-  const dates: DateEntry[] = [];
-  let cursor = now;
-  while (cursor.getTime() <= deadline.getTime()) {
-    dates.push({ date: cursor, slotLabel: "harian" });
-    cursor = addDays(cursor, 1);
-  }
-  return dates;
-}
-
-function everyN(now: Date, deadline: Date, n: number, label: string): DateEntry[] {
-  const dates: DateEntry[] = [];
-  let cursor = now;
-  while (cursor.getTime() <= deadline.getTime()) {
-    dates.push({ date: cursor, slotLabel: label });
-    cursor = addDays(cursor, n);
-  }
-  return dates;
-}
-
-function midpoint(now: Date, deadline: Date): DateEntry[] {
-  const days = diffInDays(now, deadline);
-  return [{ date: addDays(now, Math.floor(days / 2)), slotLabel: "tengah-rentang" }];
-}
-
-function lowNear(now: Date, deadline: Date): DateEntry[] {
-  const dates: DateEntry[] = [];
-  const hMinus1 = addDays(deadline, -1);
-  if (hMinus1.getTime() >= now.getTime()) {
-    dates.push({ date: hMinus1, slotLabel: "h-minus-1" });
-  }
-  dates.push({ date: deadline, slotLabel: "h-hari" });
-  return dates;
-}
-
-function datesFor(priority: Priority, bucket: "far" | "mid" | "near", now: Date, deadline: Date): DateEntry[] {
-  const key = `${priority}-${bucket}`;
-  switch (key) {
-    case "high-far":
-      return highFar(now, deadline);
-    case "high-mid":
-    case "high-near":
-      return everyDay(now, deadline);
-    case "medium-far":
-      return everyN(now, deadline, 5, "tiap-5-hari");
-    case "medium-mid":
-      return everyN(now, deadline, 2, "tiap-2-hari");
-    case "medium-near":
-      return everyDay(now, deadline);
-    case "low-far":
-      return [];
-    case "low-mid":
-      return midpoint(now, deadline);
-    case "low-near":
-      return lowNear(now, deadline);
-    default:
-      return [];
-  }
+function slotLabelFor(offset: number, isKickOff: boolean): string {
+  if (offset === 0) return "h-hari";
+  if (isKickOff) return "kick-off";
+  return `h-minus-${offset}`;
 }
 
 /**
  * Build reminder slots for a task that has a `priority` + `date` deadline.
- * Returns empty list if data is incomplete or deadline already passed.
+ * Escalating cadence (see OFFSETS_BY_PRIORITY) plus an immediate kick-off so
+ * the task is acknowledged the moment it's scheduled. Empty only when data is
+ * incomplete or the deadline already passed.
  */
 export function slotsForTask(
   input: { priority: Priority | null | undefined; date: string | Date | null | undefined },
@@ -132,32 +91,39 @@ export function slotsForTask(
   const deadline = startOfDay(new Date(input.date));
   if (Number.isNaN(deadline.getTime())) return [];
   const nowStart = startOfDay(now);
-  const days = diffInDays(nowStart, deadline);
-  if (days < 0) return [];
+  const daysUntil = diffInDays(nowStart, deadline);
+  if (daysUntil < 0) return [];
 
-  const bucket: "far" | "mid" | "near" = days > 7 ? "far" : days >= 3 ? "mid" : "near";
   const priority = input.priority.toLowerCase() as Priority;
+  const baseOffsets = OFFSETS_BY_PRIORITY[priority] ?? OFFSETS_BY_PRIORITY.medium;
   const [hour, minute] = parseTime(globalTime);
-  const dates = datesFor(priority, bucket, nowStart, deadline);
-  const doublePulse = priority === "high" && bucket === "near";
+
+  // Offsets within range, plus a kick-off today so far-out tasks aren't silent
+  // until their first scheduled nag.
+  const offsets = new Set<number>(baseOffsets.filter((off) => off <= daysUntil));
+  offsets.add(daysUntil);
 
   const slots: ReminderSlot[] = [];
-  for (const entry of dates) {
-    const primary = setTimeOfDay(entry.date, hour, minute);
-    slots.push({ slotLabel: entry.slotLabel, fireAt: primary });
-    if (doublePulse) {
-      const pulse2 = new Date(primary.getTime() + SECOND_PULSE_OFFSET_MINUTES * 60_000);
-      slots.push({ slotLabel: `${entry.slotLabel}-pulse-2`, fireAt: pulse2 });
+  // Furthest-out (today) first so the feed reads chronologically. Every slot is
+  // a fixed wall-clock time, so re-syncing reschedules identical times (no
+  // duplicates) and any slot whose time already passed is simply skipped.
+  for (const offset of [...offsets].sort((a, b) => b - a)) {
+    const isKickOff = offset === daysUntil && !baseOffsets.includes(offset);
+    const label = slotLabelFor(offset, isKickOff);
+    const fireAt = setTimeOfDay(addDays(deadline, -offset), hour, minute);
+    slots.push({ slotLabel: label, fireAt });
+    // Some days fire a second ping 30 min later (per priority, see DOUBLE_PING_OFFSETS).
+    if (DOUBLE_PING_OFFSETS[priority]?.has(offset)) {
+      slots.push({ slotLabel: `${label}-pulse-2`, fireAt: new Date(fireAt.getTime() + SECOND_PULSE_OFFSET_MINUTES * 60_000) });
     }
   }
   return slots;
 }
 
 /**
- * Activity reminder slots follow a simpler schedule keyed off the activity's
- * `tanggal` (date) and a global time. One reminder per activity occurrence at
- * the configured time, with an extra h-minus-1 pulse if the activity is more
- * than a day away.
+ * Activity reminder slots keyed off the activity's `tanggal`. Like tasks, an
+ * activity always gets a day-before and day-of reminder, plus a kick-off today
+ * when it's still days away. All fixed wall-clock times (no duplicate-on-resync).
  */
 export function slotsForActivity(
   input: { tanggal: string | Date | null | undefined },
@@ -168,14 +134,18 @@ export function slotsForActivity(
   const target = startOfDay(new Date(input.tanggal));
   if (Number.isNaN(target.getTime())) return [];
   const nowStart = startOfDay(now);
-  const days = diffInDays(nowStart, target);
-  if (days < 0) return [];
+  const daysUntil = diffInDays(nowStart, target);
+  if (daysUntil < 0) return [];
 
   const [hour, minute] = parseTime(globalTime);
+  const offsets = new Set<number>([0, 1].filter((off) => off <= daysUntil));
+  offsets.add(daysUntil); // kick-off today
+
   const slots: ReminderSlot[] = [];
-  if (days >= 1) {
-    slots.push({ slotLabel: "h-minus-1", fireAt: setTimeOfDay(addDays(target, -1), hour, minute) });
+  for (const offset of [...offsets].sort((a, b) => b - a)) {
+    const isKickOff = offset === daysUntil && offset !== 0 && offset !== 1;
+    const fireAt = setTimeOfDay(addDays(target, -offset), hour, minute);
+    slots.push({ slotLabel: slotLabelFor(offset, isKickOff), fireAt });
   }
-  slots.push({ slotLabel: "h-hari", fireAt: setTimeOfDay(target, hour, minute) });
   return slots;
 }
