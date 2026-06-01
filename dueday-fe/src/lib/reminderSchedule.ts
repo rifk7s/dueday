@@ -62,8 +62,13 @@ const OFFSETS_BY_PRIORITY: Record<Priority, readonly number[]> = {
   low: [0, 1, 3, 7],
 };
 
-// High priority fires twice (a +30min second ping) on its most urgent days.
-const HIGH_DOUBLE_PING_OFFSETS: ReadonlySet<number> = new Set([0, 1, 2]);
+// Days (offset-before-deadline) that fire a second +30min ping, per priority.
+// High doubles up on its 3 most urgent days; medium doubles only on the deadline.
+const DOUBLE_PING_OFFSETS: Record<Priority, ReadonlySet<number>> = {
+  high: new Set([0, 1, 2]),
+  medium: new Set([0]),
+  low: new Set(),
+};
 
 function slotLabelFor(offset: number, isKickOff: boolean): string {
   if (offset === 0) return "h-hari";
@@ -107,8 +112,8 @@ export function slotsForTask(
     const label = slotLabelFor(offset, isKickOff);
     const fireAt = setTimeOfDay(addDays(deadline, -offset), hour, minute);
     slots.push({ slotLabel: label, fireAt });
-    // High priority gets a second ping 30 min later on its most urgent days.
-    if (priority === "high" && HIGH_DOUBLE_PING_OFFSETS.has(offset)) {
+    // Some days fire a second ping 30 min later (per priority, see DOUBLE_PING_OFFSETS).
+    if (DOUBLE_PING_OFFSETS[priority]?.has(offset)) {
       slots.push({ slotLabel: `${label}-pulse-2`, fireAt: new Date(fireAt.getTime() + SECOND_PULSE_OFFSET_MINUTES * 60_000) });
     }
   }
