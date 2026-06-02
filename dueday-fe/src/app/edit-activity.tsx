@@ -173,36 +173,43 @@ export default function EditActivityPage() {
     const resolvedRepeat = targetRepeat !== undefined ? targetRepeat : (activity.ulangi ?? null);
 
     if (isDateChanged && resolvedRepeat && resolvedRepeat !== "setiap_hari") {
-      // WEB COMPATIBILITY CHECK
-      if (Platform.OS === "web") {
-        const confirmChange = window.confirm(
-          "Ubah Anchor Date?\n\nKlik 'OK' jika Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga.\n\nKlik 'Batal' jika hanya ingin mengubah hari ini saja."
-        );
-        // window.confirm returns true for OK, false for Cancel/Batal
-        executeSave(confirmChange);
-        return;
-      }
-
-      // NATIVE MOBILE FLOW (iOS / Android)
-      Alert.alert(
-        "Ubah Anchor Date?",
-        "Apakah Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga?",
-        [
-          {
-            text: "Hanya Hari Ini",
-            style: "cancel",
-            onPress: () => executeSave(false),
-          },
-          {
-            text: "Ubah Anchor Date",
-            style: "default",
-            onPress: () => executeSave(true),
-          },
-        ],
-        { cancelable: false }
+    // WEB COMPATIBILITY CHECK
+    if (Platform.OS === "web") {
+      const confirmChange = window.confirm(
+        "Ubah Acara Berulang?\n\n" +
+        "Klik 'OK' untuk menerapkan perubahan pada ACARA INI DAN MENDATANG (This and future events).\n\n" +
+        "Klik 'Batal' jika HANYA UNTUK ACARA INI SAJA (Only this event)."
       );
+      // window.confirm: true = OK (This and future), false = Cancel (Only this)
+      executeSave(confirmChange);
       return;
     }
+
+    // NATIVE MOBILE FLOW (iOS / Android)
+    Alert.alert(
+      "Ubah Acara Berulang?",
+      "Apakah Anda ingin menerapkan perubahan ini pada seluruh rangkaian jadwal ke depan atau hanya acara ini saja?",
+      [
+        {
+          text: "Batal",
+          style: "destructive",
+          onPress: () => {}, // Menutup alert tanpa menyimpan jika salah klik
+        },
+        {
+          text: "Hanya Acara Ini", // Only this event
+          style: "cancel",
+          onPress: () => executeSave(false),
+        },
+        {
+          text: "Acara Ini dan Mendatang", // This and future events
+          style: "default",
+          onPress: () => executeSave(true),
+        },
+      ],
+      { cancelable: true }
+    );
+    return;
+  }
 
     executeSave(null);
   };
