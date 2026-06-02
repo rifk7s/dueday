@@ -26,7 +26,9 @@ import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+
 type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
+
 
 function formatDisplayDate(value: string | null | undefined): string {
   if (!value) return "";
@@ -36,6 +38,7 @@ function formatDisplayDate(value: string | null | undefined): string {
   const [y, m, d] = parts;
   return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
 }
+
 
 function repeatToUi(value: UlangiType | null | undefined): RepeatType | null {
   switch (value) {
@@ -52,6 +55,7 @@ function repeatToUi(value: UlangiType | null | undefined): RepeatType | null {
   }
 }
 
+
 export default function EditActivityPage() {
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
@@ -61,11 +65,13 @@ export default function EditActivityPage() {
   const isDescFocused = useRef(false);
   const [footerHeight, setFooterHeight] = useState(80);
 
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: activity, isLoading, error } = useActivityQuery(id, { refetchInterval: false });
   const updateMutation = useUpdateActivityMutation();
   const [validationError, setValidationError] = useState("");
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
+
 
   const [namaaktivitas, setNamaaktivitas] = useState("");
   const [tanggal, setTanggal] = useState("");
@@ -79,10 +85,13 @@ export default function EditActivityPage() {
   const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
+
   const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tahunan"];
+
 
   useEffect(() => {
     if (!activity || initialized) return;
+
 
     if (activity.status === "ongoing") {
       if (Platform.OS === "android") {
@@ -94,6 +103,7 @@ export default function EditActivityPage() {
       return;
     }
 
+
     setNamaaktivitas(activity.activity_name ?? "");
     setTanggal(formatDisplayDate(activity.tanggal));
     setJamMulai(fromApiTime(activity.time_start ?? "") || "");
@@ -104,11 +114,14 @@ export default function EditActivityPage() {
     setInitialized(true);
   }, [activity, initialized]);
 
+
   const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
+
 
   // Extracted core payload preparation and execution out to a helper
   const executeSave = (ubahAnchor: boolean | null) => {
     if (!id || !activity) return;
+
 
     const payload: any = {};
     if (namaaktivitas.trim() !== (activity.activity_name ?? "")) payload.activity_name = namaaktivitas.trim();
@@ -116,8 +129,10 @@ export default function EditActivityPage() {
     if (jamMulai !== (fromApiTime(activity.time_start ?? "") || "")) payload.time_start = toApiTime(jamMulai);
     if (jamSelesai !== (fromApiTime(activity.time_end ?? "") || "")) payload.time_end = toApiTime(jamSelesai);
 
+
     const selectedTagId = tag?.id_tag ?? null;
     if (selectedTagId !== (activity.id_tag ?? null)) payload.id_tag = selectedTagId;
+
 
     const isLegacyRepeat = repeat !== null && !repeatOptions.includes(repeat);
     if (!isLegacyRepeat) {
@@ -126,14 +141,17 @@ export default function EditActivityPage() {
       if (ulangi !== currentRepeat) payload.ulangi = ulangi;
     }
 
+
     if ((deskripsi.trim() || null) !== (activity.deskripsi ?? null)) {
       payload.deskripsi = deskripsi.trim() || undefined;
     }
+
 
     // Add explicit user preference flag if passed down
     if (ubahAnchor !== null) {
       payload.ubah_anchor = ubahAnchor;
     }
+
 
     updateMutation.mutate(
       {
@@ -146,13 +164,16 @@ export default function EditActivityPage() {
     );
   };
 
+
   const handleSave = () => {
     if (!id || !activity) return;
+
 
     if (isKeyboardVisible) {
       Keyboard.dismiss();
       return;
     }
+
 
     if (!namaaktivitas.trim()) {
       setValidationError("Nama aktivitas wajib diisi.");
@@ -168,44 +189,54 @@ export default function EditActivityPage() {
     }
     setValidationError("");
 
+
     const isDateChanged = tanggal !== formatDisplayDate(activity.tanggal);
     const targetRepeat = repeat ? ULANGI_API_MAP[repeat] : undefined;
     const resolvedRepeat = targetRepeat !== undefined ? targetRepeat : (activity.ulangi ?? null);
 
-    if (isDateChanged && resolvedRepeat && resolvedRepeat !== "setiap_hari") {
-      // WEB COMPATIBILITY CHECK
-      if (Platform.OS === "web") {
-        const confirmChange = window.confirm(
-          "Ubah Anchor Date?\n\nKlik 'OK' jika Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga.\n\nKlik 'Batal' jika hanya ingin mengubah hari ini saja."
-        );
-        // window.confirm returns true for OK, false for Cancel/Batal
-        executeSave(confirmChange);
-        return;
-      }
 
-      // NATIVE MOBILE FLOW (iOS / Android)
-      Alert.alert(
-        "Ubah Anchor Date?",
-        "Apakah Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga?",
-        [
-          {
-            text: "Hanya Hari Ini",
-            style: "cancel",
-            onPress: () => executeSave(false),
-          },
-          {
-            text: "Ubah Anchor Date",
-            style: "default",
-            onPress: () => executeSave(true),
-          },
-        ],
-        { cancelable: false }
+  if (isDateChanged && resolvedRepeat && resolvedRepeat !== "setiap_hari") {
+    // WEB COMPATIBILITY CHECK
+    if (Platform.OS === "web") {
+      const confirmChange = window.confirm(
+        "Ubah Acara Berulang?\n\n" +
+        "Klik 'OK' untuk menerapkan perubahan pada ACARA INI DAN MENDATANG (This and future events).\n\n" +
+        "Klik 'Batal' jika HANYA UNTUK ACARA INI SAJA (Only this event)."
       );
+      // window.confirm: true = OK (This and future), false = Cancel (Only this)
+      executeSave(confirmChange);
       return;
     }
 
-    executeSave(null);
-  };
+
+    // NATIVE MOBILE FLOW (iOS / Android)
+    Alert.alert(
+      "Ubah Acara Berulang?",
+      "Apakah Anda ingin menerapkan perubahan ini pada seluruh rangkaian jadwal ke depan atau hanya acara ini saja?",
+      [
+        {
+          text: "Batal",
+          style: "destructive",
+          onPress: () => {}, // Menutup alert tanpa menyimpan jika salah klik
+        },
+        {
+          text: "Hanya Acara Ini", // Only this event
+          style: "cancel",
+          onPress: () => executeSave(false),
+        },
+        {
+          text: "Acara Ini dan Mendatang", // This and future events
+          style: "default",
+          onPress: () => executeSave(true),
+        },
+      ],
+      { cancelable: true }
+    );
+    return;
+  }
+      executeSave(null);
+    };
+
 
   const footerAnimatedStyle = useAnimatedStyle(() => ({
     bottom: height.value,
@@ -217,6 +248,7 @@ export default function EditActivityPage() {
     ),
   }));
 
+
   if (isLoading) {
     return (
       <View style={[styles.centered, { paddingTop: top }]}>
@@ -224,6 +256,7 @@ export default function EditActivityPage() {
       </View>
     );
   }
+
 
   if (error || !activity) {
     return (
@@ -236,6 +269,7 @@ export default function EditActivityPage() {
     );
   }
 
+
   return (
     <View style={[styles.root, { paddingTop: top }]}>
       <View style={styles.header}>
@@ -245,6 +279,7 @@ export default function EditActivityPage() {
         <Text style={styles.headerTitle}>Edit Aktivitas</Text>
         <View style={styles.headerSpacer} />
       </View>
+
 
       <KeyboardAwareScrollView
         ref={scrollRef}
@@ -261,6 +296,7 @@ export default function EditActivityPage() {
           </Text>
         ) : null}
 
+
         <View style={styles.section}>
           <Text style={styles.label}>Nama Aktivitas</Text>
           <TextInput
@@ -272,6 +308,7 @@ export default function EditActivityPage() {
           />
         </View>
 
+
         <View style={styles.section}>
           <Text style={styles.label}>Tanggal</Text>
           <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
@@ -281,6 +318,7 @@ export default function EditActivityPage() {
             </Text>
           </Pressable>
         </View>
+
 
         <View style={styles.section}>
           <Text style={styles.label}>Waktu</Text>
@@ -306,7 +344,9 @@ export default function EditActivityPage() {
           </View>
         </View>
 
+
         <TagSelector selectedTag={tag} onSelectTag={setTag} />
+
 
         <View style={styles.section}>
           <Text style={styles.label}>Ulangi</Text>
@@ -330,6 +370,7 @@ export default function EditActivityPage() {
             })}
           </View>
         </View>
+
 
         <View style={styles.section}>
           <Text style={styles.label}>Deskripsi</Text>
@@ -358,6 +399,7 @@ export default function EditActivityPage() {
         </View>
       </KeyboardAwareScrollView>
 
+
       <Animated.View
         style={[styles.footer, footerAnimatedStyle]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
@@ -374,6 +416,7 @@ export default function EditActivityPage() {
           )}
         </Pressable>
       </Animated.View>
+
 
       <DatePickerCalendar
         visible={showCalendar}
@@ -396,6 +439,7 @@ export default function EditActivityPage() {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   root: {
