@@ -8,6 +8,7 @@ import { useTasksQuery } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -68,6 +69,7 @@ const timelineHours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, inde
 const RECURRING_HORIZON_YEARS = 1;
 
 export default function CalendarScreen() {
+  const { t } = useTranslation();
   const { top } = useSafeAreaInsets();
   const bottomBarSpace = useBottomBarSpace();
   const router = useRouter();
@@ -152,7 +154,7 @@ export default function CalendarScreen() {
       >
         <View style={styles.headerRow}>
           <View style={styles.headerSpacer} />
-          <Text style={styles.headerTitle}>Jadwal</Text>
+          <Text style={styles.headerTitle}>{t("calendar.title")}</Text>
           <Ionicons name="search-outline" size={22} color={colors.primaryContainer} />
         </View>
 
@@ -170,11 +172,15 @@ export default function CalendarScreen() {
         <View style={styles.schedulePanel}>
           <View style={styles.schedulePanelHeader}>
             <View>
-              <Text style={styles.schedulePanelTitle}>Jadwal Tanggal Terpilih</Text>
+              <Text style={styles.schedulePanelTitle}>{t("calendar.selectedDateSchedule")}</Text>
               <Text style={styles.schedulePanelSubtitle}>
                 {hasSelectedScheduleItems
-                  ? `${selectedScheduleItems.length} kegiatan dalam ${scheduleClusters.length} slot pada ${selectedDateLabel}`
-                  : `Tidak ada kegiatan pada ${selectedDateLabel}`}
+                  ? t("calendar.scheduleSummary", {
+                      count: selectedScheduleItems.length,
+                      slots: scheduleClusters.length,
+                      date: selectedDateLabel,
+                    })
+                  : t("calendar.noScheduleOnDate", { date: selectedDateLabel })}
               </Text>
             </View>
           </View>
@@ -223,7 +229,7 @@ export default function CalendarScreen() {
             </View>
           ) : (
             <View style={styles.emptyOnlyState}>
-              <Text style={styles.emptyStateText}>Tidak ada kegiatan</Text>
+              <Text style={styles.emptyStateText}>{t("calendar.noSchedule")}</Text>
             </View>
           )}
         </View>
@@ -237,7 +243,7 @@ export default function CalendarScreen() {
             <View style={styles.modalSheet}>
               <View style={styles.modalHeader}>
                 <View>
-                  <Text style={styles.modalTitle}>Daftar Jadwal</Text>
+                  <Text style={styles.modalTitle}>{t("calendar.scheduleList")}</Text>
                   <Text style={styles.modalSubtitle}>
                     {formatHour(activeCluster.startHour)} - {formatHour(activeCluster.endHour)}
                   </Text>
@@ -269,8 +275,8 @@ export default function CalendarScreen() {
                       </Text>
                       <Text style={styles.modalItemMeta}>
                         {item.kind === "task"
-                          ? `Tugas • ${formatHour(item.startHour)}`
-                          : `Aktivitas • ${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}
+                          ? `${t("common.task")} • ${formatHour(item.startHour)}`
+                          : `${t("common.activity")} • ${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={colors.iconSubtle} />

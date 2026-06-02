@@ -15,7 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -34,47 +35,8 @@ type PlanItem = {
   note: string;
 };
 
-const benefits: BenefitItem[] = [
-  {
-    icon: "infinite-outline",
-    title: "Import E-Learn Tanpa Batas",
-    description: "Impor tugas dari e-learn sepuasnya. Versi gratis dibatasi 3x impor per bulan.",
-  },
-  {
-    icon: "notifications-outline",
-    title: "Reminder Personalization",
-    description: "Reminder otomatis yang menyesuaikan deadline, waktu kosong, dan kebiasaan kamu setiap hari.",
-  },
-];
-
-const plans: PlanItem[] = [
-  {
-    value: "satu_bulan",
-    label: "Paket 1 Bulan",
-    duration: "1 bulan",
-    price: "Rp20.000",
-    amount: 20000,
-    note: "Cocok untuk coba premium dulu.",
-  },
-  {
-    value: "tiga_bulan",
-    label: "Paket 3 Bulan",
-    duration: "3 bulan",
-    price: "Rp54.000",
-    amount: 54000,
-    note: "Hemat 10% dibanding bayar bulanan.",
-  },
-  {
-    value: "satu_tahun",
-    label: "Paket 1 Tahun",
-    duration: "12 bulan",
-    price: "Rp192.000",
-    amount: 192000,
-    note: "Pilihan paling hemat untuk pemakaian penuh.",
-  },
-];
-
 export default function PremiumPlanScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const { mode = "upgrade" } = useLocalSearchParams<{ mode?: PremiumMode }>();
   const isViewMode = mode === "view";
@@ -82,7 +44,51 @@ export default function PremiumPlanScreen(): React.JSX.Element {
   const { token, user } = useSession();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
   const { top, bottom } = useSafeAreaInsets();
-  const [selectedPlan, setSelectedPlan] = useState<PlanItem>(plans[0]);
+
+  // Defined inside the component (memoized per language) so labels can use t().
+  // Prices/amounts are data; only label/duration/note are translated.
+  const plans = useMemo<PlanItem[]>(() => [
+    {
+      value: "satu_bulan",
+      label: t("premiumPlan.plan1Label"),
+      duration: t("premiumPlan.plan1Duration"),
+      price: "Rp20.000",
+      amount: 20000,
+      note: t("premiumPlan.plan1Note"),
+    },
+    {
+      value: "tiga_bulan",
+      label: t("premiumPlan.plan2Label"),
+      duration: t("premiumPlan.plan2Duration"),
+      price: "Rp54.000",
+      amount: 54000,
+      note: t("premiumPlan.plan2Note"),
+    },
+    {
+      value: "satu_tahun",
+      label: t("premiumPlan.plan3Label"),
+      duration: t("premiumPlan.plan3Duration"),
+      price: "Rp192.000",
+      amount: 192000,
+      note: t("premiumPlan.plan3Note"),
+    },
+  ], [t]);
+
+  const benefits = useMemo<BenefitItem[]>(() => [
+    {
+      icon: "infinite-outline",
+      title: t("premiumPlan.benefit1Title"),
+      description: t("premiumPlan.benefit1Desc"),
+    },
+    {
+      icon: "notifications-outline",
+      title: t("premiumPlan.benefit2Title"),
+      description: t("premiumPlan.benefit2Desc"),
+    },
+  ], [t]);
+
+  const [selectedValue, setSelectedValue] = useState<PlanValue>("satu_bulan");
+  const selectedPlan = plans.find((plan) => plan.value === selectedValue) ?? plans[0];
 
   const subscriptionsQuery = useQuery({
     queryKey: ["subscriptions", token],
@@ -113,7 +119,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
   const activePlanItem = React.useMemo<PlanItem | null>(() => {
     if (!activeSubscription?.plan) return null;
     return plans.find((plan) => plan.value === activeSubscription.plan) ?? null;
-  }, [activeSubscription]);
+  }, [activeSubscription, plans]);
 
   const isLoadingActive = subscriptionsQuery.isFetching && !activePlanItem;
   const hasFetchError = subscriptionsQuery.isError && !activeSubscription;
@@ -161,7 +167,7 @@ export default function PremiumPlanScreen(): React.JSX.Element {
         <Pressable
           style={styles.backButton}
           accessibilityRole="button"
-          accessibilityLabel="Kembali"
+          accessibilityLabel={t("common.back")}
           onPress={() => goBackOr("/(tabs)/profile")}
         >
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
@@ -183,14 +189,14 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           </View>
         </View>
 
-        <Text style={styles.heroLabel}>{isViewMode ? "Plan Premium Aktif" : isExtendMode ? "Perpanjang Premium" : "Upgrade ke Premium"}</Text>
+        <Text style={styles.heroLabel}>{isViewMode ? t("premiumPlan.heroView") : isExtendMode ? t("premiumPlan.heroExtend") : t("premiumPlan.heroUpgrade")}</Text>
         {isViewMode ? (
           activePlanName ? (
             <Text style={styles.price}>{activePlanName}</Text>
           ) : isLoadingActive ? (
             <View style={[styles.skeletonBar, styles.skeletonPrice]} />
           ) : (
-            <Text style={styles.price}>Premium Aktif</Text>
+            <Text style={styles.price}>{t("premiumPlan.premiumActive")}</Text>
           )
         ) : (
           <Text style={styles.price}>{selectedPlan.price}</Text>
@@ -199,36 +205,36 @@ export default function PremiumPlanScreen(): React.JSX.Element {
           activePlanDuration ? (
             <Text style={styles.subTitle}>
               {activePlanDuration}
-              {activeUntilLabel ? ` · Berlaku sampai ${activeUntilLabel}` : ""}
+              {activeUntilLabel ? ` · ${t("premiumPlan.validUntil", { date: activeUntilLabel })}` : ""}
             </Text>
           ) : isLoadingActive ? (
             <View style={[styles.skeletonBar, styles.skeletonSubtitle]} />
           ) : (
             <Text style={styles.subTitle}>
-              {activeUntilLabel ? `Berlaku sampai ${activeUntilLabel}` : "Aktif saat ini"}
+              {activeUntilLabel ? t("premiumPlan.validUntil", { date: activeUntilLabel }) : t("premiumPlan.activeNow")}
             </Text>
           )
         ) : (
-          <Text style={styles.subTitle}>{isExtendMode ? `Tambah durasi premium selama ${selectedPlan.duration}` : `Aktif untuk ${selectedPlan.duration}`}</Text>
+          <Text style={styles.subTitle}>{isExtendMode ? t("premiumPlan.extendDuration", { duration: selectedPlan.duration }) : t("premiumPlan.activeFor", { duration: selectedPlan.duration })}</Text>
         )}
 
         {isViewMode || isExtendMode ? (
           <View style={styles.activePlanCard}>
             <View style={styles.activePlanHeader}>
               <View style={styles.activePlanBadge}>
-                <Text style={styles.activePlanBadgeText}>{isLoadingActive ? "Memuat" : isExtendMode ? "Perpanjang" : "Aktif"}</Text>
+                <Text style={styles.activePlanBadgeText}>{isLoadingActive ? t("premiumPlan.badgeLoading") : isExtendMode ? t("premiumPlan.badgeExtend") : t("premiumPlan.badgeActive")}</Text>
               </View>
               {activePlanName ? (
                 <Text style={styles.activePlanTitle}>{activePlanName}</Text>
               ) : isLoadingActive ? (
                 <View style={[styles.skeletonBar, styles.skeletonTitle]} />
               ) : (
-                <Text style={styles.activePlanTitle}>Premium Aktif</Text>
+                <Text style={styles.activePlanTitle}>{t("premiumPlan.premiumActive")}</Text>
               )}
             </View>
             {activeUntilLabel ? (
               <View style={styles.activePlanMetaRow}>
-                <Text style={styles.activePlanMetaLabel}>Berlaku sampai</Text>
+                <Text style={styles.activePlanMetaLabel}>{t("premiumPlan.validUntilLabel")}</Text>
                 <Text style={styles.activePlanMetaValue}>{activeUntilLabel}</Text>
               </View>
             ) : null}
@@ -243,11 +249,11 @@ export default function PremiumPlanScreen(): React.JSX.Element {
             onPress={() => void subscriptionsQuery.refetch()}
           >
             <Ionicons name="refresh-outline" size={16} color={colors.onErrorContainer} />
-            <Text style={styles.retryText}>Gagal memuat detail plan · Coba lagi</Text>
+            <Text style={styles.retryText}>{t("premiumPlan.loadPlanFailed")}</Text>
           </Pressable>
         ) : null}
 
-        <Text style={styles.sectionLabel}>{isViewMode ? "FITUR YANG KAMU AKSES:" : isExtendMode ? "PILIH DURASI PERPANJANGAN:" : "YANG KAMU DAPAT:"}</Text>
+        <Text style={styles.sectionLabel}>{isViewMode ? t("premiumPlan.sectionView") : isExtendMode ? t("premiumPlan.sectionExtend") : t("premiumPlan.sectionUpgrade")}</Text>
 
         <View style={styles.benefitList}>
           {benefits.map((item) => (
@@ -267,21 +273,21 @@ export default function PremiumPlanScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.socialProofPill}>
-          <Text style={styles.socialProofText}>Bergabung dengan 500+ mahasiswa UC</Text>
+          <Text style={styles.socialProofText}>{t("premiumPlan.socialProof")}</Text>
         </View>
 
         {isViewMode ? null : (
           <View style={[styles.paymentCard, { marginBottom: 16 }]}>
-            <Text style={styles.paymentLabel}>{isExtendMode ? "Pilih Paket Perpanjangan" : "Pilih Paket"}</Text>
+            <Text style={styles.paymentLabel}>{isExtendMode ? t("premiumPlan.choosePlanExtend") : t("premiumPlan.choosePlan")}</Text>
             <View style={styles.paymentMethods}>
               {plans.map((plan) => {
-                const isSelected = selectedPlan.label === plan.label;
+                const isSelected = selectedValue === plan.value;
 
                 return (
                   <Pressable
-                    key={plan.label}
+                    key={plan.value}
                     style={isSelected ? styles.paymentMethodActive : styles.paymentMethod}
-                    onPress={() => setSelectedPlan(plan)}
+                    onPress={() => setSelectedValue(plan.value)}
                   >
                     <Text style={isSelected ? styles.paymentMethodActiveText : styles.paymentMethodText}>
                       {plan.duration}
@@ -308,9 +314,9 @@ export default function PremiumPlanScreen(): React.JSX.Element {
             void handleStartPremium();
           }}
         >
-          <Text style={styles.ctaText}>{isViewMode ? "Kembali ke Profil" : isExtendMode ? "Perpanjang Premium Sekarang" : "Mulai Premium Sekarang"}</Text>
+          <Text style={styles.ctaText}>{isViewMode ? t("premiumPlan.ctaView") : isExtendMode ? t("premiumPlan.ctaExtend") : t("premiumPlan.ctaUpgrade")}</Text>
         </Pressable>
-        <Text style={styles.footerNote}>{isViewMode ? "Plan aktif kamu sedang ditampilkan" : isExtendMode ? "Durasi akan ditambahkan ke plan aktif kamu" : "Batalkan kapan saja"}</Text>
+        <Text style={styles.footerNote}>{isViewMode ? t("premiumPlan.footerView") : isExtendMode ? t("premiumPlan.footerExtend") : t("premiumPlan.footerUpgrade")}</Text>
       </View>
     </View>
   );

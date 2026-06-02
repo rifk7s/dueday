@@ -7,6 +7,7 @@ import { usePersistentState } from "@/hooks/usePersistentState"; // Our persiste
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Pressable,
@@ -45,6 +46,7 @@ function updateSearchHistory(current: string[], searchTerm: string): string[] {
 }
 
 export default function SearchPage() {
+  const { t } = useTranslation();
   const { top } = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useSession();
@@ -141,7 +143,7 @@ export default function SearchPage() {
             // 3. Unfocus the input field so the navigation history doesn't lock up
             searchInputRef.current?.blur();
           }}
-          placeholder="Cari tugas atau aktivitas"
+          placeholder={t("search.placeholder")}
           placeholderTextColor={colors.iconMuted}
           style={styles.searchInput}
           returnKeyType="search"
@@ -159,9 +161,9 @@ export default function SearchPage() {
       {!isSearching && searchHistory.length > 0 ? (
         <View style={styles.historySection}>
           <View style={styles.historyHeader}>
-            <Text style={styles.historyLabel}>Riwayat Pencarian</Text>
+            <Text style={styles.historyLabel}>{t("search.historyLabel")}</Text>
             <Pressable onPress={() => setSearchHistory([])}>
-              <Text style={styles.clearAllText}>Hapus Semua</Text>
+              <Text style={styles.clearAllText}>{t("search.clearAll")}</Text>
             </Pressable>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.historyScrollContent}>
@@ -184,7 +186,7 @@ export default function SearchPage() {
       {isSearching ? (
         <>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryCountText}>{searchResults.length} hasil ditemukan</Text>
+            <Text style={styles.summaryCountText}>{t("search.resultsFound", { count: searchResults.length })}</Text>
           </View>
 
           {tasksLoading || activitiesLoading ? (
@@ -214,7 +216,7 @@ export default function SearchPage() {
                 </Pressable>
               ))}
               {searchResults.length === 0 && (
-                <Text style={styles.emptyText}>Tidak ada tugas atau aktivitas yang cocok.</Text>
+                <Text style={styles.emptyText}>{t("search.noResults")}</Text>
               )}
             </ScrollView>
           )}
@@ -222,7 +224,7 @@ export default function SearchPage() {
       ) : (
         <View style={styles.centered}>
           <Ionicons name="search-outline" size={48} color={colors.iconMuted} style={{ marginBottom: 8 }} />
-          <Text style={styles.emptyText}>Ketik untuk memulai pencarian...</Text>
+          <Text style={styles.emptyText}>{t("search.prompt")}</Text>
         </View>
       )}
     </View>

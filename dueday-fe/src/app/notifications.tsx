@@ -4,7 +4,6 @@ import { useNotificationHistory } from "@/hooks/useNotificationHistory";
 import { useNotificationState } from "@/hooks/useNotificationState";
 import {
   BUCKET_ORDER,
-  bucketLabel,
   buildDeliveredNotifications,
   buildPremiumItem,
   type NotificationItem,
@@ -13,6 +12,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Reanimated, { LinearTransition, useAnimatedStyle, type SharedValue } from "react-native-reanimated";
@@ -37,7 +38,19 @@ function IconForItem({ kind }: { kind: string }) {
 
 const DISMISS_ACTION_WIDTH = 96;
 
+function bucketLabel(bucket: TimeBucket, t: TFunction): string {
+  switch (bucket) {
+    case "today":
+      return t("notifications.bucketToday");
+    case "week":
+      return t("notifications.bucketWeek");
+    case "overdue":
+      return t("notifications.bucketOverdue");
+  }
+}
+
 export default function NotificationsScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const { ready: historyReady, delivered } = useNotificationHistory();
@@ -95,7 +108,7 @@ export default function NotificationsScreen(): React.JSX.Element {
 
   return (
     <View style={[styles.safeArea, { paddingTop: top }]}>
-      <Stack.Screen options={{ title: "Notifikasi" }} />
+      <Stack.Screen options={{ title: t("notifications.title") }} />
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: bottom + 28 }]}
@@ -104,30 +117,30 @@ export default function NotificationsScreen(): React.JSX.Element {
         <View style={styles.headerRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Kembali"
+            accessibilityLabel={t("common.back")}
             onPress={() => router.back()}
             style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
           </Pressable>
 
-          <Text style={styles.headerTitle}>Notifikasi</Text>
+          <Text style={styles.headerTitle}>{t("notifications.title")}</Text>
 
           <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryText}>
-            {unreadIds.length > 0 ? `${unreadIds.length} belum dibaca` : "Semua sudah dibaca"}
+            {unreadIds.length > 0 ? t("notifications.unreadCount", { count: unreadIds.length }) : t("notifications.allRead")}
           </Text>
           {unreadIds.length > 0 ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Tandai semua dibaca"
+              accessibilityLabel={t("notifications.markAllRead")}
               onPress={() => markAllRead(unreadIds)}
               hitSlop={8}
             >
-              <Text style={styles.summaryAction}>Tandai semua dibaca</Text>
+              <Text style={styles.summaryAction}>{t("notifications.markAllRead")}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -171,10 +184,11 @@ function BucketSection({
   count,
   children,
 }: Readonly<{ bucket: TimeBucket; count: number; children: React.ReactNode }>): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <Reanimated.View layout={LinearTransition} style={styles.section}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{bucketLabel(bucket)}</Text>
+        <Text style={styles.sectionTitle}>{bucketLabel(bucket, t)}</Text>
         <View style={styles.sectionCount}>
           <Text style={styles.sectionCountText}>{count}</Text>
         </View>
@@ -195,6 +209,7 @@ function NotificationCard({
   onOpen: (item: NotificationItem) => void;
   onDismiss: (id: string) => void;
 }>): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <Reanimated.View layout={LinearTransition}>
       <Swipeable
@@ -205,7 +220,7 @@ function NotificationCard({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Buka ${item.title}`}
+          accessibilityLabel={t("notifications.openItem", { title: item.title })}
           onPress={() => onOpen(item)}
           style={[styles.card, unread && styles.cardUnread, styles.cardDefault]}
         >
@@ -226,6 +241,7 @@ function NotificationCard({
 }
 
 function DismissAction({ drag }: Readonly<{ drag: SharedValue<number> }>): React.JSX.Element {
+  const { t } = useTranslation();
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: drag.value + DISMISS_ACTION_WIDTH }],
   }));
@@ -233,12 +249,13 @@ function DismissAction({ drag }: Readonly<{ drag: SharedValue<number> }>): React
   return (
     <Reanimated.View style={[styles.dismissAction, animatedStyle]}>
       <Ionicons name="close-circle-outline" size={20} color={colors.onPrimary} />
-      <Text style={styles.dismissActionText}>Tutup</Text>
+      <Text style={styles.dismissActionText}>{t("notifications.dismiss")}</Text>
     </Reanimated.View>
   );
 }
 
 function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
 
   // Render premium notification using the exact same layout as regular notifications
@@ -253,7 +270,7 @@ function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Buka ${item.title}`}
+          accessibilityLabel={t("notifications.openItem", { title: item.title })}
           onPress={() => router.push("/premium-plan")}
           style={[styles.card, styles.cardDefault]}
         >
@@ -272,13 +289,14 @@ function PremiumCard({ item }: Readonly<{ item: NotificationItem }>): React.JSX.
 }
 
 function EmptyState(): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIconWrap}>
         <Ionicons name="notifications-off-outline" size={26} color={colors.success} />
       </View>
-      <Text style={styles.emptyTitle}>Belum ada notifikasi</Text>
-      <Text style={styles.emptyText}>Pemberitahuan tugas, aktivitas, dan langgananmu akan muncul di sini.</Text>
+      <Text style={styles.emptyTitle}>{t("notifications.emptyTitle")}</Text>
+      <Text style={styles.emptyText}>{t("notifications.emptyText")}</Text>
     </View>
   );
 }

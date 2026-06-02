@@ -7,9 +7,11 @@ import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
 import { useCreateActivityMutation } from "@/hooks/useActivities";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
+import { repeatOptionLabel } from "@/lib/taskLabels";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Keyboard,
@@ -30,6 +32,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
 
 export default function CreateActivityPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
@@ -69,19 +72,19 @@ export default function CreateActivityPage() {
     const errs: Record<string, string> = {};
     if (!namaaktivitas.trim()) {
       missing.push("Nama aktivitas");
-      errs["namaaktivitas"] = "Nama aktivitas wajib diisi.";
+      errs["namaaktivitas"] = t("createActivity.nameRequired");
     }
     if (!tanggal) {
       missing.push("Tanggal");
-      errs["tanggal"] = "Tanggal wajib dipilih.";
+      errs["tanggal"] = t("createActivity.dateRequired");
     }
     if (!jamMulai) {
       missing.push("Jam mulai");
-      errs["jamMulai"] = "Jam mulai wajib diisi.";
+      errs["jamMulai"] = t("createActivity.startRequired");
     }
     if (!jamSelesai) {
       missing.push("Jam selesai");
-      errs["jamSelesai"] = "Jam selesai wajib diisi.";
+      errs["jamSelesai"] = t("createActivity.endRequired");
     }
 
     if (missing.length > 0) {
@@ -125,7 +128,7 @@ export default function CreateActivityPage() {
         <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Buat Aktivitas</Text>
+        <Text style={styles.headerTitle}>{t("createActivity.title")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -140,15 +143,15 @@ export default function CreateActivityPage() {
       >
         {mutation.isError ? (
           <Text style={styles.errorText}>
-            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan aktivitas."}
+            {mutation.error instanceof Error ? mutation.error.message : t("createActivity.saveFailed")}
           </Text>
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.label}>Nama Aktivitas</Text>
+          <Text style={styles.label}>{t("createActivity.nameLabel")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Olahraga pagi"
+            placeholder={t("createActivity.namePlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={namaaktivitas}
             onChangeText={setNamaaktivitas}
@@ -159,11 +162,11 @@ export default function CreateActivityPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Tanggal</Text>
+          <Text style={styles.label}>{t("createActivity.dateLabel")}</Text>
           <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
             <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
-              {tanggal || "Pilih tanggal"}
+              {tanggal || t("createActivity.pickDate")}
             </Text>
           </Pressable>
           {fieldErrors["tanggal"] ? (
@@ -172,7 +175,7 @@ export default function CreateActivityPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Waktu</Text>
+          <Text style={styles.label}>{t("createActivity.timeLabel")}</Text>
           <View style={styles.timeRow}>
             <View style={styles.timeColumn}>
               <Pressable
@@ -181,7 +184,7 @@ export default function CreateActivityPage() {
               >
                 <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
                 <Text style={[styles.dateTimeText, !jamMulai && styles.dateTimePlaceholder]}>
-                  {jamMulai || "Mulai"}
+                  {jamMulai || t("createActivity.startPlaceholder")}
                 </Text>
               </Pressable>
               {fieldErrors["jamMulai"] ? (
@@ -195,7 +198,7 @@ export default function CreateActivityPage() {
               >
                 <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
                 <Text style={[styles.dateTimeText, !jamSelesai && styles.dateTimePlaceholder]}>
-                  {jamSelesai || "Selesai"}
+                  {jamSelesai || t("createActivity.endPlaceholder")}
                 </Text>
               </Pressable>
               {fieldErrors["jamSelesai"] ? (
@@ -208,7 +211,7 @@ export default function CreateActivityPage() {
         <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
         <View style={styles.section}>
-          <Text style={styles.label}>Ulangi</Text>
+          <Text style={styles.label}>{t("createActivity.repeatLabel")}</Text>
           <View style={styles.chipsRow}>
             {repeatOptions.map((r) => (
               <Pressable
@@ -217,7 +220,7 @@ export default function CreateActivityPage() {
                 style={[styles.chip, { backgroundColor: isRepeatSelected(r) ? colors.primaryContainer : colors.surfaceContainerLow }]}
               >
                 <Text style={[styles.chipText, { color: isRepeatSelected(r) ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                  {r}
+                  {repeatOptionLabel(r, t)}
                 </Text>
               </Pressable>
             ))}
@@ -225,10 +228,10 @@ export default function CreateActivityPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Deskripsi</Text>
+          <Text style={styles.label}>{t("createActivity.descriptionLabel")}</Text>
           <TextInput
             style={[styles.input, styles.descriptionInput]}
-            placeholder="Catatan (opsional)..."
+            placeholder={t("createActivity.descriptionPlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={deskripsi}
             onChangeText={setDeskripsi}
@@ -264,7 +267,7 @@ export default function CreateActivityPage() {
           {mutation.isPending ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>Simpan</Text>
+            <Text style={styles.saveButtonText}>{t("common.save")}</Text>
           )}
         </Pressable>
       </Animated.View>

@@ -4,14 +4,16 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderRouteType = "task" | "activity";
 
 function resolveReminderType(value: string | string[] | undefined): ReminderRouteType {
-  const t = Array.isArray(value) ? value[0] : value;
-  return t === "activity" ? "activity" : "task";
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "activity" ? "activity" : "task";
 }
 
 function showFeedback(title: string, text: string): void {
@@ -19,11 +21,11 @@ function showFeedback(title: string, text: string): void {
   Alert.alert(title, text);
 }
 
-function formatFireTime(d: Date, now: Date = new Date()): string {
+function formatFireTime(d: Date, t: TFunction, now: Date = new Date()): string {
   const sameDay = d.toDateString() === now.toDateString();
   const hh = d.getHours().toString().padStart(2, "0");
   const mm = d.getMinutes().toString().padStart(2, "0");
-  if (sameDay) return `hari ini ${hh}:${mm}`;
+  if (sameDay) return t("setReminder.todayAt", { time: `${hh}:${mm}` });
   const day = d.getDate();
   const monthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
   return `${day} ${monthLabels[d.getMonth()]} ${hh}:${mm}`;
@@ -35,32 +37,34 @@ function buildFeedback(args: {
   label: string;
   firstFireAt: Date | null;
   lastFireAt: Date | null;
+  t: TFunction;
 }): { title: string; text: string } {
-  const { scheduledCount, permissionGranted, label, firstFireAt, lastFireAt } = args;
+  const { scheduledCount, permissionGranted, label, firstFireAt, lastFireAt, t } = args;
   if (!permissionGranted) {
-    return { title: "Izin notifikasi", text: "Pengaturan disimpan tapi izin notifikasi belum diberikan." };
+    return { title: t("setReminder.permTitle"), text: t("setReminder.permBody") };
   }
   if (scheduledCount === 0) {
     return {
-      title: "Belum ada yang dijadwalkan",
-      text: `Pengaturan ${label} tersimpan, tapi jamnya udah lewat atau terlalu dekat. Coba set jam beberapa menit ke depan.`,
+      title: t("setReminder.noneTitle"),
+      text: t("setReminder.noneBody", { label }),
     };
   }
-  const first = firstFireAt ? formatFireTime(firstFireAt) : null;
-  const last = lastFireAt ? formatFireTime(lastFireAt) : null;
+  const first = firstFireAt ? formatFireTime(firstFireAt, t) : null;
+  const last = lastFireAt ? formatFireTime(lastFireAt, t) : null;
   const range = first && last && first !== last ? `${first} → ${last}` : first ?? "";
   return {
-    title: "Berhasil",
-    text: `${scheduledCount} reminder ${label} dijadwalkan.\nNotif: ${range}.`,
+    title: t("common.success"),
+    text: t("setReminder.successBody", { count: scheduledCount, label, range }),
   };
 }
 
 export default function SetReminderScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const reminderType = resolveReminderType(params.type);
-  const reminderLabel = reminderType === "activity" ? "aktivitas" : "tugas";
+  const reminderLabel = reminderType === "activity" ? t("setReminder.typeActivity") : t("setReminder.typeTask");
 
   const settingsQuery = useReminderSettingsQuery();
   const mutation = useUpdateReminderSettingsMutation();
@@ -92,12 +96,13 @@ export default function SetReminderScreen(): React.JSX.Element {
         label: reminderLabel,
         firstFireAt: summary.firstFireAt,
         lastFireAt: summary.lastFireAt,
+        t,
       });
       showFeedback(title, text);
       router.back();
     } catch (error) {
-      const text = error instanceof Error ? error.message : "Gagal menyimpan pengaturan.";
-      showFeedback("Gagal", text);
+      const text = error instanceof Error ? error.message : t("setReminder.saveFailed");
+      showFeedback(t("common.failed"), text);
     }
   };
 
@@ -106,7 +111,7 @@ export default function SetReminderScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Kembali"
+          accessibilityLabel={t("common.back")}
           hitSlop={10}
           onPress={() => router.back()}
           style={styles.backButton}
@@ -114,7 +119,7 @@ export default function SetReminderScreen(): React.JSX.Element {
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
 
-        <Text style={styles.headerTitle}>Set Reminder</Text>
+        <Text style={styles.headerTitle}>{t("setReminder.title")}</Text>
 
         <View style={styles.headerSpacer} />
       </View>
@@ -130,7 +135,7 @@ export default function SetReminderScreen(): React.JSX.Element {
           </View>
           <View style={styles.heroTextBlock}>
             <Text style={styles.heroSubtitle}>
-              Pengingat ini berlaku untuk semua {reminderLabel} aktif kamu. Tanggal & waktu fire dihitung otomatis dari prioritas dan deadline.
+              {t("setReminder.heroSubtitle", { label: reminderLabel })}
             </Text>
           </View>
         </View>
@@ -138,8 +143,8 @@ export default function SetReminderScreen(): React.JSX.Element {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryTextBlock}>
-              <Text style={styles.summaryLabel}>Reminder untuk semua</Text>
-              <Text style={styles.summaryTitle}>{reminderType === "activity" ? "Aktivitas" : "Tugas"}</Text>
+              <Text style={styles.summaryLabel}>{t("setReminder.forAll")}</Text>
+              <Text style={styles.summaryTitle}>{reminderType === "activity" ? t("common.activity") : t("common.task")}</Text>
             </View>
             <View style={styles.typeBadge}>
               <Ionicons
@@ -147,35 +152,35 @@ export default function SetReminderScreen(): React.JSX.Element {
                 size={12}
                 color={colors.primaryContainer}
               />
-              <Text style={styles.typeBadgeText}>{reminderType === "activity" ? "Aktivitas" : "Tugas"}</Text>
+              <Text style={styles.typeBadgeText}>{reminderType === "activity" ? t("common.activity") : t("common.task")}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Isi Pesan</Text>
+          <Text style={styles.label}>{t("setReminder.messageLabel")}</Text>
           <TextInput
             value={message}
             onChangeText={setMessage}
-            placeholder={`Contoh: Kerjakan ${reminderLabel}`}
+            placeholder={t("setReminder.messagePlaceholder", { label: reminderLabel })}
             placeholderTextColor={colors.iconMuted}
             style={styles.messageInput}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
           />
-          <Text style={styles.hint}>Kosongkan untuk pakai template default.</Text>
+          <Text style={styles.hint}>{t("setReminder.messageHint")}</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Jam Pengingat</Text>
+          <Text style={styles.label}>{t("setReminder.timeLabel")}</Text>
           <Pressable style={styles.timeBox} onPress={() => setPickerVisible(true)}>
             <View style={styles.timeIconWrap}>
               <Ionicons name="time-outline" size={22} color={colors.primaryContainer} />
             </View>
             <View style={styles.timeTextBlock}>
               <Text style={styles.timeText}>{time}</Text>
-              <Text style={styles.timeHint}>Ketuk untuk ubah jam reminder</Text>
+              <Text style={styles.timeHint}>{t("setReminder.timeHint")}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.iconMuted} />
           </Pressable>
@@ -183,7 +188,7 @@ export default function SetReminderScreen(): React.JSX.Element {
 
         <Pressable style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={handleSave} disabled={isSaving}>
           <Ionicons name="checkmark-circle-outline" size={18} color={colors.onPrimary} />
-          <Text style={styles.saveButtonText}>{isSaving ? "Menyimpan..." : "Simpan"}</Text>
+          <Text style={styles.saveButtonText}>{isSaving ? t("common.saving") : t("common.save")}</Text>
         </Pressable>
       </ScrollView>
 
@@ -198,7 +203,7 @@ export default function SetReminderScreen(): React.JSX.Element {
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={colors.primaryContainer} />
-            <Text style={styles.loadingText}>Menjadwalkan reminder...</Text>
+            <Text style={styles.loadingText}>{t("setReminder.scheduling")}</Text>
           </View>
         </View>
       </Modal>

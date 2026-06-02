@@ -1,6 +1,7 @@
 import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Modal,
     Pressable,
@@ -24,6 +25,7 @@ export default function TimePicker({
   onTimeSelect,
   selectedTime,
 }: Readonly<TimePickerProps>) {
+  const { t } = useTranslation();
   const [hour, setHour] = useState(selectedTime ? parseInt(selectedTime.split(":")[0]) : 0);
   const [minute, setMinute] = useState(selectedTime ? parseInt(selectedTime.split(":")[1]) : 0);
 
@@ -45,7 +47,7 @@ export default function TimePicker({
               <Pressable onPress={onClose}>
                 <Ionicons name="close" size={24} color={colors.onSurface} />
               </Pressable>
-              <Text style={styles.headerTitle}>Pilih Waktu</Text>
+              <Text style={styles.headerTitle}>{t("components.timePicker.title")}</Text>
               <View style={{ width: 24 }} />
             </View>
 
@@ -57,7 +59,7 @@ export default function TimePicker({
 
             <View style={styles.pickerContainer}>
               <View style={styles.pickerSection}>
-                <Text style={styles.pickerLabel}>Jam</Text>
+                <Text style={styles.pickerLabel}>{t("components.timePicker.hour")}</Text>
                 <ScrollView style={styles.scrollPicker} showsVerticalScrollIndicator={false}>
                   {hours.map((h) => (
                     <Pressable
@@ -78,7 +80,7 @@ export default function TimePicker({
               </View>
 
               <View style={styles.pickerSection}>
-                <Text style={styles.pickerLabel}>Menit</Text>
+                <Text style={styles.pickerLabel}>{t("components.timePicker.minute")}</Text>
                 <ScrollView style={styles.scrollPicker} showsVerticalScrollIndicator={false}>
                   {minutes.map((m) => (
                     <Pressable
@@ -97,10 +99,10 @@ export default function TimePicker({
 
             <View style={styles.footer}>
               <Pressable style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.cancelText}>Batal</Text>
+                <Text style={styles.cancelText}>{t("common.cancel")}</Text>
               </Pressable>
               <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-                <Text style={styles.confirmText}>OK</Text>
+                <Text style={styles.confirmText}>{t("common.ok")}</Text>
               </Pressable>
             </View>
           </View>

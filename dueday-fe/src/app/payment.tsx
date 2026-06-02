@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -37,6 +38,7 @@ const paymentMethods: PaymentMethodItem[] = [
 ];
 
 export default function PaymentScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const { token } = useSession();
   const { top, bottom } = useSafeAreaInsets();
@@ -91,7 +93,7 @@ export default function PaymentScreen(): React.JSX.Element {
         const currentSubscription = await getActiveSubscription(token);
 
         if (!currentSubscription) {
-          throw new Error("Tidak ada langganan aktif untuk diperpanjang.");
+          throw new Error(t("payment.noActiveSub"));
         }
 
         // Double-tap guard: if a pending extend payment already exists for this
@@ -161,7 +163,7 @@ export default function PaymentScreen(): React.JSX.Element {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Gagal menyiapkan pembayaran. Coba lagi nanti.",
+          : t("payment.prepareFailed"),
       );
     } finally {
       setIsSubmitting(false);
@@ -176,14 +178,14 @@ export default function PaymentScreen(): React.JSX.Element {
         <Pressable
           style={styles.backButton}
           accessibilityRole="button"
-          accessibilityLabel="Kembali"
+          accessibilityLabel={t("common.back")}
           hitSlop={10}
           onPress={() => goBackOr("/premium-plan")}
         >
           <Ionicons name="arrow-back" size={28} color={colors.primaryContainer} />
         </Pressable>
 
-        <Text style={styles.headerTitle}>Pembayaran</Text>
+        <Text style={styles.headerTitle}>{t("payment.title")}</Text>
 
         <View style={styles.headerSpacer} />
       </View>
@@ -196,12 +198,12 @@ export default function PaymentScreen(): React.JSX.Element {
         <View style={styles.summaryCard}>
           <View>
             <Text style={styles.summaryLabel}>{planName}</Text>
-            <Text style={styles.summaryDuration}>{isExtendMode ? "Perpanjangan Langganan" : "Langganan Individual"}</Text>
+            <Text style={styles.summaryDuration}>{isExtendMode ? t("payment.subscriptionExtend") : t("payment.subscriptionIndividual")}</Text>
           </View>
           <Text style={styles.summaryPrice}>{planPrice}</Text>
         </View>
 
-        <Text style={styles.methodLabel}>Pilih Metode Pembayaran</Text>
+        <Text style={styles.methodLabel}>{t("payment.choosePaymentMethod")}</Text>
 
         <View style={styles.methodList}>
           {paymentMethods.map((method) => {
@@ -258,7 +260,7 @@ export default function PaymentScreen(): React.JSX.Element {
           disabled={!selectedMethod || isSubmitting}
         >
           <Text style={styles.ctaText}>
-            {isSubmitting ? "Menyiapkan Pembayaran..." : isExtendMode ? "Lanjutkan Perpanjangan" : "Lanjutkan Pembayaran"}
+            {isSubmitting ? t("payment.preparing") : isExtendMode ? t("payment.continueExtend") : t("payment.continuePayment")}
           </Text>
         </Pressable>
 

@@ -8,6 +8,7 @@ import {
 } from "@/hooks/useTags";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 type Props = {
@@ -23,6 +24,7 @@ export default function TagSelector({
   selectedTag,
   onSelectTag,
 }: Props) {
+  const { t } = useTranslation();
   const { data: tags = [] } = useTagsQuery();
   const createTag = useCreateTagMutation();
   const updateTag = useUpdateTagMutation();
@@ -43,7 +45,7 @@ export default function TagSelector({
     const name = newTagName.trim();
     if (!name || createTag.isPending) return;
     if (name.length > MAX_TAG_LENGTH) {
-      setError(`Tag maksimal ${MAX_TAG_LENGTH} huruf.`);
+      setError(t("components.tagSelector.maxLength", { max: MAX_TAG_LENGTH }));
       return;
     }
     try {
@@ -53,7 +55,7 @@ export default function TagSelector({
       setError("");
       setVisible(false);
     } catch {
-      setError("Gagal menambah tag. Coba lagi.");
+      setError(t("components.tagSelector.addFailed"));
     }
   };
 
@@ -61,7 +63,7 @@ export default function TagSelector({
     const trimmed = editingText.trim();
     if (!trimmed || updateTag.isPending) return;
     if (trimmed.length > MAX_TAG_LENGTH) {
-      setError(`Tag maksimal ${MAX_TAG_LENGTH} huruf.`);
+      setError(t("components.tagSelector.maxLength", { max: MAX_TAG_LENGTH }));
       return;
     }
     try {
@@ -71,18 +73,18 @@ export default function TagSelector({
       setEditingText("");
       setError("");
     } catch {
-      setError("Gagal mengubah tag. Coba lagi.");
+      setError(t("components.tagSelector.renameFailed"));
     }
   };
 
   const handleDeleteTag = (tag: Tag) => {
     Alert.alert(
-      "Hapus tag?",
-      `Tag "${tag.nama_tag}" akan dihapus. Tindakan ini tidak bisa dibatalkan.`,
+      t("components.tagSelector.deleteTitle"),
+      t("components.tagSelector.deleteConfirm", { name: tag.nama_tag }),
       [
-        { text: "Batal", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Hapus",
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             try {
@@ -93,7 +95,7 @@ export default function TagSelector({
                 setEditingText("");
               }
             } catch {
-              setError("Gagal menghapus tag. Coba lagi.");
+              setError(t("components.tagSelector.deleteFailed"));
             }
           },
         },
@@ -142,7 +144,7 @@ export default function TagSelector({
         <View style={styles.overlay}>
           <View style={styles.card}>
             <View style={styles.header}>
-              <Text style={styles.title}>Pilih Tag</Text>
+              <Text style={styles.title}>{t("components.tagSelector.title")}</Text>
               <Pressable onPress={() => setVisible(false)} hitSlop={8} style={styles.closeBtn}>
                 <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
               </Pressable>
@@ -150,7 +152,7 @@ export default function TagSelector({
 
             <View style={{ marginTop: 8 }}>
               {ownedTags.length === 0 ? (
-                <Text style={{ color: colors.onSurfaceVariant, fontFamily: fonts["400"] }}>Belum ada tag lokal.</Text>
+                <Text style={{ color: colors.onSurfaceVariant, fontFamily: fonts["400"] }}>{t("components.tagSelector.emptyLocal")}</Text>
               ) : (
                 ownedTags.map((tag) => (
                   <View key={`tag-${tag.id_tag}`} style={{ marginBottom: 8 }}>
@@ -163,14 +165,14 @@ export default function TagSelector({
                             setEditingText(text);
                             if (error) setError("");
                           }}
-                          placeholder="Nama tag"
+                          placeholder={t("components.tagSelector.namePlaceholder")}
                         />
                         <Pressable
                           style={[styles.secondaryButton, { marginLeft: 8 }, updateTag.isPending && styles.buttonDisabled]}
                           disabled={updateTag.isPending}
                           onPress={() => handleRenameTag(tag)}
                         >
-                          <Text style={styles.secondaryButtonText}>Simpan</Text>
+                          <Text style={styles.secondaryButtonText}>{t("common.save")}</Text>
                         </Pressable>
                         <Pressable
                           style={[styles.secondaryButton, { marginLeft: 8 }]}
@@ -180,7 +182,7 @@ export default function TagSelector({
                             setError("");
                           }}
                         >
-                          <Text style={styles.secondaryButtonText}>Batal</Text>
+                          <Text style={styles.secondaryButtonText}>{t("common.cancel")}</Text>
                         </Pressable>
                       </View>
                     ) : (
@@ -230,7 +232,7 @@ export default function TagSelector({
             <View style={{ marginTop: 12 }}>
               <TextInput
                 style={styles.input}
-                placeholder="Tambah tag baru..."
+                placeholder={t("components.tagSelector.newTagPlaceholder")}
                 placeholderTextColor={colors.iconMuted}
                 value={newTagName}
                 maxLength={MAX_TAG_LENGTH}
@@ -247,7 +249,7 @@ export default function TagSelector({
                   disabled={busy}
                   onPress={handleAddTag}
                 >
-                  <Text style={styles.primaryButtonText}>{createTag.isPending ? "Menyimpan..." : "Tambah"}</Text>
+                  <Text style={styles.primaryButtonText}>{createTag.isPending ? t("common.saving") : t("components.tagSelector.add")}</Text>
                 </Pressable>
               </View>
             </View>

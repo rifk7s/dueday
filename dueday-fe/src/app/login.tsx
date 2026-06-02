@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Dimensions,
@@ -32,6 +33,7 @@ const LOGO_SIZE_CLOSED = 56;
 const UC_LOGO = require("@/assets/images/logo-uc.png");
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn } = useSession();
@@ -87,7 +89,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      setError("Please fill in all fields.");
+      setError(t("login.fillAllFields"));
       return;
     }
 
@@ -98,7 +100,7 @@ export default function LoginScreen() {
       await signIn(username.trim(), password);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Login failed. Please try again.";
+        err instanceof Error ? err.message : t("login.loginFailed");
       setError(message);
     } finally {
       setLoading(false);
@@ -127,7 +129,7 @@ export default function LoginScreen() {
           </View>
           <Text style={styles.appName}>Dueday</Text>
           <Animated.Text style={[styles.tagline, taglineStyle]}>
-            Reminder Tugas Kampusmu
+            {t("login.tagline")}
           </Animated.Text>
         </LinearGradient>
       </Animated.View>
@@ -144,9 +146,9 @@ export default function LoginScreen() {
         bottomOffset={spacing.lg}
       >
         <Animated.View style={topSpacerStyle} />
-        <Text style={styles.heading}>Masuk</Text>
+        <Text style={styles.heading}>{t("login.title")}</Text>
         <Text style={styles.subheading}>
-          Selamat datang! Masukkan detail akunmu.
+          {t("login.subtitle")}
         </Text>
 
         {error ? (
@@ -158,7 +160,7 @@ export default function LoginScreen() {
         <View style={styles.form}>
           {/* Username field */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Username UC</Text>
+            <Text style={styles.fieldLabel}>{t("login.usernameLabel")}</Text>
             <View style={styles.inputRow}>
               <Ionicons
                 name="mail-outline"
@@ -168,7 +170,7 @@ export default function LoginScreen() {
               />
               <TextInput
                 style={styles.textInput}
-                placeholder="Username"
+                placeholder={t("login.usernamePlaceholder")}
                 placeholderTextColor={colors.tertiaryContainer}
                 value={username}
                 onChangeText={setUsername}
@@ -180,7 +182,7 @@ export default function LoginScreen() {
 
           {/* Password field */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Kata Sandi</Text>
+            <Text style={styles.fieldLabel}>{t("login.passwordLabel")}</Text>
             <View style={styles.inputRow}>
               <Ionicons
                 name="lock-closed-outline"
@@ -190,7 +192,7 @@ export default function LoginScreen() {
               />
               <TextInput
                 style={[styles.textInput, styles.textInputWithTrail]}
-                placeholder="Kata sandi"
+                placeholder={t("login.passwordPlaceholder")}
                 placeholderTextColor={colors.tertiaryContainer}
                 value={password}
                 onChangeText={setPassword}
@@ -224,11 +226,11 @@ export default function LoginScreen() {
               {loading ? (
                 <ActivityIndicator color={colors.onPrimary} />
               ) : (
-                <Text style={styles.loginBtnText}>Masuk</Text>
+                <Text style={styles.loginBtnText}>{t("login.submit")}</Text>
               )}
             </Pressable>
             <Pressable style={styles.forgotBtn} onPress={() => router.push("/forgot-password")}>
-              <Text style={styles.forgotText}>Lupa Kata Sandi?</Text>
+              <Text style={styles.forgotText}>{t("login.forgot")}</Text>
             </Pressable>
           </View>
         </View>
