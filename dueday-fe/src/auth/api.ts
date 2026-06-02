@@ -72,6 +72,23 @@ export type LoginResponse = {
   user: AuthUser;
 };
 
+export type ForgotPasswordResponse = {
+  message: string;
+  email?: string;
+  token?: string;
+};
+
+export type ResetPasswordResponse = {
+  message: string;
+};
+
+export type ResetPasswordPayload = {
+  email: string;
+  token: string;
+  password: string;
+  passwordConfirmation: string;
+};
+
 export class AuthError extends Error {
   constructor(
     message: string,
@@ -80,6 +97,17 @@ export class AuthError extends Error {
     super(message);
     this.name = "AuthError";
   }
+}
+
+function resolveErrorMessage(
+  data: { message?: string; errors?: Record<string, string[]> } | null,
+  fallback: string,
+): string {
+  const fieldMessage = data?.errors
+    ? Object.values(data.errors).flat().find((message) => message.length > 0)
+    : null;
+
+  return fieldMessage ?? data?.message ?? fallback;
 }
 
 const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
@@ -125,12 +153,78 @@ export async function loginRequest(
 
   if (!response.ok) {
     throw new AuthError(
-      data?.message ?? "Login failed",
+      resolveErrorMessage(data, "Login failed"),
       response.status,
     );
   }
 
   return data as LoginResponse;
+}
+
+export async function forgotPasswordRequest(email: string): Promise<ForgotPasswordResponse> {
+  if (MOCK_AUTH) {
+    return {
+      message: "Mock reset link sent",
+    };
+  }
+
+  const response = await fetch(`${API_BASE_URL}/forgot-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new AuthError(
+      resolveErrorMessage(data, "Failed to send reset link"),
+      response.status,
+    );
+  }
+
+  return data as ForgotPasswordResponse;
+}
+
+export async function resetPasswordRequest({
+  email,
+  token,
+  password,
+  passwordConfirmation,
+}: ResetPasswordPayload): Promise<ResetPasswordResponse> {
+  if (MOCK_AUTH) {
+    return {
+      message: "Mock password reset successful",
+    };
+  }
+
+  const response = await fetch(`${API_BASE_URL}/reset-password`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      token,
+      password,
+      password_confirmation: passwordConfirmation,
+    }),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new AuthError(
+      resolveErrorMessage(data, "Failed to reset password"),
+      response.status,
+    );
+  }
+
+  return data as ResetPasswordResponse;
 }
 
 export async function logoutRequest(token: string): Promise<void> {

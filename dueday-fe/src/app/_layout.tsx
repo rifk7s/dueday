@@ -20,6 +20,7 @@ import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React from "react";
 import { Alert, AppState } from "react-native";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -34,7 +35,9 @@ const queryClient = new QueryClient({
 });
 
 SplashScreen.preventAutoHideAsync();
-setupNotificationHandler();
+if (Platform.OS !== "web") {
+  setupNotificationHandler();
+}
 ensureAndroidChannel().catch(() => null);
 
 // Keep (tabs) anchored behind deep-linked modals so back / dismissAll always
@@ -51,10 +54,6 @@ export default function RootLayout() {
     Lexend_900Black,
   });
 
-  // Ensure the notification response handler hook is called on every render
-  // (must run before any early returns so hook order stays stable).
-  useNotificationResponseHandler();
-
   if (!loaded && !error) return null;
 
   return (
@@ -64,6 +63,7 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <SessionProvider>
               <SplashScreenController />
+              {Platform.OS !== "web" ? <NativeNotificationResponseHandler /> : null}
               <RootNavigator />
             </SessionProvider>
           </QueryClientProvider>
@@ -105,6 +105,11 @@ function showPaymentSuccessAlert(data: any): void {
 // Global notification handling: record deliveries into the in-app history,
 // deep-link a tapped notification to the right screen, and show a popup for
 // payment-success notifications.
+function NativeNotificationResponseHandler(): React.JSX.Element | null {
+  useNotificationResponseHandler();
+  return null;
+}
+
 function useNotificationResponseHandler() {
   // Covers both a tap while the app runs AND a cold start (app launched by
   // tapping a notification) — the hook returns that launching response too.
@@ -155,7 +160,7 @@ function RootNavigator() {
   // session so every active task — manual or server-created — gets its reminders.
   // (The sync is internally debounced, so a duplicate call is harmless.)
   React.useEffect(() => {
-    if (token) scheduleSyncReminderNotifications(token);
+    if (Platform.OS !== "web" && token) scheduleSyncReminderNotifications(token);
   }, [token]);
 
   return (
@@ -178,6 +183,8 @@ function RootNavigator() {
       </Stack.Protected>
       <Stack.Protected guard={!token}>
         <Stack.Screen name="login" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="reset-password" />
       </Stack.Protected>
     </Stack>
   );

@@ -3,6 +3,7 @@ import { colors, fonts, rounded, spacing, typography } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
@@ -32,6 +33,7 @@ const UC_LOGO = require("@/assets/images/logo-uc.png");
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { signIn } = useSession();
   const { height: kbHeight } = useGradualAnimation();
   const [showPassword, setShowPassword] = useState(false);
@@ -225,7 +227,7 @@ export default function LoginScreen() {
                 <Text style={styles.loginBtnText}>Masuk</Text>
               )}
             </Pressable>
-            <Pressable style={styles.forgotBtn} disabled={loading}>
+            <Pressable style={styles.forgotBtn} onPress={() => router.push("/forgot-password")}>
               <Text style={styles.forgotText}>Lupa Kata Sandi?</Text>
             </Pressable>
           </View>
