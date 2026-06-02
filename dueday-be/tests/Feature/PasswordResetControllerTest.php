@@ -1,14 +1,10 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 
-test('forgot password sends a reset link email', function () {
-    Notification::fake();
-
+test('forgot password returns a reset token for a known email', function () {
     $user = User::factory()->create([
         'email' => 'britney@example.com',
     ]);
@@ -18,21 +14,33 @@ test('forgot password sends a reset link email', function () {
     ]);
 
     $response->assertOk();
-    $response->assertJson([
-        'message' => 'Cek emailmu untuk tautan reset password.',
-    ]);
+    $response->assertJsonStructure(['message', 'email', 'token']);
+    expect($response->json('email'))->toBe($user->email);
+    expect($response->json('token'))->not->toBeEmpty();
 
-    Notification::assertSentTo($user, ResetPassword::class);
     $this->assertDatabaseHas('password_reset_tokens', [
         'email' => $user->email,
     ]);
 });
 
-test('reset password updates the user password', function () {
+test('forgot password does not reveal whether an email is registered', function () {
+    $response = $this->postJson('/api/forgot-password', [
+        'email' => 'nobody@example.com',
+    ]);
+
+    $response->assertOk();
+    $response->assertJsonMissing(['token']);
+    expect($response->json('token'))->toBeNull();
+    expect($response->json('email'))->toBeNull();
+});
+
+test('reset password updates the user password and revokes existing tokens', function () {
     $user = User::factory()->create([
         'email' => 'britney@example.com',
         'password' => Hash::make('old-password-123'),
     ]);
+
+    $user->createToken('existing-session');
 
     $token = Password::broker()->createToken($user);
 
@@ -49,6 +57,7 @@ test('reset password updates the user password', function () {
     ]);
 
     $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
+    expect($user->fresh()->tokens()->count())->toBe(0);
 });
 
 test('forgot password requires a valid email address', function () {

@@ -3,7 +3,7 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,6 +14,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const REDIRECT_SECONDS = 5;
 
 type ResetParams = {
   email?: string;
@@ -35,6 +37,20 @@ export default function ResetPasswordScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(REDIRECT_SECONDS);
+
+  // After a successful reset, count down and send the user back to login.
+  // The "Masuk ke Login" button stays tappable so they can skip the wait.
+  useEffect(() => {
+    if (!success) return;
+    if (secondsLeft <= 0) {
+      router.replace("/login");
+      return;
+    }
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [success, secondsLeft, router]);
 
   const handleSubmit = async (): Promise<void> => {
     if (!email.trim() || !token.trim() || !password.trim() || !passwordConfirmation.trim()) {
@@ -58,7 +74,8 @@ export default function ResetPasswordScreen(): React.JSX.Element {
         password,
         passwordConfirmation,
       });
-      setMessage("Password berhasil direset. Kamu akan kembali ke login.");
+      setMessage("Password berhasil direset.");
+      setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal mereset password.");
     } finally {
@@ -96,6 +113,11 @@ export default function ResetPasswordScreen(): React.JSX.Element {
         {message ? (
           <View style={styles.successBox}>
             <Text style={styles.successText}>{message}</Text>
+            {success ? (
+              <Text style={styles.successHint}>
+                Kembali ke login dalam {secondsLeft} detik…
+              </Text>
+            ) : null}
           </View>
         ) : null}
 
@@ -149,22 +171,18 @@ export default function ResetPasswordScreen(): React.JSX.Element {
           </View>
 
           <Pressable
-            style={({ pressed }) => [styles.primaryButton, pressed && !loading && styles.primaryButtonPressed]}
+            style={({ pressed }) => [styles.primaryButton, pressed && !loading && styles.primaryButtonPressed, success && styles.primaryButtonDisabled]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || success}
           >
             {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Reset Password</Text>}
           </Pressable>
 
-          {message ? (
-            <Pressable style={styles.secondaryButton} onPress={() => router.replace("/login")}>
-              <Text style={styles.secondaryButtonText}>Masuk ke Login</Text>
-            </Pressable>
-          ) : (
-            <Pressable style={styles.secondaryButton} onPress={() => router.replace("/login")}>
-              <Text style={styles.secondaryButtonText}>Kembali ke Login</Text>
-            </Pressable>
-          )}
+          <Pressable style={styles.secondaryButton} onPress={() => router.replace("/login")}>
+            <Text style={styles.secondaryButtonText}>
+              {success ? `Masuk ke Login (${secondsLeft})` : "Kembali ke Login"}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -233,6 +251,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts["700"],
   },
+  successHint: {
+    color: colors.onSurface,
+    fontSize: 12,
+    fontFamily: fonts["500"],
+    marginTop: 4,
+  },
   form: {
     gap: 14,
     marginTop: 2,
@@ -272,6 +296,9 @@ const styles = StyleSheet.create({
   },
   primaryButtonPressed: {
     opacity: 0.9,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.5,
   },
   primaryButtonText: {
     color: colors.onPrimary,

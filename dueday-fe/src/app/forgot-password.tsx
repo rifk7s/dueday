@@ -6,7 +6,6 @@ import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,7 +22,6 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [resetUrl, setResetUrl] = useState("");
 
   const handleSubmit = async (): Promise<void> => {
     if (!email.trim()) {
@@ -34,16 +32,21 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
     setLoading(true);
     setError("");
     setMessage("");
-    setResetUrl("");
 
     try {
       const response = await forgotPasswordRequest(email.trim());
-      setMessage("Cek email kamu untuk tautan reset password.");
-      if (response.reset_url) {
-        setResetUrl(response.reset_url);
+      // No real email is sent — when the account exists the API returns the token
+      // directly so we can jump straight to the pre-filled reset screen.
+      if (response.token && response.email) {
+        router.push({
+          pathname: "/reset-password",
+          params: { email: response.email, token: response.token },
+        });
+        return;
       }
+      setMessage("Jika email kamu terdaftar, lanjutkan ke layar reset password.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengirim email reset.");
+      setError(err instanceof Error ? err.message : "Gagal memproses permintaan reset.");
     } finally {
       setLoading(false);
     }
@@ -79,11 +82,6 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
         {message ? (
           <View style={styles.successBox}>
             <Text style={styles.successText}>{message}</Text>
-            {resetUrl ? (
-              <Pressable onPress={() => Linking.openURL(resetUrl)} hitSlop={8} style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>Buka Reset Password</Text>
-              </Pressable>
-            ) : null}
           </View>
         ) : null}
 
@@ -184,16 +182,6 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
     fontSize: 13,
     fontFamily: fonts["700"],
-  },
-  linkButton: {
-    marginTop: 10,
-    alignSelf: "flex-start",
-  },
-  linkButtonText: {
-    color: colors.primaryContainer,
-    fontSize: 13,
-    fontFamily: fonts["700"],
-    textDecorationLine: "underline",
   },
   form: {
     gap: 14,

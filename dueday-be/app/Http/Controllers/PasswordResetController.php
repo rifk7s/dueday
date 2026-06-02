@@ -20,29 +20,22 @@ class PasswordResetController extends Controller
 
         $user = User::query()->where('email', $data['email'])->first();
 
-        if ($user && app()->environment('local', 'testing')) {
-            $token = Password::broker()->createToken($user);
-            $user->sendPasswordResetNotification($token);
-
+        // No real email delivery in this app — the reset token is handed straight
+        // back so the client can navigate to the in-app reset screen. When no user
+        // matches, return the same generic 200 without a token so the response does
+        // not reveal which emails are registered.
+        if (! $user) {
             return response()->json([
-                'message' => 'Cek emailmu untuk tautan reset password.',
-                'reset_url' => rtrim((string) config('app.frontend_url'), '/').'/reset-password?'.http_build_query([
-                    'email' => $user->email,
-                    'token' => $token,
-                ]),
+                'message' => 'Jika email terdaftar, tautan reset password sudah dibuat.',
             ]);
         }
 
-        $status = Password::sendResetLink($data);
-
-        if ($status !== Password::RESET_LINK_SENT) {
-            throw ValidationException::withMessages([
-                'email' => [__($status)],
-            ]);
-        }
+        $token = Password::broker()->createToken($user);
 
         return response()->json([
-            'message' => 'Cek emailmu untuk tautan reset password.',
+            'message' => 'Jika email terdaftar, tautan reset password sudah dibuat.',
+            'email' => $user->email,
+            'token' => $token,
         ]);
     }
 
@@ -60,6 +53,10 @@ class PasswordResetController extends Controller
                 $user->forceFill([
                     'password' => Hash::make($password),
                 ])->save();
+
+                // Auth is Sanctum bearer-token based (no remember_token column), so
+                // revoke any existing access tokens to log out other sessions.
+                $user->tokens()->delete();
 
                 event(new PasswordReset($user));
             },
