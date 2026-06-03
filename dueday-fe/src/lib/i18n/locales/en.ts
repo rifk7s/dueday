@@ -211,11 +211,11 @@ const en: Translations = {
     ongoingTitle: "Can't edit",
     ongoingBody: "The activity is still ongoing. Finish or pause it before editing.",
     timeRequired: "Start and end time are required.",
-    anchorTitle: "Change Anchor Date?",
-    anchorBody: "Do you also want to change the baseline date (anchor date) for this schedule's recurrence?",
-    anchorWebConfirm: "Change Anchor Date?\n\nClick 'OK' if you also want to change the baseline date (anchor date) for this schedule's recurrence.\n\nClick 'Cancel' if you only want to change today.",
-    anchorOnlyToday: "Only Today",
-    anchorChange: "Change Anchor Date",
+    anchorTitle: "Change Recurring Event?",
+    anchorBody: "Apply this change to this and all future events, or only this event?",
+    anchorWebConfirm: "Change Recurring Event?\n\nClick 'OK' to apply the change to THIS AND FUTURE EVENTS.\n\nClick 'Cancel' to apply ONLY TO THIS EVENT.",
+    anchorOnlyToday: "Only This Event",
+    anchorChange: "This and Future Events",
   },
 
   taskProgress: {

@@ -190,6 +190,11 @@ export default function EditActivityPage() {
         t("editActivity.anchorBody"),
         [
           {
+            text: t("common.cancel"),
+            style: "destructive",
+            onPress: () => {},
+          },
+          {
             text: t("editActivity.anchorOnlyToday"),
             style: "cancel",
             onPress: () => executeSave(false),
@@ -200,7 +205,7 @@ export default function EditActivityPage() {
             onPress: () => executeSave(true),
           },
         ],
-        { cancelable: false }
+        { cancelable: true }
       );
       return;
     }

@@ -211,11 +211,11 @@ const id = {
     ongoingTitle: "Tidak bisa edit",
     ongoingBody: "Aktivitas masih ongoing. Selesaikan atau jeda dulu sebelum mengedit.",
     timeRequired: "Waktu mulai dan selesai wajib diisi.",
-    anchorTitle: "Ubah Anchor Date?",
-    anchorBody: "Apakah Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga?",
-    anchorWebConfirm: "Ubah Anchor Date?\n\nKlik 'OK' jika Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga.\n\nKlik 'Batal' jika hanya ingin mengubah hari ini saja.",
-    anchorOnlyToday: "Hanya Hari Ini",
-    anchorChange: "Ubah Anchor Date",
+    anchorTitle: "Ubah Acara Berulang?",
+    anchorBody: "Apakah Anda ingin menerapkan perubahan ini pada seluruh rangkaian jadwal ke depan atau hanya acara ini saja?",
+    anchorWebConfirm: "Ubah Acara Berulang?\n\nKlik 'OK' untuk menerapkan perubahan pada ACARA INI DAN MENDATANG.\n\nKlik 'Batal' jika HANYA UNTUK ACARA INI SAJA.",
+    anchorOnlyToday: "Hanya Acara Ini",
+    anchorChange: "Acara Ini dan Mendatang",
   },
 
   taskProgress: {
