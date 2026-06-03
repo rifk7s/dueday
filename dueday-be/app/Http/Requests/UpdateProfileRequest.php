@@ -14,7 +14,8 @@ class UpdateProfileRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nickname' => ['required', 'string', 'max:100'],
+            'nickname' => ['sometimes', 'required', 'string', 'max:100'],
+            'language' => ['sometimes', 'required', 'string', 'in:Indonesia,English'],
         ];
     }
 }

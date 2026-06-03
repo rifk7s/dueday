@@ -10,6 +10,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import React from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,6 +31,7 @@ type ReminderCardItem = {
 };
 
 export default function ReminderListScreen() {
+  const { t } = useTranslation();
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const { data: tasks = [] } = useTasksQuery();
@@ -49,16 +52,16 @@ export default function ReminderListScreen() {
     return [
       {
         id: "tasks-summary",
-        label: "Tugas",
+        label: t("common.task"),
         count: activeTasks.length,
         nearestDate:
           activeTasks[0] != null
-            ? fromApiDate(activeTasks[0].date) || "Tanggal belum diatur"
-            : "Belum ada tugas terjadwal",
+            ? fromApiDate(activeTasks[0].date) || t("reminderList.dateNotSet")
+            : t("reminderList.noTaskScheduled"),
         nearestTime:
           activeTasks[0] != null
-            ? fromApiTime(activeTasks[0].time) || "Waktu belum diatur"
-            : "Belum ada waktu",
+            ? fromApiTime(activeTasks[0].time) || t("reminderList.timeNotSet")
+            : t("reminderList.noTime"),
         type: "task",
         sourceId: activeTasks[0]?.id ?? null,
         reminderMessage: activeTasks[0]?.reminder_message ?? null,
@@ -69,16 +72,16 @@ export default function ReminderListScreen() {
       },
       {
         id: "activities-summary",
-        label: "Aktivitas",
+        label: t("common.activity"),
         count: activeActivities.length,
         nearestDate:
           activeActivities[0] != null
-            ? fromApiDate(activeActivities[0].tanggal) || "Tanggal belum diatur"
-            : "Belum ada aktivitas terjadwal",
+            ? fromApiDate(activeActivities[0].tanggal) || t("reminderList.dateNotSet")
+            : t("reminderList.noActivityScheduled"),
         nearestTime:
           activeActivities[0] != null
-            ? fromApiTime(activeActivities[0].time_start) || "Waktu belum diatur"
-            : "Belum ada waktu",
+            ? fromApiTime(activeActivities[0].time_start) || t("reminderList.timeNotSet")
+            : t("reminderList.noTime"),
         type: "activity",
         sourceId: activeActivities[0]?.id ?? null,
         reminderMessage: activeActivities[0]?.reminder_message ?? null,
@@ -88,7 +91,7 @@ export default function ReminderListScreen() {
         reminderVibrate: activeActivities[0]?.reminder_vibrate ?? null,
       },
     ];
-  }, [tasks, activities]);
+  }, [tasks, activities, t]);
 
   const stats = React.useMemo(() => {
     // Target counts for today only
@@ -119,14 +122,14 @@ export default function ReminderListScreen() {
         <View style={styles.headerRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Kembali"
+            accessibilityLabel={t("common.back")}
             onPress={() => router.back()}
             style={styles.backButton}
           >
             <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
           </Pressable>
 
-          <Text style={styles.title}>Reminder List</Text>
+          <Text style={styles.title}>{t("reminderList.title")}</Text>
 
           <View style={styles.headerSpacer} />
         </View>
@@ -136,20 +139,20 @@ export default function ReminderListScreen() {
             <Ionicons name="notifications-outline" size={22} color={colors.primaryContainer} />
           </View>
           <View style={styles.heroTextBlock}>
-            <Text style={styles.heroTitle}>Daftar pengingat terdekat</Text>
+            <Text style={styles.heroTitle}>{t("reminderList.heroTitle")}</Text>
             <Text style={styles.heroSubtitle}>
-              Tugas dan aktivitas yang belum selesai muncul di sini.
+              {t("reminderList.heroSubtitle")}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.tabSummary}>{allReminders.length} reminder</Text>
+        <Text style={styles.tabSummary}>{t("reminderList.reminderCount", { count: allReminders.length })}</Text>
 
         <StatsRow stats={stats} />
 
         <ReminderSection
           items={allReminders}
-          emptyText="Belum ada reminder yang perlu diingat."
+          emptyText={t("reminderList.empty")}
           isPremium={isPremium}
           onCardPress={(type) => setDetailOpen(type)}
         />
@@ -187,23 +190,24 @@ type StatsRowProps = {
 };
 
 function StatsRow({ stats }: Readonly<StatsRowProps>) {
+  const { t } = useTranslation();
   return (
     <View style={styles.statsRow}>
       <StatCard
         icon="document-text-outline"
-        label="Tugas Hari Ini"
+        label={t("reminderList.statTasksToday")}
         value={stats.tasksToday}
         color={colors.primaryContainer}
       />
       <StatCard
         icon="sparkles-outline"
-        label="Aktivitas Hari Ini"
+        label={t("reminderList.statActivitiesToday")}
         value={stats.activitiesToday}
         color={colors.secondaryContainer}
       />
       <StatCard
         icon="notifications-outline"
-        label="Total Hari Ini"
+        label={t("reminderList.statTotalToday")}
         value={stats.totalToday}
         color={colors.tertiaryContainer}
       />
@@ -258,6 +262,7 @@ type ReminderCardProps = {
 };
 
 function ReminderSummaryCard({ item, isPremium, onPress }: Readonly<ReminderCardProps>) {
+  const { t } = useTranslation();
   const accentColor = item.type === "task" ? colors.primaryContainer : colors.secondaryContainer;
   const icon = item.type === "task" ? "document-text-outline" : "sparkles-outline";
   const router = useRouter();
@@ -282,7 +287,7 @@ function ReminderSummaryCard({ item, isPremium, onPress }: Readonly<ReminderCard
   };
 
   return (
-    <Pressable style={styles.card} onPress={onPress} accessibilityRole="button" accessibilityLabel={`Detail reminder ${item.label}`}>
+    <Pressable style={styles.card} onPress={onPress} accessibilityRole="button" accessibilityLabel={t("reminderList.detailA11y", { label: item.label })}>
       <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
 
       <View style={styles.cardBody}>
@@ -293,13 +298,13 @@ function ReminderSummaryCard({ item, isPremium, onPress }: Readonly<ReminderCard
             </View>
             <View style={styles.cardTitleTextBlock}>
               <Text style={styles.cardTitle}>{item.label}</Text>
-              <Text style={styles.cardSubtitle}>{item.count} item menunggu</Text>
+              <Text style={styles.cardSubtitle}>{t("reminderList.itemsWaiting", { count: item.count })}</Text>
             </View>
           </View>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Edit"
+            accessibilityLabel={t("common.edit")}
             onPress={handleEditPress}
           >
             <Ionicons name="pencil" size={18} color={colors.onSurfaceVariant} />
@@ -329,7 +334,7 @@ function ReminderSummaryCard({ item, isPremium, onPress }: Readonly<ReminderCard
               ) : null}
               {item.reminderFrequency ? (
                 <View style={styles.metaChip}>
-                  <Text style={styles.metaChipText}>{item.reminderFrequency === "once" ? "Sekali" : item.reminderFrequency === "daily" ? "Harian" : "Mingguan"}</Text>
+                  <Text style={styles.metaChipText}>{item.reminderFrequency === "once" ? t("common.frequencyOnce") : item.reminderFrequency === "daily" ? t("common.repeatDaily") : t("common.repeatWeekly")}</Text>
                 </View>
               ) : null}
             </View>
@@ -356,12 +361,12 @@ type ReminderDetailModalProps = {
   isPremium: boolean;
 };
 
-function formatFireLine(d: Date, now: Date = new Date()): string {
+function formatFireLine(d: Date, t: TFunction, now: Date = new Date()): string {
   const sameDay = d.toDateString() === now.toDateString();
   const hh = d.getHours().toString().padStart(2, "0");
   const mm = d.getMinutes().toString().padStart(2, "0");
   const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-  if (sameDay) return `Hari ini ${hh}:${mm}`;
+  if (sameDay) return t("reminderList.todayAt", { time: `${hh}:${mm}` });
   return `${d.getDate()} ${months[d.getMonth()]} ${hh}:${mm}`;
 }
 
@@ -411,10 +416,11 @@ function extractTriggerDate(trigger: unknown): Date | null {
 }
 
 function ReminderDetailModal({ type, onClose, onEdit, settings, isPremium }: Readonly<ReminderDetailModalProps>) {
+  const { t } = useTranslation();
   const [scheduled, setScheduled] = React.useState<ScheduledItem[]>([]);
   const [loading, setLoading] = React.useState(false);
   const visible = type !== null;
-  const label = type === "activity" ? "Aktivitas" : "Tugas";
+  const label = type === "activity" ? t("common.activity") : t("common.task");
   const prefix = type === "activity" ? "reminder:activity:" : "reminder:task:";
 
   React.useEffect(() => {
@@ -454,37 +460,37 @@ function ReminderDetailModal({ type, onClose, onEdit, settings, isPremium }: Rea
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
         <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Detail Reminder {label}</Text>
+            <Text style={styles.modalTitle}>{t("reminderList.detailTitle", { label })}</Text>
             <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close" size={22} color={colors.onSurfaceVariant} />
             </Pressable>
           </View>
 
           <View style={styles.modalSection}>
-            <Text style={styles.modalSectionLabel}>Pengaturan saat ini</Text>
+            <Text style={styles.modalSectionLabel}>{t("reminderList.currentSettings")}</Text>
             <View style={styles.modalRow}>
               <Ionicons name="time-outline" size={16} color={colors.primaryContainer} />
-              <Text style={styles.modalRowText}>Jam: {settings?.time ?? "belum diatur"}</Text>
+              <Text style={styles.modalRowText}>{t("reminderList.timeRow", { value: settings?.time ?? t("reminderList.notSet") })}</Text>
             </View>
             {settings?.message ? (
               <View style={styles.modalRow}>
                 <Ionicons name="chatbubble-ellipses-outline" size={16} color={colors.primaryContainer} />
-                <Text style={styles.modalRowText}>Pesan manual: {settings.message}</Text>
+                <Text style={styles.modalRowText}>{t("reminderList.manualMessage", { message: settings.message })}</Text>
               </View>
             ) : null}
             {isPremium ? (
               <>
                 <View style={styles.modalRow}>
                   <Ionicons name="sparkles-outline" size={16} color={colors.primaryContainer} />
-                  <Text style={styles.modalRowText}>Gaya: {settings?.style ?? "default"}</Text>
+                  <Text style={styles.modalRowText}>{t("reminderList.styleRow", { value: settings?.style ?? "default" })}</Text>
                 </View>
                 <View style={styles.modalRow}>
                   <Ionicons name="musical-note-outline" size={16} color={colors.primaryContainer} />
-                  <Text style={styles.modalRowText}>Suara: {settings?.sound ?? "default"}</Text>
+                  <Text style={styles.modalRowText}>{t("reminderList.soundRow", { value: settings?.sound ?? "default" })}</Text>
                 </View>
                 <View style={styles.modalRow}>
                   <Ionicons name="phone-portrait-outline" size={16} color={colors.primaryContainer} />
-                  <Text style={styles.modalRowText}>Getaran: {settings?.vibrate ? "ON" : "OFF"}</Text>
+                  <Text style={styles.modalRowText}>{t("reminderList.vibrateRow", { value: settings?.vibrate ? "ON" : "OFF" })}</Text>
                 </View>
               </>
             ) : null}
@@ -492,17 +498,17 @@ function ReminderDetailModal({ type, onClose, onEdit, settings, isPremium }: Rea
 
           <View style={styles.modalSection}>
             <Text style={styles.modalSectionLabel}>
-              Notif terjadwal ({loading ? "..." : scheduled.length})
+              {t("reminderList.scheduledNotifs", { value: loading ? "..." : scheduled.length })}
             </Text>
             {!loading && scheduled.length === 0 ? (
               <Text style={styles.modalEmpty}>
-                Belum ada notif terjadwal. Tap Edit untuk atur ulang jam.
+                {t("reminderList.noScheduled")}
               </Text>
             ) : null}
             <ScrollView style={styles.modalList} nestedScrollEnabled>
               {scheduled.slice(0, 20).map((item) => (
                 <View key={item.id} style={styles.modalListItem}>
-                  <Text style={styles.modalListTime}>{formatFireLine(item.fireAt)}</Text>
+                  <Text style={styles.modalListTime}>{formatFireLine(item.fireAt, t)}</Text>
                   <Text style={styles.modalListTitle} numberOfLines={1}>{item.title}</Text>
                   {item.body ? (
                     <Text style={styles.modalListBody} numberOfLines={2}>{item.body}</Text>
@@ -510,18 +516,18 @@ function ReminderDetailModal({ type, onClose, onEdit, settings, isPremium }: Rea
                 </View>
               ))}
               {scheduled.length > 20 ? (
-                <Text style={styles.modalEmpty}>+{scheduled.length - 20} notif lainnya...</Text>
+                <Text style={styles.modalEmpty}>{t("reminderList.moreNotifs", { count: scheduled.length - 20 })}</Text>
               ) : null}
             </ScrollView>
           </View>
 
           <View style={styles.modalActions}>
             <Pressable style={styles.modalActionSecondary} onPress={onClose}>
-              <Text style={styles.modalActionSecondaryText}>Tutup</Text>
+              <Text style={styles.modalActionSecondaryText}>{t("common.close")}</Text>
             </Pressable>
             <Pressable style={styles.modalActionPrimary} onPress={onEdit}>
               <Ionicons name="pencil" size={16} color={colors.onPrimary} />
-              <Text style={styles.modalActionPrimaryText}>Edit</Text>
+              <Text style={styles.modalActionPrimaryText}>{t("common.edit")}</Text>
             </Pressable>
           </View>
         </Pressable>

@@ -1,14 +1,16 @@
 import { fromApiTime } from "@/api/format";
-import { PRIORITY_DISPLAY, type GoalPoint } from "@/api/tasks";
+import { type GoalPoint } from "@/api/tasks";
 import GoalsChecklistModal from "@/components/GoalsChecklistModal";
 import { ProgressCard } from "@/components/ProgressCard";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useTasksQuery, useUpdateTaskMutation, useDeleteTaskMutation } from "@/hooks/useTasks";
+import { badgeLabel } from "@/lib/taskLabels";
 import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Pressable,
@@ -79,6 +81,7 @@ function buildGoalPoints(task: any): GoalPoint[] {
 }
 
 export default function TaskProgressScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -119,7 +122,7 @@ export default function TaskProgressScreen() {
   const handleDeleteTask = () => {
     if (!task?.id || isElearnSource) return;
 
-    const message = "Apakah Anda yakin ingin menghapus tugas ini?";
+    const message = t("home.deleteTaskConfirm");
 
     if (Platform.OS === "web") {
       const confirmDelete = window.confirm(message);
@@ -127,36 +130,36 @@ export default function TaskProgressScreen() {
         deleteTaskMutation.mutate(task.id, {
           onSuccess: () => {
             qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "all" });
-            window.alert("Tugas berhasil dihapus.");
+            window.alert(t("home.deleteTaskSuccess"));
             router.replace({ pathname: "/list", params: { tab: "tugas" } });
           },
           onError: (err) => {
             console.error(err);
-            window.alert("Gagal menghapus tugas. Silakan coba lagi.");
+            window.alert(t("home.deleteTaskFailed"));
           }
         });
       }
     } else {
       Alert.alert(
-        "Hapus Tugas",
+        t("home.deleteTaskTitle"),
         message,
         [
-          { text: "Batal", style: "cancel" },
+          { text: t("common.cancel"), style: "cancel" },
           {
-            text: "Hapus",
+            text: t("common.delete"),
             style: "destructive",
             onPress: () => {
               deleteTaskMutation.mutate(task.id, {
                 onSuccess: () => {
                   qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "all" });
                   if (Platform.OS === "android") {
-                    ToastAndroid.show("Tugas berhasil dihapus", ToastAndroid.SHORT);
+                    ToastAndroid.show(t("taskProgress.deletedToast"), ToastAndroid.SHORT);
                   }
                   router.replace({ pathname: "/list", params: { tab: "tugas" } });
                 },
                 onError: (err) => {
                   console.error(err);
-                  Alert.alert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
+                  Alert.alert(t("common.error"), t("home.deleteTaskFailed"));
                 }
               });
             }
@@ -177,16 +180,16 @@ export default function TaskProgressScreen() {
   if (isError || !task) {
     return (
       <View style={[styles.centered, { paddingTop: top }]}>
-        <Text style={styles.emptyText}>Tugas tidak ditemukan.</Text>
+        <Text style={styles.emptyText}>{t("editTask.notFound")}</Text>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>Kembali</Text>
+          <Text style={styles.backLinkText}>{t("common.back")}</Text>
         </Pressable>
       </View>
     );
   }
 
   const priorityKey = task.priority ?? "";
-  const priorityLabel = PRIORITY_DISPLAY[priorityKey] || priorityKey;
+  const priorityLabel = badgeLabel(priorityKey, t);
   const priorityColor = PRIORITY_BADGE[priorityKey];
 
   const datePart = formatLongDate(task.date);
@@ -204,7 +207,7 @@ export default function TaskProgressScreen() {
             <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
           </Pressable>
           
-          <Text style={styles.headerTitle}>Progress Tugas</Text>
+          <Text style={styles.headerTitle}>{t("taskProgress.title")}</Text>
           
           <View style={styles.headerActions}>
             {!isElearnSource && (
@@ -230,7 +233,7 @@ export default function TaskProgressScreen() {
 
         {priorityLabel && priorityColor ? (
           <View style={styles.priorityRow}>
-            <Text style={styles.priorityLabel}>Prioritas:</Text>
+            <Text style={styles.priorityLabel}>{t("taskProgress.priorityLabel")}</Text>
             <View style={[styles.priorityBadge, { backgroundColor: priorityColor.bg }]}>
               <Text style={[styles.priorityBadgeText, { color: priorityColor.text }]}>
                 {priorityLabel}
@@ -241,7 +244,7 @@ export default function TaskProgressScreen() {
 
         {deadline ? (
           <>
-            <SectionLabel label="TENGGAT WAKTU" />
+            <SectionLabel label={t("taskProgress.deadlineSection")} />
             <View style={styles.deadlinePill}>
               <Ionicons name="calendar-outline" size={16} color={colors.onSurface} />
               <Text style={styles.deadlineText}>{deadline}</Text>
@@ -251,7 +254,7 @@ export default function TaskProgressScreen() {
 
         {goalPoints.length > 0 ? (
           <>
-            <SectionLabel label="GOALS" />
+            <SectionLabel label={t("taskProgress.goalsSection")} />
             <View style={styles.goalList}>
               {goalPoints.map((goalPoint) => (
                 <View key={goalPoint.id} style={styles.goalRow}>
@@ -272,14 +275,14 @@ export default function TaskProgressScreen() {
 
         {task.deskripsi ? (
           <>
-            <SectionLabel label="DESKRIPSI" />
+            <SectionLabel label={t("taskProgress.descriptionSection")} />
             <Text style={styles.description}>{task.deskripsi}</Text>
           </>
         ) : null}
 
         {isElearnSource && (
           <>
-            <SectionLabel label="SUMBER TUGAS" />
+            <SectionLabel label={t("taskProgress.sourceSection")} />
             <View style={styles.tagRow}>
               <View style={styles.elearnBadge}>
                 <Text style={styles.elearnBadgeText}>ELEARN</Text>
@@ -290,7 +293,7 @@ export default function TaskProgressScreen() {
 
         {task.tag?.nama_tag && task.tag.nama_tag.toLowerCase() !== "elearn" ? (
           <>
-            <SectionLabel label="TAG" />
+            <SectionLabel label={t("taskProgress.tagSection")} />
             <View style={styles.tagRow}>
               <View style={styles.tagChip}>
                 <Text style={styles.tagChipText}>{task.tag.nama_tag}</Text>

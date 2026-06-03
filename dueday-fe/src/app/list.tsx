@@ -1,14 +1,17 @@
 import { fromApiDate, fromApiTime } from "@/api/format";
-import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
-import { ULANGI_DISPLAY, type Activity } from "@/api/activities";
+import { type Task } from "@/api/tasks";
+import { type Activity, type UlangiType } from "@/api/activities";
 import { colors, fonts, typography } from "@/constants/theme";
+import { badgeLabel } from "@/lib/taskLabels";
 import { useActivitiesQuery, useDeleteActivityMutation } from "@/hooks/useActivities";
-import { useTasksQuery, useDeleteTaskMutation } from "@/hooks/useTasks"; 
+import { useTasksQuery, useDeleteTaskMutation } from "@/hooks/useTasks";
 import { Ionicons } from "@expo/vector-icons";
 import { goBackOr } from "@/constants/navigation";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIndicator,
@@ -31,6 +34,7 @@ type ListItem = {
   itemType: "task" | "activity";
   accentColor?: string;
   stateText?: string;
+  stateKey?: string;
   stateColor?: StateColor;
   deadline?: string;
   title?: string;
@@ -56,7 +60,7 @@ function isTaskDone(status: Task["status"]): boolean {
   return status === "completed" || status === "completed_late";
 }
 
-function taskToListItem(task: Task): ListItem {
+function taskToListItem(task: Task, t: TFunction): ListItem {
   const datePart = fromApiDate(task.date);
   const timePart = task.time ? fromApiTime(task.time) : "";
   const deadline = [datePart, timePart].filter(Boolean).join(" | ");
@@ -68,16 +72,15 @@ function taskToListItem(task: Task): ListItem {
   // Safeguard case sensitivity from database string updates
   const normalizedPriority = (task.priority ?? "").toLowerCase().trim();
 
-  // Dynamically extract name tag from map dictionary fallback to raw string formatting
-  const structuralPriorityText = PRIORITY_DISPLAY[normalizedPriority] ?? normalizedPriority.toUpperCase();
-
-  const stateText = task.status === "completed_late"
-    ? "TERLAMBAT"
+  // Stable key so comparisons in TaskCard stay locale-independent; translated at render.
+  const stateKey = task.status === "completed_late"
+    ? "late"
     : isDone
-    ? "SELESAI"
+    ? "done"
     : isOverdue
-    ? "TERLAMBAT"
-    : (structuralPriorityText || "ONGOING");
+    ? "late"
+    : (normalizedPriority === "high" || normalizedPriority === "medium" || normalizedPriority === "low" ? normalizedPriority : "ongoing");
+  const stateText = badgeLabel(stateKey, t);
 
   let accentColor: string = colors.primaryContainer;
   if (isDone) accentColor = colors.success;
@@ -95,6 +98,7 @@ function taskToListItem(task: Task): ListItem {
     itemType: "task",
     accentColor,
     stateText,
+    stateKey,
     stateColor,
     deadline: deadline || "—",
     title: task.task_name,
@@ -108,20 +112,33 @@ function taskToListItem(task: Task): ListItem {
   };
 }
 
-function activityToListItem(activity: Activity): ListItem {
+function activityToListItem(activity: Activity, t: TFunction): ListItem {
   const datePart = formatActivityDate(activity.tanggal);
   const timeParts = [activity.time_start, activity.time_end]
     .filter(Boolean)
-    .map((t) => fromApiTime(t));
+    .map((time) => fromApiTime(time));
   const deadline = [datePart, timeParts.join("-")].filter(Boolean).join(" | ");
 
   const isDone = activity.status === "completed" || activity.status === "cancelled";
 
+  let stateKey: string;
   let stateText: string;
-  if (activity.status === "cancelled") stateText = "DIBATALKAN";
-  else if (isDone) stateText = "SELESAI";
-  else if (activity.ulangi) stateText = ULANGI_DISPLAY[activity.ulangi];
-  else stateText = activity.tag?.nama_tag?.toUpperCase() ?? "AKTIF";
+  if (activity.status === "cancelled") {
+    stateKey = "cancelled";
+    stateText = badgeLabel("cancelled", t);
+  } else if (isDone) {
+    stateKey = "done";
+    stateText = badgeLabel("done", t);
+  } else if (activity.ulangi) {
+    stateKey = "repeat";
+    stateText = repeatBadgeText(activity.ulangi, t);
+  } else if (activity.tag?.nama_tag) {
+    stateKey = "tag";
+    stateText = activity.tag.nama_tag.toUpperCase();
+  } else {
+    stateKey = "active";
+    stateText = t("list.activeBadge");
+  }
 
   let accentColor: string = colors.primaryContainer;
   if (activity.status === "cancelled") accentColor = colors.error;
@@ -138,6 +155,7 @@ function activityToListItem(activity: Activity): ListItem {
     itemType: "activity",
     accentColor,
     stateText,
+    stateKey,
     stateColor,
     deadline: deadline || "—",
     title: activity.activity_name,
@@ -149,6 +167,19 @@ function activityToListItem(activity: Activity): ListItem {
     progress: activity.progress / 100,
     isElearnSource: false,
   };
+}
+
+function repeatBadgeText(ulangi: UlangiType, t: TFunction): string {
+  switch (ulangi) {
+    case "setiap_hari":
+      return t("common.repeatBadgeDaily");
+    case "satu_minggu":
+      return t("common.repeatBadgeWeekly");
+    case "satu_bulan":
+      return t("common.repeatBadgeMonthly");
+    case "satu_tahun":
+      return t("common.repeatBadgeYearly");
+  }
 }
 
 function formatActivityDate(value: string | null): string {
@@ -181,6 +212,7 @@ function renderListContent(
   activeMenuId: string | null,
   setActiveMenuId: (id: string | null) => void,
   onDeleteRequest: (id: string, type: "task" | "activity") => void,
+  t: TFunction,
 ) {
   if (isLoading) {
     return (
@@ -192,12 +224,12 @@ function renderListContent(
   if (isError) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.emptyText}>Gagal memuat data. Coba lagi.</Text>
+        <Text style={styles.emptyText}>{t("list.loadFailed")}</Text>
       </View>
     );
   }
   if (visibleItems.length === 0) {
-    const msg = active === "tugas" ? "Belum ada tugas." : "Belum ada aktivitas.";
+    const msg = active === "tugas" ? t("list.emptyTasks") : t("list.emptyActivities");
     return (
       <View style={styles.centered}>
         <Text style={styles.emptyText}>{msg}</Text>
@@ -227,7 +259,25 @@ function renderListContent(
   );
 }
 
+// Translate the status filter chips while keeping their Indonesian values as the
+// stable filter keys the logic compares against. Tag names pass through untranslated.
+function filterLabel(value: string, t: TFunction): string {
+  switch (value) {
+    case "Semua":
+      return t("list.filterAll");
+    case "Belum Mulai":
+      return t("list.filterNotStarted");
+    case "Berlangsung":
+      return t("list.filterOngoing");
+    case "Selesai":
+      return t("list.filterDone");
+    default:
+      return value;
+  }
+}
+
 export default function ListPage() {
+  const { t } = useTranslation();
   const { top } = useSafeAreaInsets();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -276,7 +326,9 @@ export default function ListPage() {
     return aKey.localeCompare(bKey);
   }), [activities]);
 
-  const items = active === "tugas" ? sortedTasks.map(taskToListItem) : sortedActivities.map(activityToListItem);
+  const items = active === "tugas"
+    ? sortedTasks.map((task) => taskToListItem(task, t))
+    : sortedActivities.map((activity) => activityToListItem(activity, t));
 
   const dynamicFilterOptions = useMemo(() => {
     const baseStatusFilters = active === "tugas"
@@ -324,32 +376,32 @@ export default function ListPage() {
 
   const handleDeleteRequest = (id: string, type: "task" | "activity") => {
     const isTask = type === "task";
-    const title = isTask ? "Hapus Tugas" : "Hapus Aktivitas";
-    const message = isTask 
-      ? "Apakah Anda yakin ingin menghapus tugas ini?" 
-      : "Apakah Anda yakin ingin menghapus aktivitas ini?";
+    const title = isTask ? t("home.deleteTaskTitle") : t("activityProgress.deleteTitle");
+    const message = isTask
+      ? t("home.deleteTaskConfirm")
+      : t("activityProgress.deleteConfirm");
 
     const runMutation = () => {
       if (isTask) {
         deleteTaskMutation.mutate(id, {
           onSuccess: () => {
             setActiveMenuId(null);
-            showAlert("Sukses", "Tugas berhasil dihapus.");
+            showAlert(t("home.successTitle"), t("home.deleteTaskSuccess"));
           },
           onError: (error) => {
             console.error(error);
-            showAlert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
+            showAlert(t("common.error"), t("home.deleteTaskFailed"));
           }
         });
       } else {
         deleteActivityMutation.mutate(id, {
           onSuccess: () => {
             setActiveMenuId(null);
-            showAlert("Sukses", "Aktivitas berhasil dihapus.");
+            showAlert(t("home.successTitle"), t("activityProgress.deleteSuccess"));
           },
           onError: (error) => {
             console.error(error);
-            showAlert("Error", "Gagal menghapus aktivitas. Silakan coba lagi.");
+            showAlert(t("common.error"), t("activityProgress.deleteFailed"));
           }
         });
       }
@@ -364,8 +416,8 @@ export default function ListPage() {
         title,
         message,
         [
-          { text: "Batal", style: "cancel" },
-          { text: "Hapus", style: "destructive", onPress: runMutation }
+          { text: t("common.cancel"), style: "cancel" },
+          { text: t("common.delete"), style: "destructive", onPress: runMutation }
         ]
       );
     }
@@ -405,7 +457,7 @@ export default function ListPage() {
         <Pressable onPress={() => goBackOr("/")} style={styles.iconButton}>
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.title}>List</Text>
+        <Text style={styles.title}>{t("list.title")}</Text>
         <Pressable style={styles.iconButton} accessibilityRole="button" onPress={() => router.push("/search")}>
           <Ionicons name="search" size={22} color={colors.primaryContainer} />
         </Pressable>
@@ -417,14 +469,14 @@ export default function ListPage() {
           onPress={() => { setActive("tugas"); setActiveMenuId(null); }}
           style={[styles.tabButton, active === "tugas" && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, active === "tugas" && styles.tabLabelActive]}>Tugas</Text>
+          <Text style={[styles.tabLabel, active === "tugas" && styles.tabLabelActive]}>{t("common.task")}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={() => { setActive("aktivitas"); setActiveMenuId(null); }}
           style={[styles.tabButton, active === "aktivitas" && styles.tabButtonActive]}
         >
-          <Text style={[styles.tabLabel, active === "aktivitas" && styles.tabLabelActive]}>Aktivitas</Text>
+          <Text style={[styles.tabLabel, active === "aktivitas" && styles.tabLabelActive]}>{t("common.activity")}</Text>
         </Pressable>
       </View>
 
@@ -439,7 +491,7 @@ export default function ListPage() {
                 style={[styles.chip, isSelected ? styles.chipActive : null]}
                 accessibilityRole="button"
               >
-                <Text style={[styles.chipText, isSelected ? styles.chipTextActive : null]}>{f}</Text>
+                <Text style={[styles.chipText, isSelected ? styles.chipTextActive : null]}>{filterLabel(f, t)}</Text>
               </Pressable>
             );
           })}
@@ -460,7 +512,8 @@ export default function ListPage() {
         },
         activeMenuId,
         setActiveMenuId,
-        handleDeleteRequest
+        handleDeleteRequest,
+        t
       )}
     </View>
   );
@@ -475,7 +528,8 @@ interface TaskCardProps extends ListItem {
 function TaskCard({
   itemType = "task",
   accentColor = colors.error,
-  stateText = "TINGGI",
+  stateText = "",
+  stateKey = "ongoing",
   stateColor = { bg: colors.errorSoft, text: colors.errorStrong },
   deadline = "30 April 2026 | 18.00",
   title = "—",
@@ -489,12 +543,13 @@ function TaskCard({
   onDelete,
   isElearnSource = false,
 }: Readonly<TaskCardProps>) {
+  const { t } = useTranslation();
   const isActivity = itemType === "activity";
   const deadlineIconName = isActivity ? "calendar-outline" : status === "done" ? "checkmark-circle-outline" : "warning-outline";
   const deadlineIconColor = isActivity ? colors.iconMuted : status === "done" ? colors.success : colors.error;
   const deadlineTextStyle = isActivity ? styles.deadlineTextActivity : status === "done" ? styles.deadlineTextDone : styles.deadlineText;
 
-  const shouldRenderPriorityTag = stateText !== "TERLAMBAT" && stateText !== "DIBATALKAN";
+  const shouldRenderPriorityTag = stateKey !== "late" && stateKey !== "cancelled";
 
   return (
     <View style={[styles.taskCard, status === "done" && styles.taskCardDone]}>
@@ -526,7 +581,7 @@ function TaskCard({
               }}
             >
               <Ionicons name="trash-outline" size={14} color={colors.errorStrong} />
-              <Text style={styles.deleteDropdownText}>Hapus</Text>
+              <Text style={styles.deleteDropdownText}>{t("common.delete")}</Text>
             </Pressable>
           )}
         </View>
@@ -542,7 +597,7 @@ function TaskCard({
           ) : null}
 
           <View style={styles.tagRow}>
-            {stateText === "TERLAMBAT" || stateText === "DIBATALKAN" ? (
+            {stateKey === "late" || stateKey === "cancelled" ? (
               <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
                 <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>{stateText}</Text>
               </View>
@@ -566,15 +621,15 @@ function TaskCard({
               style={[
                 styles.doneCircle,
                 {
-                  borderColor: stateText === "DIBATALKAN" ? colors.error : colors.success,
-                  backgroundColor: stateText === "DIBATALKAN" ? colors.errorSoft : colors.surfaceSuccess,
+                  borderColor: stateKey === "cancelled" ? colors.error : colors.success,
+                  backgroundColor: stateKey === "cancelled" ? colors.errorSoft : colors.surfaceSuccess,
                 },
               ]}
             >
               <Ionicons
-                name={stateText === "DIBATALKAN" ? "close" : "checkmark"}
+                name={stateKey === "cancelled" ? "close" : "checkmark"}
                 size={18}
-                color={stateText === "DIBATALKAN" ? colors.error : colors.success}
+                color={stateKey === "cancelled" ? colors.error : colors.success}
               />
             </View>
           ) : (

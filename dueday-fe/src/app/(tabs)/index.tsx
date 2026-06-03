@@ -1,14 +1,16 @@
 import { fromApiDate, fromApiTime } from "@/api/format";
-import { PRIORITY_DISPLAY, type Task } from "@/api/tasks";
+import { type Task } from "@/api/tasks";
 import { useSession } from "@/auth/ctx";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useCurrentUserQuery } from "@/hooks/useCurrentUser";
 import { useDeleteTaskMutation, useTasksQuery } from "@/hooks/useTasks";
+import { badgeLabel } from "@/lib/taskLabels";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Animated,
   Alert,
@@ -25,6 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Circle } from "react-native-svg";
 
 export default function App() {
+  const { t } = useTranslation();
   const { top } = useSafeAreaInsets();
   const bottomBarSpace = useBottomBarSpace();
   const router = useRouter();
@@ -53,15 +56,15 @@ export default function App() {
   const completedTasks = tasks.filter((task) => task.status === "completed" || task.status === "completed_late").length;
   const activeTask = sortedTasks[0] ?? null;
   const greetingName =
-    currentUser?.nickname ?? sessionUser?.nickname ?? currentUser?.name ?? sessionUser?.name ?? currentUser?.username ?? sessionUser?.username ?? "Mahasiswa";
+    currentUser?.nickname ?? sessionUser?.nickname ?? currentUser?.name ?? sessionUser?.name ?? currentUser?.username ?? sessionUser?.username ?? t("home.defaultName");
 
   function handleDeleteTask(): void {
     if (!activeTask || deleteTaskMutation.isPending) {
       return;
     }
 
-    const title = "Hapus Tugas";
-    const message = "Apakah Anda yakin ingin menghapus tugas ini?";
+    const title = t("home.deleteTaskTitle");
+    const message = t("home.deleteTaskConfirm");
 
     if (Platform.OS === "web") {
       if (!window.confirm(message)) {
@@ -71,28 +74,28 @@ export default function App() {
       deleteTaskMutation.mutate(activeTask.id, {
         onSuccess: () => {
           setActiveTaskMenuOpen(false);
-          window.alert("Tugas berhasil dihapus.");
+          window.alert(t("home.deleteTaskSuccess"));
         },
         onError: () => {
-          window.alert("Gagal menghapus tugas. Silakan coba lagi.");
+          window.alert(t("home.deleteTaskFailed"));
         },
       });
       return;
     }
 
     Alert.alert(title, message, [
-      { text: "Batal", style: "cancel" },
+      { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Hapus",
+        text: t("common.delete"),
         style: "destructive",
         onPress: () => {
           deleteTaskMutation.mutate(activeTask.id, {
             onSuccess: () => {
               setActiveTaskMenuOpen(false);
-              Alert.alert("Sukses", "Tugas berhasil dihapus.");
+              Alert.alert(t("home.successTitle"), t("home.deleteTaskSuccess"));
             },
             onError: () => {
-              Alert.alert("Error", "Gagal menghapus tugas. Silakan coba lagi.");
+              Alert.alert(t("common.error"), t("home.deleteTaskFailed"));
             },
           });
         },
@@ -186,14 +189,14 @@ export default function App() {
             </View>
 
             <View style={styles.greetingBlock}>
-              <Text style={styles.greetingTitle}>Halo, {greetingName}</Text>
-              <Text style={styles.greetingSubtitle}>Semangat mengerjakan tugasmu!</Text>
+              <Text style={styles.greetingTitle}>{t("home.greeting", { name: greetingName })}</Text>
+              <Text style={styles.greetingSubtitle}>{t("home.greetingSubtitle")}</Text>
             </View>
 
             <Pressable
               style={styles.bellButton}
               accessibilityRole="button"
-              accessibilityLabel="Buka notifikasi"
+              accessibilityLabel={t("home.openNotifications")}
               onPress={() => router.push("/notifications" as never)}
             >
               <Ionicons name="notifications-outline" size={28} color={colors.onSurface} />
@@ -201,28 +204,28 @@ export default function App() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Tugas Saya</Text>
+        <Text style={styles.sectionTitle}>{t("home.myTasks")}</Text>
 
         <View style={styles.summaryRow}>
           <SummaryCard
             accent={colors.primaryContainer}
             icon="time-outline"
-            title="Belum Dikerjakan"
+            title={t("home.pending")}
             value={String(pendingTasks)}
             background={colors.surfaceWarm}
           />
           <SummaryCard
             accent={colors.success}
             icon="checkmark-circle"
-            title="Selesai"
+            title={t("common.statusDone")}
             value={String(completedTasks)}
             background={colors.surfaceSuccess}
           />
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Tugas Aktif</Text>
-          <Text style={styles.sectionCaption}>Diurutkan berdasarkan tenggat waktu</Text>
+          <Text style={styles.sectionTitle}>{t("home.activeTasks")}</Text>
+          <Text style={styles.sectionCaption}>{t("home.sortedByDeadline")}</Text>
         </View>
 
         {activeTask ? (
@@ -238,20 +241,20 @@ export default function App() {
         )}
 
         <Pressable style={styles.actionButton} accessibilityRole="button" onPress={() => router.push('/list')}>
-          <Text style={styles.actionButtonText}>Lihat List Aktivitas/Tugas</Text>
+          <Text style={styles.actionButtonText}>{t("home.viewList")}</Text>
         </Pressable>
 
         <Pressable
           style={styles.reminderCard}
           accessibilityRole="button"
-          accessibilityLabel="Buka daftar pengingat"
+          accessibilityLabel={t("home.openReminders")}
           onPress={() => router.push("/reminder-list")}
         >
           <View style={styles.reminderLeft}>
             <View style={styles.reminderIconWrap}>
               <Ionicons name="notifications-outline" size={18} color={colors.primaryContainer} />
             </View>
-            <Text style={styles.reminderText}>Pengingat Saya</Text>
+            <Text style={styles.reminderText}>{t("home.myReminders")}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.iconSubtle} />
         </Pressable>
@@ -271,7 +274,7 @@ export default function App() {
             <OverlayActionButton
               progress={actionOneProgress}
               icon="document-text-outline"
-              label="Buat Tugas"
+              label={t("home.createTask")}
               onPress={() => {
                 closeOverlay();
                 router.push("/create-task");
@@ -280,7 +283,7 @@ export default function App() {
             <OverlayActionButton
               progress={actionTwoProgress}
               icon="flash-outline"
-              label="Buat Aktivitas"
+              label={t("home.createActivity")}
               onPress={() => {
                 closeOverlay();
                 router.push("/create-activity");
@@ -293,7 +296,7 @@ export default function App() {
       <Pressable
         style={[styles.fab, { bottom: fabBottom }]}
         accessibilityRole="button"
-        accessibilityLabel={overlayOpen ? "Close quick actions" : "Add new task"}
+        accessibilityLabel={overlayOpen ? t("home.closeQuickActions") : t("home.addNewTask")}
         onPress={toggleOverlay}
       >
         <Ionicons name={overlayOpen ? "close" : "add"} size={32} color={colors.surfaceContainerLowest} />
@@ -364,6 +367,7 @@ function DashboardTaskCard({
   onCloseMenu: () => void;
   onDelete: () => void;
 }>) {
+  const { t } = useTranslation();
   const router = useRouter();
   const task = rawTask;
 
@@ -381,13 +385,15 @@ function DashboardTaskCard({
 
   const priorityKey = task.priority ?? "";
 
-  const stateText = task.status === "completed_late"
-    ? "TERLAMBAT"
+  // Stable key so comparisons below stay locale-independent; translated only at render.
+  const stateKey = task.status === "completed_late"
+    ? "late"
     : isDone
-    ? "SELESAI"
+    ? "done"
     : isOverdue
-    ? "TERLAMBAT"
-    : (PRIORITY_DISPLAY[priorityKey] ?? "ONGOING");
+    ? "late"
+    : (priorityKey === "high" || priorityKey === "medium" || priorityKey === "low" ? priorityKey : "ongoing");
+  const stateText = badgeLabel(stateKey, t);
 
   const stateColor = isDone
     ? task.status === "completed_late"
@@ -436,11 +442,11 @@ function DashboardTaskCard({
             ) : null}
 
             <View style={styles.tagRow}>
-              {stateText === "TERLAMBAT" ? (
+              {stateKey === "late" ? (
                 <View style={[styles.tag, { backgroundColor: colors.errorSoft }]}>
-                  <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>TERLAMBAT</Text>
+                  <Text style={[styles.priorityTagText, { color: colors.errorStrong }]}>{stateText}</Text>
                 </View>
-              ) : !isDone && stateText !== "ONGOING" ? (
+              ) : !isDone && stateKey !== "ongoing" ? (
                 // Removed "!isElearnSource" rule block to allow priority badges on Elearn items
                 <View style={[styles.tag, { backgroundColor: stateColor.bg }]}>
                   <Text style={[styles.priorityTagText, { color: stateColor.text }]}>{stateText}</Text>
@@ -484,7 +490,7 @@ function DashboardTaskCard({
           <View style={styles.deleteDropdownWrap}>
             <Pressable style={styles.deleteDropdown} onPress={onDelete}>
               <Ionicons name="trash-outline" size={14} color={colors.errorStrong} />
-              <Text style={styles.deleteDropdownText}>Hapus</Text>
+              <Text style={styles.deleteDropdownText}>{t("common.delete")}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -494,11 +500,12 @@ function DashboardTaskCard({
 }
 
 function EmptyTaskCard() {
+  const { t } = useTranslation();
   return (
     <View style={styles.taskCard}>
       <View style={[styles.taskAccent, { backgroundColor: colors.surfaceContainerLow }]} />
-      <Text style={styles.emptyTaskTitle}>Belum ada tugas aktif.</Text>
-      <Text style={styles.emptyTaskDescription}>Tugas berikutnya akan tampil di sini.</Text>
+      <Text style={styles.emptyTaskTitle}>{t("home.emptyTitle")}</Text>
+      <Text style={styles.emptyTaskDescription}>{t("home.emptyDescription")}</Text>
     </View>
   );
 }

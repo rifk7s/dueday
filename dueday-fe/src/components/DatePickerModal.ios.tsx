@@ -2,6 +2,7 @@ import { colors, fonts } from "@/constants/theme";
 import { DateTimePicker, Host } from "@expo/ui/swift-ui";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = {
@@ -27,6 +28,7 @@ export default function DatePickerModal({
   onDateSelect,
   selectedDate,
 }: Readonly<Props>) {
+  const { t } = useTranslation();
   const [initialIso, setInitialIso] = useState<string>(() => parseDDMMYYYY(selectedDate).toISOString());
   const [draft, setDraft] = useState<Date>(() => parseDDMMYYYY(selectedDate));
 
@@ -51,7 +53,7 @@ export default function DatePickerModal({
             <Pressable onPress={onClose} hitSlop={8}>
               <Ionicons name="close" size={24} color={colors.onSurface} />
             </Pressable>
-            <Text style={styles.headerTitle}>Pilih Tanggal</Text>
+            <Text style={styles.headerTitle}>{t("components.datePicker.title")}</Text>
             <View style={{ width: 24 }} />
           </View>
 
@@ -67,10 +69,10 @@ export default function DatePickerModal({
 
           <View style={styles.footer}>
             <Pressable style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelText}>Batal</Text>
+              <Text style={styles.cancelText}>{t("common.cancel")}</Text>
             </Pressable>
             <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-              <Text style={styles.confirmText}>OK</Text>
+              <Text style={styles.confirmText}>{t("common.ok")}</Text>
             </Pressable>
           </View>
         </View>

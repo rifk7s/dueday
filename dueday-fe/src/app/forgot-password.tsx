@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Pressable,
@@ -16,6 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ForgotPasswordScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const [email, setEmail] = useState("");
@@ -25,7 +27,7 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
 
   const handleSubmit = async (): Promise<void> => {
     if (!email.trim()) {
-      setError("Masukkan email UC kamu.");
+      setError(t("forgotPassword.enterEmail"));
       return;
     }
 
@@ -44,9 +46,9 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
         });
         return;
       }
-      setMessage("Jika email kamu terdaftar, lanjutkan ke layar reset password.");
+      setMessage(t("forgotPassword.maybeRegistered"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memproses permintaan reset.");
+      setError(err instanceof Error ? err.message : t("forgotPassword.requestFailed"));
     } finally {
       setLoading(false);
     }
@@ -69,8 +71,8 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
           <View style={styles.heroIcon}>
             <Ionicons name="mail-outline" size={24} color={colors.onPrimary} />
           </View>
-          <Text style={styles.title}>Lupa Kata Sandi</Text>
-          <Text style={styles.subtitle}>Masukkan email UC kamu, lalu kami kirim tautan reset password.</Text>
+          <Text style={styles.title}>{t("forgotPassword.title")}</Text>
+          <Text style={styles.subtitle}>{t("forgotPassword.subtitle")}</Text>
         </View>
 
         {error ? (
@@ -87,12 +89,12 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
 
         <View style={styles.form}>
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email UC</Text>
+            <Text style={styles.fieldLabel}>{t("forgotPassword.emailLabel")}</Text>
             <View style={styles.inputRow}>
               <Ionicons name="at-outline" size={20} color={colors.tertiaryContainer} />
               <TextInput
                 style={styles.textInput}
-                placeholder="nama@uc.ac.id"
+                placeholder={t("forgotPassword.emailPlaceholder")}
                 placeholderTextColor={colors.tertiaryContainer}
                 value={email}
                 onChangeText={setEmail}
@@ -109,11 +111,11 @@ export default function ForgotPasswordScreen(): React.JSX.Element {
             onPress={handleSubmit}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Kirim Link Reset</Text>}
+            {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>{t("forgotPassword.submit")}</Text>}
           </Pressable>
 
-          <Pressable style={styles.secondaryButton} onPress={() => router.replace("/login")}> 
-            <Text style={styles.secondaryButtonText}>Kembali ke Login</Text>
+          <Pressable style={styles.secondaryButton} onPress={() => router.replace("/login")}>
+            <Text style={styles.secondaryButtonText}>{t("forgotPassword.backToLogin")}</Text>
           </Pressable>
         </View>
       </ScrollView>

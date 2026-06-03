@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Animated,
     BackHandler,
@@ -87,11 +88,12 @@ function AccentDot({ size, color, top, left, right, delay }: AccentDotProps): Re
 }
 
 export default function PaymentRejectedScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const { top, bottom } = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const planName = (params.planName as string) || "Dueday Premium - 1 Bulan";
+  const planName = (params.planName as string) || t("paymentRejected.defaultPlanName");
   const methodName = (params.methodName as string) || "Virtual Account";
   // Carried over from detail-transfer so retry re-enters /payment with the
   // original plan selection rather than the screen's defaults.
@@ -190,18 +192,18 @@ export default function PaymentRejectedScreen(): React.JSX.Element {
     () => [
       {
         key: "method",
-        title: "Metode pembayaran",
-        desc: `Pembayaran melalui ${methodName} mungkin gagal. Periksa detail atau pilih metode lain.`,
+        title: t("paymentRejected.reasonMethodTitle"),
+        desc: t("paymentRejected.reasonMethodDesc", { method: methodName }),
         icon: "card-outline",
       },
       {
         key: "bank",
-        title: "Dari pihak bank",
-        desc: "Transfer ditolak oleh bank penerbit. Coba lagi nanti atau hubungi bank.",
+        title: t("paymentRejected.reasonBankTitle"),
+        desc: t("paymentRejected.reasonBankDesc"),
         icon: "business-outline",
       },
     ],
-    [methodName]
+    [methodName, t]
   );
 
   return (
@@ -249,22 +251,22 @@ export default function PaymentRejectedScreen(): React.JSX.Element {
               width: "100%",
             }}
           >
-            <Text style={styles.title}>Pembayaran Ditolak</Text>
-            <Text style={styles.subtitle}>Pembayaran gagal diproses. Silakan coba lagi atau pilih metode lain.</Text>
+            <Text style={styles.title}>{t("paymentRejected.title")}</Text>
+            <Text style={styles.subtitle}>{t("paymentRejected.subtitle")}</Text>
 
             <View style={styles.summaryCard}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Paket</Text>
+                <Text style={styles.summaryLabel}>{t("paymentRejected.labelPlan")}</Text>
                 <Text style={styles.summaryValue}>{planName}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Metode</Text>
+                <Text style={styles.summaryLabel}>{t("paymentRejected.labelMethod")}</Text>
                 <Text style={styles.summaryValue}>{methodName}</Text>
               </View>
             </View>
 
             <View style={styles.featuresWrap}>
-              <Text style={styles.featuresTitle}>Kemungkinan penyebab</Text>
+              <Text style={styles.featuresTitle}>{t("paymentRejected.causesTitle")}</Text>
               {reasons.map((r) => (
                 <View key={r.key} style={styles.featureRow}>
                   <View style={styles.featureIconWrap}>
@@ -287,7 +289,7 @@ export default function PaymentRejectedScreen(): React.JSX.Element {
           accessibilityRole="button"
           onPress={handleRetry}
         >
-          <Text style={styles.primaryButtonText}>Coba Lagi</Text>
+          <Text style={styles.primaryButtonText}>{t("common.retry")}</Text>
         </Pressable>
 
         <Pressable
@@ -295,7 +297,7 @@ export default function PaymentRejectedScreen(): React.JSX.Element {
           accessibilityRole="button"
           onPress={handleBack}
         >
-          <Text style={styles.secondaryButtonText}>Kembali ke Profil</Text>
+          <Text style={styles.secondaryButtonText}>{t("paymentRejected.backToProfile")}</Text>
         </Pressable>
       </View>
     </View>

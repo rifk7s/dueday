@@ -1,6 +1,7 @@
 import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Modal,
     Pressable,
@@ -28,6 +29,7 @@ export default function DatePickerCalendar({
   inline = false,
   markedDays = [],
 }: Readonly<DatePickerCalendarProps>) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const today = new Date();
@@ -139,7 +141,7 @@ export default function DatePickerCalendar({
           <Pressable onPress={onClose}>
             <Ionicons name="close" size={24} color={colors.onSurface} />
           </Pressable>
-          <Text style={styles.headerTitle}>Pilih Tanggal</Text>
+          <Text style={styles.headerTitle}>{t("components.datePicker.title")}</Text>
           <View style={{ width: 24 }} />
         </View>
       ) : null}
@@ -205,10 +207,10 @@ export default function DatePickerCalendar({
       {!inline ? (
         <View style={styles.footer}>
           <Pressable style={styles.cancelButton} onPress={handleCancel}>
-            <Text style={styles.cancelText}>Batal</Text>
+            <Text style={styles.cancelText}>{t("common.cancel")}</Text>
           </Pressable>
           <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-            <Text style={styles.confirmText}>OK</Text>
+            <Text style={styles.confirmText}>{t("common.ok")}</Text>
           </Pressable>
         </View>
       ) : null}

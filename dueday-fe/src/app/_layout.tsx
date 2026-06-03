@@ -2,6 +2,8 @@ import { SessionProvider, useSession } from "@/auth/ctx";
 import { SplashScreenController } from "@/auth/splash";
 import { modalScreenOptions, stackScreenOptions, successScreenOptions } from "@/constants/navigation";
 import "@/global.css";
+// Importing the i18n module runs its `.init()` as a side effect.
+import { getStoredLanguage, setLanguage, toLangCode } from "@/lib/i18n";
 import { scheduleSyncReminderNotifications } from "@/hooks/useReminders";
 import { parseReminderId, recordDelivered, syncPresented } from "@/lib/notificationHistory";
 import { ensureAndroidChannel, setupNotificationHandler } from "@/lib/notifications";
@@ -19,6 +21,7 @@ import * as Notifications from "expo-notifications";
 import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Alert, AppState } from "react-native";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -54,7 +57,11 @@ export default function RootLayout() {
     Lexend_900Black,
   });
 
-  if (!loaded && !error) return null;
+  // The language detector is async, so gate the splash on i18n readiness too.
+  // This is what removes the cold-start device-default -> stored-choice flicker.
+  const { ready } = useTranslation();
+
+  if ((!loaded && !error) || !ready) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -152,7 +159,19 @@ function useNotificationResponseHandler() {
 }
 
 function RootNavigator() {
-  const { token } = useSession();
+  const { token, user } = useSession();
+
+  // Adopt the account's saved language on login — but only if the user hasn't
+  // made an explicit choice on this device yet. A stored choice always wins, so
+  // an in-session switch is never overridden. `setLanguage` re-persists it.
+  const userLanguage = user?.language;
+  React.useEffect(() => {
+    if (!userLanguage) return;
+    void (async () => {
+      const stored = await getStoredLanguage();
+      if (!stored) await setLanguage(toLangCode(userLanguage));
+    })();
+  }, [userLanguage]);
 
   // Reminder scheduling is otherwise only triggered by in-app task/activity CRUD
   // and reminder-settings changes. Server-created tasks (e-learn backfill, etc.)

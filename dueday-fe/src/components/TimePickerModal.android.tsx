@@ -2,6 +2,7 @@ import { colors, fonts } from "@/constants/theme";
 import { DateTimePicker } from "@expo/ui/jetpack-compose";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = {
@@ -31,6 +32,7 @@ export default function TimePickerModal({
   onTimeSelect,
   selectedTime,
 }: Readonly<Props>) {
+  const { t } = useTranslation();
   const [initialIso, setInitialIso] = useState<string>(() => parseHHMM(selectedTime).toISOString());
   const [draft, setDraft] = useState<Date>(() => parseHHMM(selectedTime));
 
@@ -55,7 +57,7 @@ export default function TimePickerModal({
             <Pressable onPress={onClose} hitSlop={8}>
               <Ionicons name="close" size={24} color={colors.onSurface} />
             </Pressable>
-            <Text style={styles.headerTitle}>Pilih Waktu</Text>
+            <Text style={styles.headerTitle}>{t("components.timePicker.title")}</Text>
             <View style={{ width: 24 }} />
           </View>
 
@@ -72,10 +74,10 @@ export default function TimePickerModal({
 
           <View style={styles.footer}>
             <Pressable style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelText}>Batal</Text>
+              <Text style={styles.cancelText}>{t("common.cancel")}</Text>
             </Pressable>
             <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-              <Text style={styles.confirmText}>OK</Text>
+              <Text style={styles.confirmText}>{t("common.ok")}</Text>
             </Pressable>
           </View>
         </View>

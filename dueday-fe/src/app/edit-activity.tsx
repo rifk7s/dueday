@@ -7,9 +7,11 @@ import TagSelector from "@/components/TagSelector";
 import type { Tag } from "@/api/tags";
 import { fromApiTime, toApiDate, toApiTime } from "@/api/format";
 import { ULANGI_API_MAP, type UlangiType } from "@/api/activities";
+import { repeatOptionLabel } from "@/lib/taskLabels";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Keyboard,
@@ -53,6 +55,7 @@ function repeatToUi(value: UlangiType | null | undefined): RepeatType | null {
 }
 
 export default function EditActivityPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
@@ -86,9 +89,9 @@ export default function EditActivityPage() {
 
     if (activity.status === "ongoing") {
       if (Platform.OS === "android") {
-        ToastAndroid.show("Tidak bisa edit saat aktivitas masih ongoing", ToastAndroid.SHORT);
+        ToastAndroid.show(t("editActivity.ongoingToast"), ToastAndroid.SHORT);
       } else {
-        Alert.alert("Tidak bisa edit", "Aktivitas masih ongoing. Selesaikan atau jeda dulu sebelum mengedit.");
+        Alert.alert(t("editActivity.ongoingTitle"), t("editActivity.ongoingBody"));
       }
       router.back();
       return;
@@ -155,15 +158,15 @@ export default function EditActivityPage() {
     }
 
     if (!namaaktivitas.trim()) {
-      setValidationError("Nama aktivitas wajib diisi.");
+      setValidationError(t("createActivity.nameRequired"));
       return;
     }
     if (!tanggal) {
-      setValidationError("Tanggal wajib dipilih.");
+      setValidationError(t("createActivity.dateRequired"));
       return;
     }
     if (!jamMulai || !jamSelesai) {
-      setValidationError("Waktu mulai dan selesai wajib diisi.");
+      setValidationError(t("editActivity.timeRequired"));
       return;
     }
     setValidationError("");
@@ -175,9 +178,7 @@ export default function EditActivityPage() {
     if (isDateChanged && resolvedRepeat && resolvedRepeat !== "setiap_hari") {
       // WEB COMPATIBILITY CHECK
       if (Platform.OS === "web") {
-        const confirmChange = window.confirm(
-          "Ubah Anchor Date?\n\nKlik 'OK' jika Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga.\n\nKlik 'Batal' jika hanya ingin mengubah hari ini saja."
-        );
+        const confirmChange = window.confirm(t("editActivity.anchorWebConfirm"));
         // window.confirm returns true for OK, false for Cancel/Batal
         executeSave(confirmChange);
         return;
@@ -185,16 +186,16 @@ export default function EditActivityPage() {
 
       // NATIVE MOBILE FLOW (iOS / Android)
       Alert.alert(
-        "Ubah Anchor Date?",
-        "Apakah Anda ingin mengubah tanggal baseline (anchor date) untuk perulangan jadwal ini juga?",
+        t("editActivity.anchorTitle"),
+        t("editActivity.anchorBody"),
         [
           {
-            text: "Hanya Hari Ini",
+            text: t("editActivity.anchorOnlyToday"),
             style: "cancel",
             onPress: () => executeSave(false),
           },
           {
-            text: "Ubah Anchor Date",
+            text: t("editActivity.anchorChange"),
             style: "default",
             onPress: () => executeSave(true),
           },
@@ -228,9 +229,9 @@ export default function EditActivityPage() {
   if (error || !activity) {
     return (
       <View style={[styles.centered, { paddingTop: top }]}>
-        <Text style={styles.emptyText}>Aktivitas tidak ditemukan.</Text>
+        <Text style={styles.emptyText}>{t("editActivity.notFound")}</Text>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>Kembali</Text>
+          <Text style={styles.backLinkText}>{t("common.back")}</Text>
         </Pressable>
       </View>
     );
@@ -242,7 +243,7 @@ export default function EditActivityPage() {
         <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Edit Aktivitas</Text>
+        <Text style={styles.headerTitle}>{t("editActivity.title")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -257,15 +258,15 @@ export default function EditActivityPage() {
         {validationError ? <Text style={styles.errorText}>{validationError}</Text> : null}
         {updateMutation.isError ? (
           <Text style={styles.errorText}>
-            {updateMutation.error instanceof Error ? updateMutation.error.message : "Gagal menyimpan aktivitas."}
+            {updateMutation.error instanceof Error ? updateMutation.error.message : t("createActivity.saveFailed")}
           </Text>
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.label}>Nama Aktivitas</Text>
+          <Text style={styles.label}>{t("createActivity.nameLabel")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Olahraga pagi"
+            placeholder={t("createActivity.namePlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={namaaktivitas}
             onChangeText={setNamaaktivitas}
@@ -273,17 +274,17 @@ export default function EditActivityPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Tanggal</Text>
+          <Text style={styles.label}>{t("createActivity.dateLabel")}</Text>
           <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
             <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
-              {tanggal || "Pilih tanggal"}
+              {tanggal || t("createActivity.pickDate")}
             </Text>
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Waktu</Text>
+          <Text style={styles.label}>{t("createActivity.timeLabel")}</Text>
           <View style={styles.timeRow}>
             <Pressable
               style={[styles.dateTimeContainer, styles.timeContainer]}
@@ -291,7 +292,7 @@ export default function EditActivityPage() {
             >
               <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
               <Text style={[styles.dateTimeText, !jamMulai && styles.dateTimePlaceholder]}>
-                {jamMulai || "Mulai"}
+                {jamMulai || t("createActivity.startPlaceholder")}
               </Text>
             </Pressable>
             <Pressable
@@ -300,7 +301,7 @@ export default function EditActivityPage() {
             >
               <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
               <Text style={[styles.dateTimeText, !jamSelesai && styles.dateTimePlaceholder]}>
-                {jamSelesai || "Selesai"}
+                {jamSelesai || t("createActivity.endPlaceholder")}
               </Text>
             </Pressable>
           </View>
@@ -309,7 +310,7 @@ export default function EditActivityPage() {
         <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
         <View style={styles.section}>
-          <Text style={styles.label}>Ulangi</Text>
+          <Text style={styles.label}>{t("createActivity.repeatLabel")}</Text>
           <View style={styles.chipsRow}>
             {repeatOptions.map((r) => {
               const selected = isRepeatSelected(r);
@@ -323,7 +324,7 @@ export default function EditActivityPage() {
                   ]}
                 >
                   <Text style={[styles.chipText, { color: selected ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                    {r}
+                    {repeatOptionLabel(r, t)}
                   </Text>
                 </Pressable>
               );
@@ -332,10 +333,10 @@ export default function EditActivityPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Deskripsi</Text>
+          <Text style={styles.label}>{t("createActivity.descriptionLabel")}</Text>
           <TextInput
             style={[styles.input, styles.descriptionInput, styles.savedText]}
-            placeholder="Catatan (opsional)..."
+            placeholder={t("createActivity.descriptionPlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={deskripsi}
             onChangeText={setDeskripsi}
@@ -370,7 +371,7 @@ export default function EditActivityPage() {
           {updateMutation.isPending ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+            <Text style={styles.saveButtonText}>{t("editTask.saveChanges")}</Text>
           )}
         </Pressable>
       </Animated.View>

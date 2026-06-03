@@ -1,4 +1,5 @@
 import { colors, fonts, typography } from "@/constants/theme";
+import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
@@ -20,6 +21,7 @@ export function ProgressCard({
   onUpdatePress, 
   hideUpdateButton = false 
 }: Readonly<ProgressCardProps>) {
+  const { t } = useTranslation();
   const clamped = Math.max(0, Math.min(100, progress));
   const dashOffset = CIRCUMFERENCE * (1 - clamped / 100);
 
@@ -61,7 +63,7 @@ export function ProgressCard({
       {/* Renders the button only if hideUpdateButton is false */}
       {!hideUpdateButton && (
         <Pressable style={styles.button} onPress={onUpdatePress}>
-          <Text style={styles.buttonText}>Update progress</Text>
+          <Text style={styles.buttonText}>{t("components.progressCard.update")}</Text>
         </Pressable>
       )}
     </View>
