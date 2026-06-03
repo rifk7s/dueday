@@ -5,48 +5,59 @@ import { useReminderSettingsQuery, useUpdateReminderSettingsMutation } from "@/h
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 type ReminderRouteType = "task" | "activity";
 
-const STYLE_OPTIONS: { label: string; value: ReminderStyle }[] = [
-  { label: "Tegas", value: "tegas" },
-  { label: "Ngancam halus", value: "ngancam_halus" },
-  { label: "Santai", value: "santai" },
-];
+const STYLE_VALUES: ReminderStyle[] = ["tegas", "ngancam_halus", "santai"];
 
+// Sound names are technical/brand labels shown identically in both languages.
 const SOUND_OPTIONS: { label: string; value: ReminderSound }[] = [
   { label: "Default", value: "default" },
   { label: "Chime", value: "chime" },
   { label: "Bell", value: "bell" },
 ];
 
+function styleLabel(value: ReminderStyle, t: TFunction): string {
+  switch (value) {
+    case "tegas":
+      return t("setReminderPremium.styleFirm");
+    case "ngancam_halus":
+      return t("setReminderPremium.styleSubtle");
+    case "santai":
+      return t("setReminderPremium.styleCasual");
+  }
+}
+
 function resolveReminderType(value: string | string[] | undefined): ReminderRouteType {
-  const t = Array.isArray(value) ? value[0] : value;
-  return t === "activity" ? "activity" : "task";
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "activity" ? "activity" : "task";
 }
 
 function showFeedback(title: string, text: string): void {
   Alert.alert(title, text);
 }
 
-function formatFireTime(d: Date, now: Date = new Date()): string {
+function formatFireTime(d: Date, t: TFunction, now: Date = new Date()): string {
   const sameDay = d.toDateString() === now.toDateString();
   const hh = d.getHours().toString().padStart(2, "0");
   const mm = d.getMinutes().toString().padStart(2, "0");
-  if (sameDay) return `hari ini ${hh}:${mm}`;
+  if (sameDay) return t("setReminder.todayAt", { time: `${hh}:${mm}` });
   const day = d.getDate();
   const monthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
   return `${day} ${monthLabels[d.getMonth()]} ${hh}:${mm}`;
 }
 
 export default function SetReminderPremiumScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const reminderType = resolveReminderType(params.type);
-  const reminderLabel = reminderType === "activity" ? "aktivitas" : "tugas";
+  const reminderLabel = reminderType === "activity" ? t("setReminder.typeActivity") : t("setReminder.typeTask");
 
   const settingsQuery = useReminderSettingsQuery();
   const mutation = useUpdateReminderSettingsMutation();
@@ -86,29 +97,29 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
       });
       const summary = result[reminderType];
       if (!result.permissionGranted) {
-        showFeedback("Izin notifikasi", "Pengaturan disimpan tapi izin notifikasi belum diberikan.");
+        showFeedback(t("setReminder.permTitle"), t("setReminder.permBody"));
       } else if (summary.scheduledCount === 0) {
         showFeedback(
-          "Belum ada yang dijadwalkan",
-          `Pengaturan ${reminderLabel} tersimpan, tapi jamnya udah lewat atau terlalu dekat. Coba set jam beberapa menit ke depan.`,
+          t("setReminder.noneTitle"),
+          t("setReminder.noneBody", { label: reminderLabel }),
         );
       } else {
-        const first = summary.firstFireAt ? formatFireTime(summary.firstFireAt) : null;
-        const last = summary.lastFireAt ? formatFireTime(summary.lastFireAt) : null;
+        const first = summary.firstFireAt ? formatFireTime(summary.firstFireAt, t) : null;
+        const last = summary.lastFireAt ? formatFireTime(summary.lastFireAt, t) : null;
         const range = first && last && first !== last ? `${first} → ${last}` : first ?? "";
         showFeedback(
-          "Berhasil",
-          `${summary.scheduledCount} reminder ${reminderLabel} dijadwalkan.\nNotif: ${range}.`,
+          t("common.success"),
+          t("setReminder.successBody", { count: summary.scheduledCount, label: reminderLabel, range }),
         );
       }
       router.back();
     } catch (error) {
-      const text = error instanceof Error ? error.message : "Gagal menyimpan reminder.";
-      showFeedback("Gagal", text);
+      const text = error instanceof Error ? error.message : t("setReminderPremium.saveFailed");
+      showFeedback(t("common.failed"), text);
     }
   };
 
-  const selectedStyleLabel = STYLE_OPTIONS.find((o) => o.value === style)?.label ?? "Tegas";
+  const selectedStyleLabel = styleLabel(style, t);
   const selectedSoundLabel = SOUND_OPTIONS.find((o) => o.value === sound)?.label ?? "Default";
 
   return (
@@ -116,7 +127,7 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Kembali"
+          accessibilityLabel={t("common.back")}
           hitSlop={10}
           onPress={() => router.back()}
           style={styles.backButton}
@@ -124,7 +135,7 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
 
-        <Text style={styles.headerTitle}>Set Reminder Premium</Text>
+        <Text style={styles.headerTitle}>{t("setReminderPremium.title")}</Text>
 
         <View style={styles.headerSpacer} />
       </View>
@@ -143,9 +154,9 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
             />
           </View>
           <View style={styles.heroTextBlock}>
-            <Text style={styles.heroTitle}>Fitur Premium</Text>
+            <Text style={styles.heroTitle}>{t("setReminderPremium.heroTitle")}</Text>
             <Text style={styles.heroSubtitle}>
-              Pengingat AI dengan gaya pilihan kamu. Berlaku untuk semua {reminderLabel} aktif.
+              {t("setReminderPremium.heroSubtitle", { label: reminderLabel })}
             </Text>
           </View>
         </View>
@@ -153,8 +164,8 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <View style={styles.summaryTextBlock}>
-              <Text style={styles.summaryLabel}>Reminder untuk semua</Text>
-              <Text style={styles.summaryTitle}>{reminderType === "activity" ? "Aktivitas" : "Tugas"}</Text>
+              <Text style={styles.summaryLabel}>{t("setReminder.forAll")}</Text>
+              <Text style={styles.summaryTitle}>{reminderType === "activity" ? t("common.activity") : t("common.task")}</Text>
             </View>
             <View style={styles.typeBadge}>
               <Ionicons
@@ -162,17 +173,17 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
                 size={12}
                 color={colors.primaryContainer}
               />
-              <Text style={styles.typeBadgeText}>{reminderType === "activity" ? "Aktivitas" : "Tugas"}</Text>
+              <Text style={styles.typeBadgeText}>{reminderType === "activity" ? t("common.activity") : t("common.task")}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Isi Pesan (opsional)</Text>
+          <Text style={styles.label}>{t("setReminderPremium.messageLabel")}</Text>
           <TextInput
             value={message}
             onChangeText={setMessage}
-            placeholder={`Kosongkan untuk pakai AI · contoh: Kerjakan ${reminderLabel}`}
+            placeholder={t("setReminderPremium.messagePlaceholder", { label: reminderLabel })}
             placeholderTextColor={colors.iconMuted}
             style={styles.messageInput}
             multiline
@@ -182,21 +193,21 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Waktu</Text>
+          <Text style={styles.label}>{t("setReminderPremium.timeLabel")}</Text>
           <Pressable style={styles.timeBox} onPress={() => setPickerVisible(true)}>
             <View style={styles.timeIconWrap}>
               <Ionicons name="time-outline" size={22} color={colors.primaryContainer} />
             </View>
             <View style={styles.timeTextBlock}>
               <Text style={styles.timeText}>{time}</Text>
-              <Text style={styles.timeHint}>Ketuk untuk ubah waktu</Text>
+              <Text style={styles.timeHint}>{t("setReminderPremium.timeHint")}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.iconMuted} />
           </Pressable>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Gaya Pesan</Text>
+          <Text style={styles.label}>{t("setReminderPremium.styleLabel")}</Text>
           <Pressable
             style={styles.dropdown}
             onPress={() => setOpenDropdown(openDropdown === "style" ? null : "style")}
@@ -206,16 +217,16 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
           </Pressable>
           {openDropdown === "style" ? (
             <View style={styles.dropdownList}>
-              {STYLE_OPTIONS.map((opt) => (
+              {STYLE_VALUES.map((value) => (
                 <Pressable
-                  key={opt.value}
+                  key={value}
                   style={styles.dropdownItem}
                   onPress={() => {
-                    setStyle(opt.value);
+                    setStyle(value);
                     setOpenDropdown(null);
                   }}
                 >
-                  <Text style={styles.dropdownItemText}>{opt.label}</Text>
+                  <Text style={styles.dropdownItemText}>{styleLabel(value, t)}</Text>
                 </Pressable>
               ))}
             </View>
@@ -223,7 +234,7 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Suara Notifikasi</Text>
+          <Text style={styles.label}>{t("setReminderPremium.soundLabel")}</Text>
           <Pressable
             style={styles.dropdown}
             onPress={() => setOpenDropdown(openDropdown === "sound" ? null : "sound")}
@@ -250,13 +261,13 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Getaran</Text>
+          <Text style={styles.label}>{t("setReminderPremium.vibrateLabel")}</Text>
           <Switch value={vibrate} onValueChange={setVibrate} thumbColor={colors.primaryContainer} />
         </View>
 
         <Pressable style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={handleSave} disabled={isSaving}>
           <Ionicons name="checkmark-circle-outline" size={18} color={colors.onPrimary} />
-          <Text style={styles.saveButtonText}>{isSaving ? "Menyimpan..." : "Simpan"}</Text>
+          <Text style={styles.saveButtonText}>{isSaving ? t("common.saving") : t("common.save")}</Text>
         </Pressable>
       </ScrollView>
 
@@ -271,7 +282,7 @@ export default function SetReminderPremiumScreen(): React.JSX.Element {
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={colors.primaryContainer} />
-            <Text style={styles.loadingText}>Menjadwalkan reminder...</Text>
+            <Text style={styles.loadingText}>{t("setReminder.scheduling")}</Text>
           </View>
         </View>
       </Modal>

@@ -7,9 +7,11 @@ import TimePicker from "@/components/TimePickerModal";
 import { colors, fonts } from "@/constants/theme";
 import { useGradualAnimation } from "@/hooks/useGradualAnimation";
 import { useCreateTaskMutation } from "@/hooks/useTasks";
+import { priorityOptionLabel } from "@/lib/taskLabels";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +35,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type PriorityType = "Tinggi" | "Sedang" | "Rendah" | null;
 
 export default function CreateTaskPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
@@ -77,19 +80,19 @@ export default function CreateTaskPage() {
     const errs: Record<string, string> = {};
     if (!namatugas.trim()) {
       missing.push("Nama tugas");
-      errs["namatugas"] = "Nama tugas wajib diisi.";
+      errs["namatugas"] = t("createTask.nameRequired");
     }
     if (!tanggal) {
       missing.push("Tenggat waktu");
-      errs["tanggal"] = "Tenggat waktu wajib dipilih.";
+      errs["tanggal"] = t("createTask.deadlineRequired");
     }
     if (!jam) {
       missing.push("Jam");
-      errs["jam"] = "Jam wajib dipilih.";
+      errs["jam"] = t("createTask.timeRequired");
     }
     if (!goals.trim()) {
       missing.push("Goals");
-      errs["goals"] = "Goals wajib diisi.";
+      errs["goals"] = t("createTask.goalsRequired");
     }
 
     if (missing.length > 0) {
@@ -116,9 +119,9 @@ export default function CreateTaskPage() {
       {
         onSuccess: () => {
           if (Platform.OS === "android") {
-            ToastAndroid.show("Tugas berhasil dibuat!", ToastAndroid.SHORT);
+            ToastAndroid.show(t("createTask.createdSuccess"), ToastAndroid.SHORT);
           } else {
-            Alert.alert("Berhasil", "Tugas berhasil dibuat!");
+            Alert.alert(t("common.success"), t("createTask.createdSuccess"));
           }
           router.back();
         },
@@ -142,7 +145,7 @@ export default function CreateTaskPage() {
         <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Buat Tugas</Text>
+        <Text style={styles.headerTitle}>{t("createTask.title")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -157,15 +160,15 @@ export default function CreateTaskPage() {
       >
         {mutation.isError ? (
           <Text style={styles.errorText}>
-            {mutation.error instanceof Error ? mutation.error.message : "Gagal menyimpan tugas."}
+            {mutation.error instanceof Error ? mutation.error.message : t("createTask.saveFailed")}
           </Text>
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.label}>Nama Tugas</Text>
+          <Text style={styles.label}>{t("createTask.taskNameLabel")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Laporan RPL Bab 3"
+            placeholder={t("createTask.taskNamePlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={namatugas}
             onChangeText={setNamaTugas}
@@ -176,11 +179,11 @@ export default function CreateTaskPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Tenggat Waktu</Text>
+          <Text style={styles.label}>{t("createTask.deadlineLabel")}</Text>
           <Pressable style={[styles.dateTimeContainer, styles.dateOnlyContainer]} onPress={() => setShowCalendar(true)}>
             <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
-              {tanggal || "Pilih tanggal"}
+              {tanggal || t("createTask.pickDate")}
             </Text>
           </Pressable>
           {fieldErrors["tanggal"] ? (
@@ -190,7 +193,7 @@ export default function CreateTaskPage() {
           <Pressable style={[styles.dateTimeContainer, styles.timeSpacing]} onPress={() => setShowTimePicker(true)}>
             <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !jam && styles.dateTimePlaceholder]}>
-              {jam || "Pilih waktu"}
+              {jam || t("createTask.pickTime")}
             </Text>
           </Pressable>
           {fieldErrors["jam"] ? (
@@ -199,7 +202,7 @@ export default function CreateTaskPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Prioritas</Text>
+          <Text style={styles.label}>{t("createTask.priorityLabel")}</Text>
           <View style={styles.chipRow}>
             {(["Tinggi", "Sedang", "Rendah"] as const).map((priority) => {
               const isSelected = prioritas === priority;
@@ -216,7 +219,7 @@ export default function CreateTaskPage() {
                   ]}
                 >
                   <Text style={[styles.chipText, { color: isSelected ? colors.onPrimary : priorityColor }]}>
-                    {priority}
+                    {priorityOptionLabel(priority, t)}
                   </Text>
                 </Pressable>
               );
@@ -227,10 +230,10 @@ export default function CreateTaskPage() {
         <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
         <View style={styles.section}>
-          <Text style={styles.label}>Goals</Text>
+          <Text style={styles.label}>{t("createTask.goalsLabel")}</Text>
           <TextInput
             style={[styles.input, styles.goalsInput]}
-            placeholder="Isi dalam bentuk poin"
+            placeholder={t("createTask.goalsPlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={goals}
             onChangeText={setGoals}
@@ -256,10 +259,10 @@ export default function CreateTaskPage() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Deskripsi</Text>
+          <Text style={styles.label}>{t("createTask.descriptionLabel")}</Text>
           <TextInput
             style={[styles.input, styles.descriptionInput]}
-            placeholder="Catatan tambahan (opsional)..."
+            placeholder={t("createTask.descriptionPlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={deskripsi}
             onChangeText={setDeskripsi}
@@ -295,7 +298,7 @@ export default function CreateTaskPage() {
           {mutation.isPending ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>Simpan</Text>
+            <Text style={styles.saveButtonText}>{t("common.save")}</Text>
           )}
         </Pressable>
       </Animated.View>

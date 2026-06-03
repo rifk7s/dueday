@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Pressable,
@@ -27,6 +28,7 @@ function firstParam(value: string | string[] | undefined): string {
 }
 
 export default function ResetPasswordScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams<ResetParams>();
@@ -54,12 +56,12 @@ export default function ResetPasswordScreen(): React.JSX.Element {
 
   const handleSubmit = async (): Promise<void> => {
     if (!email.trim() || !token.trim() || !password.trim() || !passwordConfirmation.trim()) {
-      setError("Email, token, dan password baru harus lengkap.");
+      setError(t("resetPassword.fieldsRequired"));
       return;
     }
 
     if (password !== passwordConfirmation) {
-      setError("Konfirmasi password belum sama.");
+      setError(t("resetPassword.confirmMismatch"));
       return;
     }
 
@@ -74,10 +76,10 @@ export default function ResetPasswordScreen(): React.JSX.Element {
         password,
         passwordConfirmation,
       });
-      setMessage("Password berhasil direset.");
+      setMessage(t("resetPassword.resetSuccess"));
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mereset password.");
+      setError(err instanceof Error ? err.message : t("resetPassword.resetFailed"));
     } finally {
       setLoading(false);
     }
@@ -100,8 +102,8 @@ export default function ResetPasswordScreen(): React.JSX.Element {
           <View style={styles.heroIcon}>
             <Ionicons name="key-outline" size={24} color={colors.onPrimary} />
           </View>
-          <Text style={styles.title}>Reset Password</Text>
-          <Text style={styles.subtitle}>Cek emailmu, lalu atur password baru kamu.</Text>
+          <Text style={styles.title}>{t("resetPassword.title")}</Text>
+          <Text style={styles.subtitle}>{t("resetPassword.subtitle")}</Text>
         </View>
 
         {error ? (
@@ -115,7 +117,7 @@ export default function ResetPasswordScreen(): React.JSX.Element {
             <Text style={styles.successText}>{message}</Text>
             {success ? (
               <Text style={styles.successHint}>
-                Kembali ke login dalam {secondsLeft} detik…
+                {t("resetPassword.redirectHint", { seconds: secondsLeft })}
               </Text>
             ) : null}
           </View>
@@ -123,12 +125,12 @@ export default function ResetPasswordScreen(): React.JSX.Element {
 
         <View style={styles.form}>
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Email UC</Text>
+            <Text style={styles.fieldLabel}>{t("resetPassword.emailLabel")}</Text>
             <View style={styles.inputRow}>
               <Ionicons name="at-outline" size={20} color={colors.tertiaryContainer} />
               <TextInput
                 style={styles.textInput}
-                placeholder="nama@uc.ac.id"
+                placeholder={t("resetPassword.emailPlaceholder")}
                 placeholderTextColor={colors.tertiaryContainer}
                 value={email}
                 onChangeText={setEmail}
@@ -141,12 +143,12 @@ export default function ResetPasswordScreen(): React.JSX.Element {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Password Baru</Text>
+            <Text style={styles.fieldLabel}>{t("resetPassword.newPasswordLabel")}</Text>
             <View style={styles.inputRow}>
               <Ionicons name="lock-closed-outline" size={20} color={colors.tertiaryContainer} />
               <TextInput
                 style={styles.textInput}
-                placeholder="Password baru"
+                placeholder={t("resetPassword.newPasswordPlaceholder")}
                 placeholderTextColor={colors.tertiaryContainer}
                 value={password}
                 onChangeText={setPassword}
@@ -156,12 +158,12 @@ export default function ResetPasswordScreen(): React.JSX.Element {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Konfirmasi Password</Text>
+            <Text style={styles.fieldLabel}>{t("resetPassword.confirmPasswordLabel")}</Text>
             <View style={styles.inputRow}>
               <Ionicons name="lock-closed-outline" size={20} color={colors.tertiaryContainer} />
               <TextInput
                 style={styles.textInput}
-                placeholder="Ulangi password baru"
+                placeholder={t("resetPassword.confirmPasswordPlaceholder")}
                 placeholderTextColor={colors.tertiaryContainer}
                 value={passwordConfirmation}
                 onChangeText={setPasswordConfirmation}
@@ -175,12 +177,12 @@ export default function ResetPasswordScreen(): React.JSX.Element {
             onPress={handleSubmit}
             disabled={loading || success}
           >
-            {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>Reset Password</Text>}
+            {loading ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.primaryButtonText}>{t("resetPassword.submit")}</Text>}
           </Pressable>
 
           <Pressable style={styles.secondaryButton} onPress={() => router.replace("/login")}>
             <Text style={styles.secondaryButtonText}>
-              {success ? `Masuk ke Login (${secondsLeft})` : "Kembali ke Login"}
+              {success ? t("resetPassword.backToLoginCountdown", { seconds: secondsLeft }) : t("resetPassword.backToLogin")}
             </Text>
           </Pressable>
         </View>

@@ -7,9 +7,11 @@ import TagSelector from "@/components/TagSelector";
 import type { Tag } from "@/api/tags";
 import { fromApiTime, toApiDate, toApiTime } from "@/api/format";
 import { ULANGI_API_MAP, type UlangiType } from "@/api/activities";
+import { repeatOptionLabel } from "@/lib/taskLabels";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Keyboard,
@@ -26,9 +28,7 @@ import { KeyboardAwareScrollView, useKeyboardState } from "react-native-keyboard
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-
 type RepeatType = "Tidak" | "Harian" | "Mingguan" | "Bulanan" | "Tahunan";
-
 
 function formatDisplayDate(value: string | null | undefined): string {
   if (!value) return "";
@@ -38,7 +38,6 @@ function formatDisplayDate(value: string | null | undefined): string {
   const [y, m, d] = parts;
   return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
 }
-
 
 function repeatToUi(value: UlangiType | null | undefined): RepeatType | null {
   switch (value) {
@@ -55,8 +54,8 @@ function repeatToUi(value: UlangiType | null | undefined): RepeatType | null {
   }
 }
 
-
 export default function EditActivityPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
@@ -65,13 +64,11 @@ export default function EditActivityPage() {
   const isDescFocused = useRef(false);
   const [footerHeight, setFooterHeight] = useState(80);
 
-
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: activity, isLoading, error } = useActivityQuery(id, { refetchInterval: false });
   const updateMutation = useUpdateActivityMutation();
   const [validationError, setValidationError] = useState("");
   const isKeyboardVisible = useKeyboardState((s) => s.isVisible);
-
 
   const [namaaktivitas, setNamaaktivitas] = useState("");
   const [tanggal, setTanggal] = useState("");
@@ -85,24 +82,20 @@ export default function EditActivityPage() {
   const [showTimePickerSelesai, setShowTimePickerSelesai] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-
   const repeatOptions: RepeatType[] = ["Tidak", "Harian", "Mingguan", "Bulanan", "Tahunan"];
-
 
   useEffect(() => {
     if (!activity || initialized) return;
 
-
     if (activity.status === "ongoing") {
       if (Platform.OS === "android") {
-        ToastAndroid.show("Tidak bisa edit saat aktivitas masih ongoing", ToastAndroid.SHORT);
+        ToastAndroid.show(t("editActivity.ongoingToast"), ToastAndroid.SHORT);
       } else {
-        Alert.alert("Tidak bisa edit", "Aktivitas masih ongoing. Selesaikan atau jeda dulu sebelum mengedit.");
+        Alert.alert(t("editActivity.ongoingTitle"), t("editActivity.ongoingBody"));
       }
       router.back();
       return;
     }
-
 
     setNamaaktivitas(activity.activity_name ?? "");
     setTanggal(formatDisplayDate(activity.tanggal));
@@ -114,14 +107,11 @@ export default function EditActivityPage() {
     setInitialized(true);
   }, [activity, initialized]);
 
-
   const isRepeatSelected = (r: RepeatType): boolean => repeat === r;
-
 
   // Extracted core payload preparation and execution out to a helper
   const executeSave = (ubahAnchor: boolean | null) => {
     if (!id || !activity) return;
-
 
     const payload: any = {};
     if (namaaktivitas.trim() !== (activity.activity_name ?? "")) payload.activity_name = namaaktivitas.trim();
@@ -129,10 +119,8 @@ export default function EditActivityPage() {
     if (jamMulai !== (fromApiTime(activity.time_start ?? "") || "")) payload.time_start = toApiTime(jamMulai);
     if (jamSelesai !== (fromApiTime(activity.time_end ?? "") || "")) payload.time_end = toApiTime(jamSelesai);
 
-
     const selectedTagId = tag?.id_tag ?? null;
     if (selectedTagId !== (activity.id_tag ?? null)) payload.id_tag = selectedTagId;
-
 
     const isLegacyRepeat = repeat !== null && !repeatOptions.includes(repeat);
     if (!isLegacyRepeat) {
@@ -141,17 +129,14 @@ export default function EditActivityPage() {
       if (ulangi !== currentRepeat) payload.ulangi = ulangi;
     }
 
-
     if ((deskripsi.trim() || null) !== (activity.deskripsi ?? null)) {
       payload.deskripsi = deskripsi.trim() || undefined;
     }
-
 
     // Add explicit user preference flag if passed down
     if (ubahAnchor !== null) {
       payload.ubah_anchor = ubahAnchor;
     }
-
 
     updateMutation.mutate(
       {
@@ -164,79 +149,69 @@ export default function EditActivityPage() {
     );
   };
 
-
   const handleSave = () => {
     if (!id || !activity) return;
-
 
     if (isKeyboardVisible) {
       Keyboard.dismiss();
       return;
     }
 
-
     if (!namaaktivitas.trim()) {
-      setValidationError("Nama aktivitas wajib diisi.");
+      setValidationError(t("createActivity.nameRequired"));
       return;
     }
     if (!tanggal) {
-      setValidationError("Tanggal wajib dipilih.");
+      setValidationError(t("createActivity.dateRequired"));
       return;
     }
     if (!jamMulai || !jamSelesai) {
-      setValidationError("Waktu mulai dan selesai wajib diisi.");
+      setValidationError(t("editActivity.timeRequired"));
       return;
     }
     setValidationError("");
-
 
     const isDateChanged = tanggal !== formatDisplayDate(activity.tanggal);
     const targetRepeat = repeat ? ULANGI_API_MAP[repeat] : undefined;
     const resolvedRepeat = targetRepeat !== undefined ? targetRepeat : (activity.ulangi ?? null);
 
+    if (isDateChanged && resolvedRepeat && resolvedRepeat !== "setiap_hari") {
+      // WEB COMPATIBILITY CHECK
+      if (Platform.OS === "web") {
+        const confirmChange = window.confirm(t("editActivity.anchorWebConfirm"));
+        // window.confirm returns true for OK, false for Cancel/Batal
+        executeSave(confirmChange);
+        return;
+      }
 
-  if (isDateChanged && resolvedRepeat && resolvedRepeat !== "setiap_hari") {
-    // WEB COMPATIBILITY CHECK
-    if (Platform.OS === "web") {
-      const confirmChange = window.confirm(
-        "Ubah Acara Berulang?\n\n" +
-        "Klik 'OK' untuk menerapkan perubahan pada ACARA INI DAN MENDATANG (This and future events).\n\n" +
-        "Klik 'Batal' jika HANYA UNTUK ACARA INI SAJA (Only this event)."
+      // NATIVE MOBILE FLOW (iOS / Android)
+      Alert.alert(
+        t("editActivity.anchorTitle"),
+        t("editActivity.anchorBody"),
+        [
+          {
+            text: t("common.cancel"),
+            style: "destructive",
+            onPress: () => {},
+          },
+          {
+            text: t("editActivity.anchorOnlyToday"),
+            style: "cancel",
+            onPress: () => executeSave(false),
+          },
+          {
+            text: t("editActivity.anchorChange"),
+            style: "default",
+            onPress: () => executeSave(true),
+          },
+        ],
+        { cancelable: true }
       );
-      // window.confirm: true = OK (This and future), false = Cancel (Only this)
-      executeSave(confirmChange);
       return;
     }
 
-
-    // NATIVE MOBILE FLOW (iOS / Android)
-    Alert.alert(
-      "Ubah Acara Berulang?",
-      "Apakah Anda ingin menerapkan perubahan ini pada seluruh rangkaian jadwal ke depan atau hanya acara ini saja?",
-      [
-        {
-          text: "Batal",
-          style: "destructive",
-          onPress: () => {}, // Menutup alert tanpa menyimpan jika salah klik
-        },
-        {
-          text: "Hanya Acara Ini", // Only this event
-          style: "cancel",
-          onPress: () => executeSave(false),
-        },
-        {
-          text: "Acara Ini dan Mendatang", // This and future events
-          style: "default",
-          onPress: () => executeSave(true),
-        },
-      ],
-      { cancelable: true }
-    );
-    return;
-  }
-      executeSave(null);
-    };
-
+    executeSave(null);
+  };
 
   const footerAnimatedStyle = useAnimatedStyle(() => ({
     bottom: height.value,
@@ -248,7 +223,6 @@ export default function EditActivityPage() {
     ),
   }));
 
-
   if (isLoading) {
     return (
       <View style={[styles.centered, { paddingTop: top }]}>
@@ -257,18 +231,16 @@ export default function EditActivityPage() {
     );
   }
 
-
   if (error || !activity) {
     return (
       <View style={[styles.centered, { paddingTop: top }]}>
-        <Text style={styles.emptyText}>Aktivitas tidak ditemukan.</Text>
+        <Text style={styles.emptyText}>{t("editActivity.notFound")}</Text>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>Kembali</Text>
+          <Text style={styles.backLinkText}>{t("common.back")}</Text>
         </Pressable>
       </View>
     );
   }
-
 
   return (
     <View style={[styles.root, { paddingTop: top }]}>
@@ -276,10 +248,9 @@ export default function EditActivityPage() {
         <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Edit Aktivitas</Text>
+        <Text style={styles.headerTitle}>{t("editActivity.title")}</Text>
         <View style={styles.headerSpacer} />
       </View>
-
 
       <KeyboardAwareScrollView
         ref={scrollRef}
@@ -292,36 +263,33 @@ export default function EditActivityPage() {
         {validationError ? <Text style={styles.errorText}>{validationError}</Text> : null}
         {updateMutation.isError ? (
           <Text style={styles.errorText}>
-            {updateMutation.error instanceof Error ? updateMutation.error.message : "Gagal menyimpan aktivitas."}
+            {updateMutation.error instanceof Error ? updateMutation.error.message : t("createActivity.saveFailed")}
           </Text>
         ) : null}
 
-
         <View style={styles.section}>
-          <Text style={styles.label}>Nama Aktivitas</Text>
+          <Text style={styles.label}>{t("createActivity.nameLabel")}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Contoh: Olahraga pagi"
+            placeholder={t("createActivity.namePlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={namaaktivitas}
             onChangeText={setNamaaktivitas}
           />
         </View>
 
-
         <View style={styles.section}>
-          <Text style={styles.label}>Tanggal</Text>
+          <Text style={styles.label}>{t("createActivity.dateLabel")}</Text>
           <Pressable style={styles.dateTimeContainer} onPress={() => setShowCalendar(true)}>
             <Ionicons name="calendar-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder]}>
-              {tanggal || "Pilih tanggal"}
+              {tanggal || t("createActivity.pickDate")}
             </Text>
           </Pressable>
         </View>
 
-
         <View style={styles.section}>
-          <Text style={styles.label}>Waktu</Text>
+          <Text style={styles.label}>{t("createActivity.timeLabel")}</Text>
           <View style={styles.timeRow}>
             <Pressable
               style={[styles.dateTimeContainer, styles.timeContainer]}
@@ -329,7 +297,7 @@ export default function EditActivityPage() {
             >
               <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
               <Text style={[styles.dateTimeText, !jamMulai && styles.dateTimePlaceholder]}>
-                {jamMulai || "Mulai"}
+                {jamMulai || t("createActivity.startPlaceholder")}
               </Text>
             </Pressable>
             <Pressable
@@ -338,18 +306,16 @@ export default function EditActivityPage() {
             >
               <Ionicons name="time-outline" size={20} color={colors.primaryContainer} style={styles.dateIcon} />
               <Text style={[styles.dateTimeText, !jamSelesai && styles.dateTimePlaceholder]}>
-                {jamSelesai || "Selesai"}
+                {jamSelesai || t("createActivity.endPlaceholder")}
               </Text>
             </Pressable>
           </View>
         </View>
 
-
         <TagSelector selectedTag={tag} onSelectTag={setTag} />
 
-
         <View style={styles.section}>
-          <Text style={styles.label}>Ulangi</Text>
+          <Text style={styles.label}>{t("createActivity.repeatLabel")}</Text>
           <View style={styles.chipsRow}>
             {repeatOptions.map((r) => {
               const selected = isRepeatSelected(r);
@@ -363,7 +329,7 @@ export default function EditActivityPage() {
                   ]}
                 >
                   <Text style={[styles.chipText, { color: selected ? colors.onPrimary : colors.onSurfaceVariant }]}>
-                    {r}
+                    {repeatOptionLabel(r, t)}
                   </Text>
                 </Pressable>
               );
@@ -371,12 +337,11 @@ export default function EditActivityPage() {
           </View>
         </View>
 
-
         <View style={styles.section}>
-          <Text style={styles.label}>Deskripsi</Text>
+          <Text style={styles.label}>{t("createActivity.descriptionLabel")}</Text>
           <TextInput
             style={[styles.input, styles.descriptionInput, styles.savedText]}
-            placeholder="Catatan (opsional)..."
+            placeholder={t("createActivity.descriptionPlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={deskripsi}
             onChangeText={setDeskripsi}
@@ -399,7 +364,6 @@ export default function EditActivityPage() {
         </View>
       </KeyboardAwareScrollView>
 
-
       <Animated.View
         style={[styles.footer, footerAnimatedStyle]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}
@@ -412,11 +376,10 @@ export default function EditActivityPage() {
           {updateMutation.isPending ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+            <Text style={styles.saveButtonText}>{t("editTask.saveChanges")}</Text>
           )}
         </Pressable>
       </Animated.View>
-
 
       <DatePickerCalendar
         visible={showCalendar}
@@ -439,7 +402,6 @@ export default function EditActivityPage() {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   root: {

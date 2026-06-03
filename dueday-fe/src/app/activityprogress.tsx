@@ -3,6 +3,8 @@ import { colors, fonts, typography } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, Platform, Alert, ToastAndroid } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useActivityQuery, useUpdateActivityMutation, useDeleteActivityMutation } from "@/hooks/useActivities";
@@ -16,6 +18,7 @@ type ActivityProgressParams = {
 };
 
 export default function ActivityProgressScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { id, tab } = useLocalSearchParams<ActivityProgressParams>();
@@ -43,12 +46,12 @@ export default function ActivityProgressScreen() {
   if (error || !activity) {
     return (
       <View style={[styles.screen, styles.centerContent]}>
-        <Text style={styles.errorText}>Failed to load activity</Text>
+        <Text style={styles.errorText}>{t("activityProgress.loadFailed")}</Text>
         <Pressable
           style={styles.primaryButton}
           onPress={() => goBackOr({ pathname: "/list", params: { tab: "aktivitas" } })}
         >
-          <Text style={styles.primaryButtonText}>Go Back</Text>
+          <Text style={styles.primaryButtonText}>{t("activityProgress.goBack")}</Text>
         </Pressable>
       </View>
     );
@@ -61,7 +64,7 @@ export default function ActivityProgressScreen() {
   const startHour = activity.time_start ? formatClock(activity.time_start) : "08.00";
   const endHour = activity.time_end ? formatClock(activity.time_end) : "09.00";
   const activityDate = activity.tanggal ? formatDateLabel(activity.tanggal) : "-";
-  const repeatText = activity.ulangi ? formatRepeat(activity.ulangi) : "Tidak Ada";
+  const repeatText = activity.ulangi ? formatRepeat(activity.ulangi, t) : t("activityProgress.repeatNone");
 
   const updateStatus = (nextStatus: Activity["status"]) => {
     if (!id) return;
@@ -75,42 +78,42 @@ export default function ActivityProgressScreen() {
   const handleDelete = () => {
     if (!id) return;
 
-    const message = "Apakah Anda yakin ingin menghapus aktivitas ini?";
+    const message = t("activityProgress.deleteConfirm");
 
     if (Platform.OS === "web") {
       const confirmDelete = window.confirm(message);
       if (confirmDelete) {
         deleteActivityMutation.mutate(id, {
           onSuccess: () => {
-            window.alert("Aktivitas berhasil dihapus.");
+            window.alert(t("activityProgress.deleteSuccess"));
             router.replace({ pathname: "/list", params: { tab: "aktivitas" } });
           },
           onError: (err) => {
             console.error(err);
-            window.alert("Gagal menghapus aktivitas. Silakan coba lagi.");
+            window.alert(t("activityProgress.deleteFailed"));
           }
         });
       }
     } else {
       Alert.alert(
-        "Hapus Aktivitas",
+        t("activityProgress.deleteTitle"),
         message,
         [
-          { text: "Batal", style: "cancel" },
+          { text: t("common.cancel"), style: "cancel" },
           {
-            text: "Hapus",
+            text: t("common.delete"),
             style: "destructive",
             onPress: () => {
               deleteActivityMutation.mutate(id, {
                 onSuccess: () => {
                   if (Platform.OS === "android") {
-                    ToastAndroid.show("Aktivitas berhasil dihapus", ToastAndroid.SHORT);
+                    ToastAndroid.show(t("activityProgress.deletedToast"), ToastAndroid.SHORT);
                   }
                   router.replace({ pathname: "/list", params: { tab: "aktivitas" } });
                 },
                 onError: (err) => {
                   console.error(err);
-                  Alert.alert("Error", "Gagal menghapus aktivitas. Silakan coba lagi.");
+                  Alert.alert(t("common.error"), t("activityProgress.deleteFailed"));
                 }
               });
             }
@@ -146,12 +149,12 @@ export default function ActivityProgressScreen() {
 
   const handleCancel = () => {
     Alert.alert(
-      "Batalkan aktivitas?",
-      "Aktivitas ini akan ditandai sebagai dibatalkan dan tidak lagi muncul sebagai aktivitas aktif.",
+      t("activityProgress.cancelTitle"),
+      t("activityProgress.cancelBody"),
       [
-        { text: "Tidak", style: "cancel" },
+        { text: t("common.no"), style: "cancel" },
         {
-          text: "Batalkan",
+          text: t("activityProgress.cancelAction"),
           style: "destructive",
           onPress: () => updateStatus("cancelled"),
         },
@@ -161,12 +164,12 @@ export default function ActivityProgressScreen() {
 
   const handleReactivate = () => {
     Alert.alert(
-      "Aktifkan kembali aktivitas?",
-      "Aktivitas ini akan kembali ke status belum mulai dan progresnya direset ke 0%.",
+      t("activityProgress.reactivateTitle"),
+      t("activityProgress.reactivateBody"),
       [
-        { text: "Tidak", style: "cancel" },
+        { text: t("common.no"), style: "cancel" },
         {
-          text: "Aktifkan Kembali",
+          text: t("activityProgress.reactivate"),
           onPress: () => updateStatus("not_started"),
         },
       ],
@@ -178,11 +181,11 @@ export default function ActivityProgressScreen() {
       return (
         <>
           <Pressable style={styles.primaryButton} onPress={handleStart}>
-            <Text style={styles.primaryButtonText}>Mulai</Text>
+            <Text style={styles.primaryButtonText}>{t("activityProgress.start")}</Text>
           </Pressable>
 
           <Pressable style={styles.ghostButton} onPress={handleCancel}>
-            <Text style={styles.ghostButtonText}>Batalkan</Text>
+            <Text style={styles.ghostButtonText}>{t("activityProgress.cancelAction")}</Text>
           </Pressable>
         </>
       );
@@ -192,11 +195,11 @@ export default function ActivityProgressScreen() {
       return (
         <View style={styles.actionRow}>
           <Pressable style={styles.actionHalfButton} onPress={handlePause}>
-            <Text style={styles.secondaryButtonText}>Jeda</Text>
+            <Text style={styles.secondaryButtonText}>{t("activityProgress.pause")}</Text>
           </Pressable>
 
           <Pressable style={styles.actionHalfButtonPrimary} onPress={handleComplete}>
-            <Text style={styles.primaryButtonText}>Selesai</Text>
+            <Text style={styles.primaryButtonText}>{t("common.statusDone")}</Text>
           </Pressable>
         </View>
       );
@@ -206,15 +209,15 @@ export default function ActivityProgressScreen() {
       return (
         <>
           <Pressable style={styles.primaryButton} onPress={handleResume}>
-            <Text style={styles.primaryButtonText}>Lanjutkan</Text>
+            <Text style={styles.primaryButtonText}>{t("activityProgress.resume")}</Text>
           </Pressable>
 
           <Pressable style={styles.secondaryButton} onPress={handleComplete}>
-            <Text style={styles.secondaryButtonText}>Selesai</Text>
+            <Text style={styles.secondaryButtonText}>{t("common.statusDone")}</Text>
           </Pressable>
 
           <Pressable style={styles.ghostButton} onPress={handleCancel}>
-            <Text style={styles.ghostButtonText}>Batalkan</Text>
+            <Text style={styles.ghostButtonText}>{t("activityProgress.cancelAction")}</Text>
           </Pressable>
         </>
       );
@@ -224,10 +227,10 @@ export default function ActivityProgressScreen() {
       return (
         <View style={styles.completeMessage}>
           <Ionicons name="close-circle" size={48} color={colors.error} />
-          <Text style={styles.completeText}>Aktivitas dibatalkan.</Text>
+          <Text style={styles.completeText}>{t("activityProgress.cancelledMessage")}</Text>
 
           <Pressable style={[styles.primaryButton, styles.restoreButton]} onPress={handleReactivate}>
-            <Text style={styles.primaryButtonText}>Aktifkan Kembali</Text>
+            <Text style={styles.primaryButtonText}>{t("activityProgress.reactivate")}</Text>
           </Pressable>
         </View>
       );
@@ -236,7 +239,7 @@ export default function ActivityProgressScreen() {
     return (
       <View style={styles.completeMessage}>
         <Ionicons name="checkmark-circle" size={48} color={ringColor} />
-        <Text style={styles.completeText}>Aktivitas Selesai!</Text>
+        <Text style={styles.completeText}>{t("activityProgress.completedMessage")}</Text>
       </View>
     );
   };
@@ -248,7 +251,7 @@ export default function ActivityProgressScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.primaryContainer} />
         </Pressable>
         
-        <Text style={styles.headerTitle}>Activity Progress</Text>
+        <Text style={styles.headerTitle}>{t("activityProgress.title")}</Text>
         
         <View style={styles.headerActions}>
           <Pressable hitSlop={12} onPress={handleDelete} style={styles.headerActionButton}>
@@ -261,9 +264,9 @@ export default function ActivityProgressScreen() {
               if (!id) return;
               if (activity.status === "ongoing") {
                 if (Platform.OS === "android") {
-                  ToastAndroid.show("Tidak bisa edit saat aktivitas masih ongoing", ToastAndroid.SHORT);
+                  ToastAndroid.show(t("editActivity.ongoingToast"), ToastAndroid.SHORT);
                 } else {
-                  Alert.alert("Tidak bisa edit", "Aktivitas masih ongoing. Selesaikan atau jeda dulu sebelum mengedit.");
+                  Alert.alert(t("editActivity.ongoingTitle"), t("editActivity.ongoingBody"));
                 }
                 return;
               }
@@ -292,27 +295,27 @@ export default function ActivityProgressScreen() {
           {renderStepActions()}
         </CardView>
 
-        <SectionLabel label="WAKTU" />
+        <SectionLabel label={t("activityProgress.timeSection")} />
         <View style={styles.chipRow}>
-          <InfoChip label={`Mulai: ${startHour}`} tone="warm" />
-          <InfoChip label={`Selesai: ${endHour}`} tone="warm" />
+          <InfoChip label={t("activityProgress.startAt", { time: startHour })} tone="warm" />
+          <InfoChip label={t("activityProgress.endAt", { time: endHour })} tone="warm" />
         </View>
 
-        <SectionLabel label="TANGGAL" />
+        <SectionLabel label={t("activityProgress.dateSection")} />
         <View style={styles.singleChipRow}>
           <InfoChip label={activityDate} tone="cool" />
         </View>
 
         {activity.deskripsi && (
           <>
-            <SectionLabel label="DESKRIPSI" />
+            <SectionLabel label={t("taskProgress.descriptionSection")} />
             <Text style={styles.description}>{activity.deskripsi}</Text>
           </>
         )}
 
         {activity.tag && (
           <>
-            <SectionLabel label="TAG" />
+            <SectionLabel label={t("taskProgress.tagSection")} />
             <View style={styles.singleChipRow}>
               <InfoChip label={activity.tag.nama_tag} tone="outline" />
             </View>
@@ -321,7 +324,7 @@ export default function ActivityProgressScreen() {
 
         {activity.ulangi && (
           <>
-            <SectionLabel label="PENGULANGAN" />
+            <SectionLabel label={t("activityProgress.repeatSection")} />
             <Text style={styles.repeatText}>{repeatText}</Text>
           </>
         )}
@@ -464,14 +467,14 @@ function formatDateLabel(value: string): string {
   return `${Number(day)} ${monthLabel} ${year}`;
 }
 
-function formatRepeat(ulangi: UlangiType): string {
+function formatRepeat(ulangi: UlangiType, t: TFunction): string {
   const repeatMap: Record<UlangiType, string> = {
-    setiap_hari: "Setiap Hari",
-    satu_minggu: "Setiap Minggu",
-    satu_bulan: "Setiap Bulan",
-    satu_tahun: "Setiap Tahun",
+    setiap_hari: t("activityProgress.repeatEveryDay"),
+    satu_minggu: t("activityProgress.repeatEveryWeek"),
+    satu_bulan: t("activityProgress.repeatEveryMonth"),
+    satu_tahun: t("activityProgress.repeatEveryYear"),
   };
-  return repeatMap[ulangi] ?? "Tidak Ada";
+  return repeatMap[ulangi] ?? t("activityProgress.repeatNone");
 }
 
 const styles = StyleSheet.create({

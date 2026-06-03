@@ -2,6 +2,7 @@ import { colors, fonts } from "@/constants/theme";
 import type { GoalPoint } from "@/api/tasks";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export default function GoalsChecklistModal({ visible, goalPoints, onClose, onSave }: Props) {
+  const { t } = useTranslation();
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -46,7 +48,7 @@ export default function GoalsChecklistModal({ visible, goalPoints, onClose, onSa
     <View style={styles.overlay}>
       <Animated.View style={[styles.card, { transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }], opacity: anim }]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Checklist Goals</Text>
+          <Text style={styles.title}>{t("components.goalsChecklist.title")}</Text>
           <Pressable onPress={onClose} hitSlop={8} style={styles.closeBtn}>
             <Ionicons name="close" size={20} color={colors.onSurfaceVariant} />
           </Pressable>
@@ -68,10 +70,10 @@ export default function GoalsChecklistModal({ visible, goalPoints, onClose, onSa
 
         <View style={styles.actions}>
           <Pressable style={styles.ghost} onPress={onClose}>
-            <Text style={styles.ghostText}>Batal</Text>
+            <Text style={styles.ghostText}>{t("common.cancel")}</Text>
           </Pressable>
           <Pressable style={styles.save} onPress={handleSave}>
-            <Text style={styles.saveText}>Selesai</Text>
+            <Text style={styles.saveText}>{t("components.goalsChecklist.done")}</Text>
           </Pressable>
         </View>
       </Animated.View>

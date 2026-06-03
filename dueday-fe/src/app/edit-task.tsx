@@ -7,9 +7,11 @@ import TagSelector from "@/components/TagSelector";
 import type { Tag } from "@/api/tags";
 import { fromApiTime, toApiDate, toApiTime } from "@/api/format";
 import { PRIORITY_API_MAP, type UpdateTask } from "@/api/tasks";
+import { priorityOptionLabel } from "@/lib/taskLabels";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useRef, useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Keyboard,
@@ -43,6 +45,7 @@ const PRIORITY_API_TO_UI: Record<string, PriorityType> = {
 };
 
 export default function EditTaskPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { top, bottom } = useSafeAreaInsets();
   const { height } = useGradualAnimation();
@@ -102,11 +105,11 @@ export default function EditTaskPage() {
     }
 
     if (!namatugas.trim()) {
-      setValidationError("Nama tugas wajib diisi.");
+      setValidationError(t("createTask.nameRequired"));
       return;
     }
     if (!tanggal) {
-      setValidationError("Tenggat waktu wajib dipilih.");
+      setValidationError(t("createTask.deadlineRequired"));
       return;
     }
     setValidationError("");
@@ -141,9 +144,9 @@ export default function EditTaskPage() {
       {
         onSuccess: () => {
           if (Platform.OS === "android") {
-            ToastAndroid.show("Tugas berhasil diedit!", ToastAndroid.SHORT);
+            ToastAndroid.show(t("editTask.editedSuccess"), ToastAndroid.SHORT);
           } else {
-            Alert.alert("Berhasil", "Tugas berhasil diedit!");
+            Alert.alert(t("common.success"), t("editTask.editedSuccess"));
           }
           router.back();
         },
@@ -172,9 +175,9 @@ export default function EditTaskPage() {
   if (isError || !task) {
     return (
       <View style={[styles.centered, { paddingTop: top }]}>
-        <Text style={styles.emptyText}>Tugas tidak ditemukan.</Text>
+        <Text style={styles.emptyText}>{t("editTask.notFound")}</Text>
         <Pressable onPress={() => router.back()} style={styles.backLink}>
-          <Text style={styles.backLinkText}>Kembali</Text>
+          <Text style={styles.backLinkText}>{t("common.back")}</Text>
         </Pressable>
       </View>
     );
@@ -186,7 +189,7 @@ export default function EditTaskPage() {
         <Pressable style={styles.backButtonIcon} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={28} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Edit Tugas</Text>
+        <Text style={styles.headerTitle}>{t("editTask.title")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -203,7 +206,7 @@ export default function EditTaskPage() {
         ) : null}
         {updateMutation.isError ? (
           <Text style={styles.errorText}>
-            {updateMutation.error instanceof Error ? updateMutation.error.message : "Gagal menyimpan perubahan."}
+            {updateMutation.error instanceof Error ? updateMutation.error.message : t("editTask.saveChangesFailed")}
           </Text>
         ) : null}
 
@@ -211,16 +214,16 @@ export default function EditTaskPage() {
           <View style={styles.elearnNotice}>
             <Ionicons name="information-circle-outline" size={18} color={colors.primaryContainer} />
             <Text style={styles.elearnNoticeText}>
-              Tugas ini disinkronisasi dari Elearn. Anda hanya dapat mengubah tingkat prioritas.
+              {t("editTask.elearnNotice")}
             </Text>
           </View>
         )}
 
         <View style={[styles.section, isElearnTask && styles.disabledSection]}>
-          <Text style={styles.label}>Nama Tugas</Text>
+          <Text style={styles.label}>{t("createTask.taskNameLabel")}</Text>
           <TextInput
             style={[styles.input, isElearnTask && styles.disabledInput]}
-            placeholder="Contoh: Laporan RPL Bab 3"
+            placeholder={t("createTask.taskNamePlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={namatugas}
             onChangeText={setNamaTugas}
@@ -229,29 +232,29 @@ export default function EditTaskPage() {
         </View>
 
         <View style={[styles.section, isElearnTask && styles.disabledSection]}>
-          <Text style={styles.label}>Tenggat Waktu</Text>
-          <Pressable 
-            style={[styles.dateTimeContainer, isElearnTask && styles.disabledInput]} 
+          <Text style={styles.label}>{t("createTask.deadlineLabel")}</Text>
+          <Pressable
+            style={[styles.dateTimeContainer, isElearnTask && styles.disabledInput]}
             onPress={() => !isElearnTask && setShowCalendar(true)}
           >
             <Ionicons name="calendar-outline" size={20} color={isElearnTask ? colors.iconMuted : colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !tanggal && styles.dateTimePlaceholder, isElearnTask && styles.disabledText]}>
-              {tanggal || "Pilih tanggal"}
+              {tanggal || t("createTask.pickDate")}
             </Text>
           </Pressable>
-          <Pressable 
-            style={[styles.dateTimeContainer, isElearnTask && styles.disabledInput]} 
+          <Pressable
+            style={[styles.dateTimeContainer, isElearnTask && styles.disabledInput]}
             onPress={() => !isElearnTask && setShowTimePicker(true)}
           >
             <Ionicons name="time-outline" size={20} color={isElearnTask ? colors.iconMuted : colors.primaryContainer} style={styles.dateIcon} />
             <Text style={[styles.dateTimeText, !jam && styles.dateTimePlaceholder, isElearnTask && styles.disabledText]}>
-              {jam || "Pilih waktu"}
+              {jam || t("createTask.pickTime")}
             </Text>
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Prioritas</Text>
+          <Text style={styles.label}>{t("createTask.priorityLabel")}</Text>
           <View style={styles.chipRow}>
             {(["Tinggi", "Sedang", "Rendah"] as const).map((priority) => {
               const isSelected = prioritas === priority;
@@ -268,7 +271,7 @@ export default function EditTaskPage() {
                   ]}
                 >
                   <Text style={[styles.chipText, { color: isSelected ? colors.onPrimary : priorityColor }]}>
-                    {priority}
+                    {priorityOptionLabel(priority, t)}
                   </Text>
                 </Pressable>
               );
@@ -284,10 +287,10 @@ export default function EditTaskPage() {
         </View>
 
         <View style={[styles.section, isElearnTask && styles.disabledSection]}>
-          <Text style={styles.label}>Goals</Text>
+          <Text style={styles.label}>{t("createTask.goalsLabel")}</Text>
           <TextInput
             style={[styles.input, styles.goalsInput, isElearnTask && styles.disabledInput]}
-            placeholder="Isi dalam bentuk poin"
+            placeholder={t("createTask.goalsPlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={goals}
             onChangeText={setGoals}
@@ -311,10 +314,10 @@ export default function EditTaskPage() {
         </View>
 
         <View style={[styles.section, isElearnTask && styles.disabledSection]}>
-          <Text style={styles.label}>Deskripsi</Text>
+          <Text style={styles.label}>{t("createTask.descriptionLabel")}</Text>
           <TextInput
             style={[styles.input, styles.descriptionInput, isElearnTask && styles.disabledInput]}
-            placeholder="Catatan tambahan (opsional)..."
+            placeholder={t("createTask.descriptionPlaceholder")}
             placeholderTextColor={colors.iconMuted}
             value={deskripsi}
             onChangeText={setDeskripsi}
@@ -350,7 +353,7 @@ export default function EditTaskPage() {
           {updateMutation.isPending ? (
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
-            <Text style={styles.saveButtonText}>Simpan Perubahan</Text>
+            <Text style={styles.saveButtonText}>{t("editTask.saveChanges")}</Text>
           )}
         </Pressable>
       </Animated.View>

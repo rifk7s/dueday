@@ -1,5 +1,6 @@
 import { colors, fonts } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 export type ScheduleCardItem = {
@@ -22,6 +23,7 @@ type ScheduleCardProps = {
 };
 
 export function ScheduleCard({ item, startHour, slotHeight, stackCount = 1, onPress }: Readonly<ScheduleCardProps>) {
+  const { t } = useTranslation();
   const isTask = item.kind === "task";
   const isStacked = stackCount > 1;
   const durationHeight = (item.endHour - item.startHour) * slotHeight + 28;
@@ -52,7 +54,7 @@ export function ScheduleCard({ item, startHour, slotHeight, stackCount = 1, onPr
       <View style={[styles.scheduleAccent, { backgroundColor: item.accent }]} />
       {stackCount > 1 ? (
         <View style={styles.stackBadge}>
-          <Text style={styles.stackBadgeText}>{stackCount} jadwal</Text>
+          <Text style={styles.stackBadgeText}>{t("components.scheduleCard.stackBadge", { count: stackCount })}</Text>
         </View>
       ) : null}
 
@@ -63,7 +65,9 @@ export function ScheduleCard({ item, startHour, slotHeight, stackCount = 1, onPr
         <View style={styles.timeRow}>
           <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
           <Text style={styles.timeText} numberOfLines={1}>
-            {stackCount > 1 ? `${formatHour(item.startHour)} • ${stackCount} item` : formatHour(item.startHour)}
+            {stackCount > 1
+              ? t("components.scheduleCard.taskTimeStacked", { time: formatHour(item.startHour), count: stackCount })
+              : formatHour(item.startHour)}
           </Text>
         </View>
       ) : (
@@ -71,7 +75,11 @@ export function ScheduleCard({ item, startHour, slotHeight, stackCount = 1, onPr
           <Ionicons name="time-outline" size={16} color={colors.onSurfaceVariant} />
           <Text style={styles.timeText} numberOfLines={1}>
             {stackCount > 1
-              ? `${formatHour(item.startHour)} - ${formatHour(item.endHour)} • ${stackCount} item`
+              ? t("components.scheduleCard.rangeStacked", {
+                  start: formatHour(item.startHour),
+                  end: formatHour(item.endHour),
+                  count: stackCount,
+                })
               : `${formatHour(item.startHour)} - ${formatHour(item.endHour)}`}
           </Text>
         </View>

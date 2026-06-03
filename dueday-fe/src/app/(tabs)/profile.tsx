@@ -5,6 +5,7 @@ import { updateMe } from "@/api/users";
 import type { AuthUser } from "@/auth/api";
 import { useSession } from "@/auth/ctx";
 import { setStorageItemAsync } from "@/auth/useStorageState";
+import { setLanguage, toBackendLang, type LangCode } from "@/lib/i18n";
 import { colors, fonts, typography } from "@/constants/theme";
 import { useBottomBarSpace } from "@/hooks/useBottomBarSpace";
 import { useTasksQuery } from "@/hooks/useTasks";
@@ -13,6 +14,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Alert,
     Image,
@@ -34,6 +36,7 @@ type TaskStat = {
 };
 
 type SettingItem = {
+  id?: "language" | "theme" | "premium";
   icon: React.ComponentProps<typeof Ionicons>["name"];
   label: string;
   value?: string;
@@ -41,25 +44,15 @@ type SettingItem = {
   onPress?: () => void;
 };
 
-const settings: SettingItem[] = [
-  {
-    icon: "globe-outline",
-    label: "Bahasa",
-    value: "Indonesia",
-  },
-  {
-    icon: "moon-outline",
-    label: "Tema",
-    value: "Terang",
-  },
-  {
-    icon: "star-outline",
-    label: "Upgrade to Premium",
-    accent: colors.primaryContainer,
-  },
+// Language names are shown as autonyms (each in its own language) regardless of
+// the active UI language, so they are intentionally not run through t().
+const LANGUAGE_OPTIONS: { code: LangCode; label: string }[] = [
+  { code: "id", label: "Indonesia" },
+  { code: "en", label: "English" },
 ];
 
 export default function ProfileScreen(): React.JSX.Element {
+  const { t, i18n } = useTranslation();
   const { top } = useSafeAreaInsets();
   const bottomBarSpace = useBottomBarSpace();
   const { user, signOut, token, setUser } = useSession();
@@ -67,6 +60,7 @@ export default function ProfileScreen(): React.JSX.Element {
   const [signingOut, setSigningOut] = useState(false);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nicknameInput, setNicknameInput] = useState(user?.nickname ?? "");
+  const [editingLanguage, setEditingLanguage] = useState(false);
   const router = useRouter();
   const MOCK_AUTH = process.env.EXPO_PUBLIC_MOCK_AUTH === "true";
 
@@ -105,20 +99,54 @@ export default function ProfileScreen(): React.JSX.Element {
       }
 
       if (Platform.OS === "android") {
-        ToastAndroid.show("Nickname berhasil disimpan", ToastAndroid.SHORT);
+        ToastAndroid.show(t("profile.nicknameSaved"), ToastAndroid.SHORT);
       } else {
-        Alert.alert("Berhasil", "Nickname berhasil disimpan");
+        Alert.alert(t("common.success"), t("profile.nicknameSaved"));
       }
     },
     onError: (err) => {
       if (Platform.OS === "android") {
-        ToastAndroid.show("Gagal menyimpan nickname", ToastAndroid.SHORT);
+        ToastAndroid.show(t("profile.nicknameSaveFailed"), ToastAndroid.SHORT);
       } else {
-        Alert.alert("Error", "Gagal menyimpan nickname");
+        Alert.alert(t("common.error"), t("profile.nicknameSaveFailed"));
       }
     },
     onSettled: () => {},
   });
+
+  // Switching language updates i18n immediately, then persists the choice to the
+  // backend (and the session/query cache) exactly like the nickname mutation.
+  const languageMutation = useMutation({
+    mutationFn: (code: LangCode) => updateMe({ language: toBackendLang(code) }, token ?? null),
+    onSuccess: async (updatedUser: AuthUser) => {
+      await setStorageItemAsync("auth_user", JSON.stringify(updatedUser));
+      try {
+        setUser?.(updatedUser);
+      } catch {
+        // ignore
+      }
+      try {
+        queryClientRef.setQueryData(["me"], updatedUser);
+        queryClientRef.setQueryData(["current-user"], updatedUser);
+      } catch {
+        // ignore
+      }
+    },
+    onError: () => {
+      if (Platform.OS === "android") {
+        ToastAndroid.show(t("profile.languageSaveFailed"), ToastAndroid.SHORT);
+      } else {
+        Alert.alert(t("common.error"), t("profile.languageSaveFailed"));
+      }
+    },
+  });
+
+  const handleSelectLanguage = async (code: LangCode): Promise<void> => {
+    setEditingLanguage(false);
+    if (i18n.language === code) return;
+    await setLanguage(code);
+    languageMutation.mutate(code);
+  };
 
   const performLogout = async () => {
     if (signingOut) {
@@ -138,7 +166,7 @@ export default function ProfileScreen(): React.JSX.Element {
     }
 
     if (Platform.OS === "web") {
-      const confirmLogout = window.confirm("Yakin ingin keluar dari akun ini?");
+      const confirmLogout = window.confirm(t("profile.logoutConfirm"));
       if (confirmLogout) {
         void performLogout();
       }
@@ -146,11 +174,11 @@ export default function ProfileScreen(): React.JSX.Element {
     }
 
     Alert.alert(
-      "Logout",
-      "Yakin ingin keluar dari akun ini?",
+      t("common.logout"),
+      t("profile.logoutConfirm"),
       [
-        { text: "Batal", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: () => void performLogout() },
+        { text: t("common.cancel"), style: "cancel" },
+        { text: t("common.logout"), style: "destructive", onPress: () => void performLogout() },
       ],
       { cancelable: true },
     );
@@ -189,13 +217,37 @@ export default function ProfileScreen(): React.JSX.Element {
 
   const premiumExpiryLabel = isPremium ? formatDateLabel(user?.subscription_end) : null;
 
+  // Built inside the component so the labels can call t(). The language row's
+  // value reflects the active language; selecting it opens the picker modal.
+  const settings: SettingItem[] = [
+    {
+      id: "language",
+      icon: "globe-outline",
+      label: t("profile.languageRow"),
+      value: t("common.languageName"),
+      onPress: () => setEditingLanguage(true),
+    },
+    {
+      id: "theme",
+      icon: "moon-outline",
+      label: t("profile.themeRow"),
+      value: t("profile.themeLight"),
+    },
+    {
+      id: "premium",
+      icon: "star-outline",
+      label: t("profile.upgradeToPremium"),
+      accent: colors.primaryContainer,
+    },
+  ];
+
   const settingsWithActions = settings.map((item) =>
-    item.label === "Upgrade to Premium"
+    item.id === "premium"
       ? {
           ...item,
-          label: isPremium ? "Premium" : item.label,
+          label: isPremium ? t("profile.premium") : item.label,
           value: isPremium
-            ? (premiumExpiryLabel ? `Sampai ${premiumExpiryLabel}` : "Aktif")
+            ? (premiumExpiryLabel ? t("profile.premiumUntil", { date: premiumExpiryLabel }) : t("profile.active"))
             : item.value,
           onPress: () => void handleUpgradeToPremium(),
         }
@@ -206,7 +258,7 @@ export default function ProfileScreen(): React.JSX.Element {
   if (MOCK_AUTH && user) {
     settingsWithActions.push({
       icon: "sparkles-outline",
-      label: isPremium ? "Unset Premium (Dev)" : "Set Premium (Dev)",
+      label: isPremium ? t("profile.devUnsetPremium") : t("profile.devSetPremium"),
       onPress: async () => {
         try {
           const newStatus: "subscribed" | "unsubscribed" = isPremium ? "unsubscribed" : "subscribed";
@@ -281,17 +333,17 @@ export default function ProfileScreen(): React.JSX.Element {
 
           queryClientRef.invalidateQueries({ queryKey: ["current-user"] });
 
-          const msg = newStatus === "subscribed" ? "User set to Subscribed (dev)" : "User set to Unsubscribed (dev)";
+          const msg = newStatus === "subscribed" ? t("profile.devUserSubscribed") : t("profile.devUserUnsubscribed");
           if (Platform.OS === "android") {
             ToastAndroid.show(msg, ToastAndroid.SHORT);
           } else {
-            Alert.alert("Dev", msg);
+            Alert.alert(t("profile.devTitle"), msg);
           }
         } catch (err) {
           if (Platform.OS === "android") {
-            ToastAndroid.show("Gagal mengubah status dev", ToastAndroid.SHORT);
+            ToastAndroid.show(t("profile.devStatusChangeFailed"), ToastAndroid.SHORT);
           } else {
-            Alert.alert("Error", "Gagal mengubah status dev");
+            Alert.alert(t("common.error"), t("profile.devStatusChangeFailed"));
           }
         }
       },
@@ -300,7 +352,7 @@ export default function ProfileScreen(): React.JSX.Element {
     // Dev-only: preview rejected payment screen
     settingsWithActions.push({
       icon: "alert-circle-outline",
-      label: "Lihat Payment Rejected (Dev)",
+      label: t("profile.devViewPaymentRejected"),
       onPress: () => {
         router.push({
           pathname: "/payment-rejected",
@@ -325,9 +377,9 @@ export default function ProfileScreen(): React.JSX.Element {
   const terlambat = completedLate + ongoingLate;
 
   const taskStats: TaskStat[] = [
-    { label: "Selesai", value: String(selesai), color: colors.success },
-    { label: "Berlangsung", value: String(berlangsung), color: colors.warning },
-    { label: "Terlambat", value: String(terlambat), color: colors.errorStrong },
+    { label: t("common.statusDone"), value: String(selesai), color: colors.success },
+    { label: t("common.statusOngoing"), value: String(berlangsung), color: colors.warning },
+    { label: t("common.statusLate"), value: String(terlambat), color: colors.errorStrong },
   ];
 
   return (
@@ -343,7 +395,7 @@ export default function ProfileScreen(): React.JSX.Element {
             <Ionicons name="menu-outline" size={24} color={colors.onSurface} />
           </Pressable>
 
-          <Text style={styles.headerTitle}>Profil</Text>
+          <Text style={styles.headerTitle}>{t("profile.title")}</Text>
 
           <Pressable style={styles.headerIconButton} accessibilityRole="button">
             <Ionicons name="create-outline" size={22} color={colors.onSurface} />
@@ -377,21 +429,21 @@ export default function ProfileScreen(): React.JSX.Element {
             </Pressable>
           </View>
           <Text style={styles.profileRole}>{user?.name ?? "—"}</Text>
-          {user?.nim ? <Text style={styles.profileMeta}>NIM: {user.nim}</Text> : null}
+          {user?.nim ? <Text style={styles.profileMeta}>{t("profile.nim", { nim: user.nim })}</Text> : null}
           <Text style={styles.profileMeta}>{user?.email ?? "—"}</Text>
 
           {/* 👑 Guaranteed Premium Badge with FontAwesome5 Crown */}
           {isPremium && (
             <View style={styles.premiumBadgeContainer}>
               <FontAwesome5 name="crown" size={12} color="#784A1A" style={{ marginRight: 6 }} />
-              <Text style={styles.premiumBadgeText}>Premium</Text>
+              <Text style={styles.premiumBadgeText}>{t("profile.premium")}</Text>
             </View>
           )}
         </View>
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Statistik Tugas</Text>
+            <Text style={styles.sectionTitle}>{t("profile.taskStats")}</Text>
           </View>
 
           <View style={styles.statRow}>
@@ -406,7 +458,7 @@ export default function ProfileScreen(): React.JSX.Element {
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pengaturan</Text>
+            <Text style={styles.sectionTitle}>{t("profile.settings")}</Text>
           </View>
 
           <View style={styles.settingsList}>
@@ -423,7 +475,7 @@ export default function ProfileScreen(): React.JSX.Element {
           disabled={signingOut}
         >
           <Text style={styles.logoutText}>
-            {signingOut ? "Logging out…" : "Logout"}
+            {signingOut ? t("profile.loggingOut") : t("common.logout")}
           </Text>
         </Pressable>
       </ScrollView>
@@ -431,24 +483,54 @@ export default function ProfileScreen(): React.JSX.Element {
       {editingNickname ? (
         <View style={styles.modalBackdrop} pointerEvents="box-none">
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Edit Nickname</Text>
+            <Text style={styles.modalTitle}>{t("profile.editNickname")}</Text>
             <TextInput
               style={styles.input}
               value={nicknameInput}
               onChangeText={setNicknameInput}
-              placeholder="Nickname"
+              placeholder={t("profile.nicknamePlaceholder")}
               autoCapitalize="words"
             />
             <View style={styles.modalActionRow}>
               <Pressable style={[styles.secondaryButton, { flex: 1, marginRight: 8 }]} onPress={() => setEditingNickname(false)}>
-                <Text style={styles.secondaryButtonText}>Batal</Text>
+                <Text style={styles.secondaryButtonText}>{t("common.cancel")}</Text>
               </Pressable>
               <Pressable
                 style={[styles.primaryButton, { flex: 1 }]}
                 onPress={() => updateMutation.mutate(nicknameInput)}
                 disabled={updateMutation.isPending}
               >
-                <Text style={styles.primaryButtonText}>{updateMutation.isPending ? 'Menyimpan...' : 'Simpan'}</Text>
+                <Text style={styles.primaryButtonText}>{updateMutation.isPending ? t("common.saving") : t("common.save")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {editingLanguage ? (
+        <View style={styles.modalBackdrop} pointerEvents="box-none">
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{t("profile.chooseLanguage")}</Text>
+            {LANGUAGE_OPTIONS.map((option) => {
+              const active = i18n.language === option.code;
+              return (
+                <Pressable
+                  key={option.code}
+                  style={[styles.languageOption, active && styles.languageOptionActive]}
+                  onPress={() => void handleSelectLanguage(option.code)}
+                >
+                  <Text style={[styles.languageOptionText, active && styles.languageOptionTextActive]}>
+                    {option.label}
+                  </Text>
+                  {active ? (
+                    <Ionicons name="checkmark" size={18} color={colors.primaryContainer} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            <View style={styles.modalActionRow}>
+              <Pressable style={[styles.secondaryButton, { flex: 1 }]} onPress={() => setEditingLanguage(false)}>
+                <Text style={styles.secondaryButtonText}>{t("common.cancel")}</Text>
               </Pressable>
             </View>
           </View>
@@ -733,6 +815,30 @@ const styles = StyleSheet.create({
   modalActionRow: {
     flexDirection: "row",
     marginTop: 8,
+  },
+  languageOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  languageOptionActive: {
+    borderColor: colors.primaryContainer,
+    backgroundColor: colors.surfaceContainerLow,
+  },
+  languageOptionText: {
+    fontSize: 15,
+    color: colors.onSurface,
+    fontFamily: fonts["600"],
+  },
+  languageOptionTextActive: {
+    color: colors.primaryContainer,
+    fontFamily: fonts["700"],
   },
   primaryButton: {
     backgroundColor: colors.primaryContainer,

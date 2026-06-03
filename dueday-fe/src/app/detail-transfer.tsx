@@ -16,6 +16,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -60,33 +62,21 @@ const methodMetaMap: Record<string, MethodMeta> = {
 
 type PaymentStatus = Payment["status"] | "unknown";
 
-const paymentStatusMeta: Record<
-  PaymentStatus,
-  { title: string; description: string; color: string }
-> = {
-  pending: {
-    title: "Menunggu konfirmasi admin",
-    description: "Silakan tunggu sampai admin menyetujui atau menolak pembayaran ini.",
-    color: colors.secondaryContainer,
-  },
-  paid: {
-    title: "Pembayaran disetujui",
-    description: "Admin sudah mengonfirmasi pembayaran kamu.",
-    color: colors.success,
-  },
-  failed: {
-    title: "Pembayaran ditolak",
-    description: "Admin menolak pembayaran ini. Silakan cek ulang atau lakukan pembayaran ulang.",
-    color: colors.error,
-  },
-  unknown: {
-    title: "Menunggu status pembayaran",
-    description: "Status pembayaran akan tampil di sini setelah admin mengubahnya.",
-    color: colors.primaryContainer,
-  },
-};
+function getStatusMeta(status: PaymentStatus, t: TFunction): { title: string; description: string; color: string } {
+  switch (status) {
+    case "pending":
+      return { title: t("detailTransfer.statusPendingTitle"), description: t("detailTransfer.statusPendingDesc"), color: colors.secondaryContainer };
+    case "paid":
+      return { title: t("detailTransfer.statusPaidTitle"), description: t("detailTransfer.statusPaidDesc"), color: colors.success };
+    case "failed":
+      return { title: t("detailTransfer.statusFailedTitle"), description: t("detailTransfer.statusFailedDesc"), color: colors.error };
+    default:
+      return { title: t("detailTransfer.statusUnknownTitle"), description: t("detailTransfer.statusUnknownDesc"), color: colors.primaryContainer };
+  }
+}
 
 export default function DetailTransferScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
   const { token, setUser } = useSession();
   const qc = useQueryClient();
@@ -116,7 +106,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
     };
   }, [methodId, methodNameParam]);
 
-  const [copyLabel, setCopyLabel] = useState("Salin");
+  const [copied, setCopied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -135,7 +125,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
 
       if (!paymentId || !token) {
         if (notify) {
-          const info = paymentStatusMeta[paymentStatus] ?? paymentStatusMeta.unknown;
+          const info = getStatusMeta(paymentStatus, t);
           Alert.alert(info.title, info.description);
         }
         return;
@@ -147,21 +137,21 @@ export default function DetailTransferScreen(): React.JSX.Element {
         const payment = await apiFetch<Payment>(`/payments/${paymentId}`, token);
         setPaymentStatus(payment.status);
         if (notify && payment.status !== "paid") {
-          const info = paymentStatusMeta[payment.status] ?? paymentStatusMeta.unknown;
+          const info = getStatusMeta(payment.status, t);
           Alert.alert(info.title, info.description);
         }
       } catch {
         if (notify) {
           Alert.alert(
-            "Gagal mengecek status",
-            "Terjadi kesalahan saat mengecek status pembayaran. Silakan coba lagi."
+            t("detailTransfer.checkFailedTitle"),
+            t("detailTransfer.checkFailedBody")
           );
         }
       } finally {
         if (notify) setRefreshing(false);
       }
     },
-    [paymentId, token, paymentStatus]
+    [paymentId, token, paymentStatus, t]
   );
 
   useEffect(() => {
@@ -229,8 +219,8 @@ export default function DetailTransferScreen(): React.JSX.Element {
 
   const handleCopyVA = async () => {
     await Clipboard.setStringAsync(methodMeta.virtualAccount);
-    setCopyLabel("Disalin");
-    setTimeout(() => setCopyLabel("Salin"), 3000);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
   };
 
   const handleCancelPayment = useCallback(async () => {
@@ -249,11 +239,11 @@ export default function DetailTransferScreen(): React.JSX.Element {
       });
       exitFlowTo("/profile");
     } catch {
-      Alert.alert("Gagal membatalkan pembayaran", "Silakan coba lagi.");
+      Alert.alert(t("detailTransfer.cancelFailedTitle"), t("detailTransfer.tryAgain"));
     } finally {
       setIsCancelling(false);
     }
-  }, [isCancelling, paymentId, token]);
+  }, [isCancelling, paymentId, token, t]);
 
   const sendDecodedDataToBackend = async (scannedString: string) => {
     // Update the existing payment status to paid directly!
@@ -271,7 +261,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
     });
 
     const result = await response.json();
-    if (!response.ok) throw new Error(result.message || "Gagal memperbarui status.");
+    if (!response.ok) throw new Error(result.message || t("detailTransfer.updateStatusFailed"));
     return result;
   };
 
@@ -282,11 +272,11 @@ export default function DetailTransferScreen(): React.JSX.Element {
         const mockString = `DUEDAY_MOCK_PAYMENT|MERCHANT:DUEDAY STUDIO|CITY:MAKASSAR|AMOUNT:${planAmount}`;
         setIsUploading(true);
         await sendDecodedDataToBackend(mockString);
-        alert("Sukses: Pembayaran terverifikasi via Browser Simulator!");
+        alert(t("detailTransfer.webVerifySuccess"));
         setPaymentStatus("paid");
         return;
       } catch (error: any) {
-        alert("Verifikasi Browser Gagal: " + error.message);
+        alert(t("detailTransfer.webVerifyFailed") + error.message);
         return;
       } finally {
         setIsUploading(false);
@@ -297,7 +287,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
     try {
       const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!mediaPermission.granted) {
-        Alert.alert("Akses Ditolak", "Aplikasi membutuhkan izin galeri untuk memproses verifikasi.");
+        Alert.alert(t("detailTransfer.galleryDeniedTitle"), t("detailTransfer.galleryDeniedBody"));
         return;
       }
 
@@ -321,7 +311,7 @@ export default function DetailTransferScreen(): React.JSX.Element {
       const scanResults = await Camera.scanFromURLAsync(selectedImgUri, ["qr"]);
 
       if (!scanResults || scanResults.length === 0) {
-        Alert.alert("Gagal Membaca QRIS", "Tidak ada kode QR valid terdeteksi dari screenshot gambar.");
+        Alert.alert(t("detailTransfer.qrReadFailedTitle"), t("detailTransfer.qrReadFailedBody"));
         return;
       }
 
@@ -333,34 +323,34 @@ export default function DetailTransferScreen(): React.JSX.Element {
       // Defer the status flip (which navigates to /payment-success) until the user
       // taps OK. Alert.alert is non-blocking on native, so setting it inline would
       // tear this screen down mid-alert and leave the OK button unresponsive.
-      Alert.alert("Sukses", "Pembayaran terverifikasi oleh server!", [
-        { text: "OK", onPress: () => setPaymentStatus("paid") },
+      Alert.alert(t("common.success"), t("detailTransfer.verifiedByServer"), [
+        { text: t("common.ok"), onPress: () => setPaymentStatus("paid") },
       ]);
     } catch (error: any) {
-      Alert.alert("Verifikasi Gagal", error.message || "Terjadi kesalahan sistem.");
+      Alert.alert(t("detailTransfer.verifyFailedTitle"), error.message || t("detailTransfer.systemError"));
     } finally {
       setIsUploading(false);
     }
   };
 
-  const paymentStatusInfo = paymentStatusMeta[paymentStatus] ?? paymentStatusMeta.unknown;
+  const paymentStatusInfo = getStatusMeta(paymentStatus, t);
 
   return (
     <View style={[styles.root, { paddingTop: top }]}>
       <StatusBar style="dark" />
 
       <View style={styles.header}>
-        <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel="Kembali" onPress={() => exitFlowTo("/profile")}>
+        <Pressable style={styles.backButton} accessibilityRole="button" accessibilityLabel={t("common.back")} onPress={() => exitFlowTo("/profile")}>
           <Ionicons name="arrow-back" size={22} color={colors.primaryContainer} />
         </Pressable>
-        <Text style={styles.headerTitle}>Detail Transfer</Text>
+        <Text style={styles.headerTitle}>{t("detailTransfer.title")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: bottom + 16 }]} showsVerticalScrollIndicator={false}>
         
         <View style={styles.planCard}>
-          <Text style={styles.deadlineText}>Bayar sebelum: 23:59:00</Text>
+          <Text style={styles.deadlineText}>{t("detailTransfer.payBefore")}</Text>
           <View style={styles.planRow}>
             <Text style={styles.planName}>{planName}</Text>
             <Text style={styles.planPrice}>{planPrice}</Text>
@@ -370,14 +360,14 @@ export default function DetailTransferScreen(): React.JSX.Element {
         <View style={[styles.statusCard, { borderColor: paymentStatusInfo.color }]}>
           <Text style={[styles.statusTitle, { color: paymentStatusInfo.color }]}>{paymentStatusInfo.title}</Text>
           <Text style={styles.statusDescription}>{paymentStatusInfo.description}</Text>
-          {paymentId && <Text style={styles.statusHint}>Payment ID: {paymentId}</Text>}
+          {paymentId && <Text style={styles.statusHint}>{t("detailTransfer.paymentId", { id: paymentId })}</Text>}
         </View>
 
         {methodType === "QRIS" ? (
           <View style={styles.qrisCard}>
             <View style={styles.qrisHeader}>
               <Text style={styles.qrisBrand}>QRIS</Text>
-              <Text style={styles.qrisInteroperable}>Sandbox Auto Scan</Text>
+              <Text style={styles.qrisInteroperable}>{t("detailTransfer.sandboxAutoScan")}</Text>
             </View>
             <View style={styles.qrWrapper}>
               <Image source={{ uri: goQrApiUrl }} style={styles.qrImage} resizeMode="contain" />
@@ -391,37 +381,37 @@ export default function DetailTransferScreen(): React.JSX.Element {
             <View style={styles.methodTopRow}>
               <Image source={methodMeta.image} style={styles.methodLogo} resizeMode="contain" />
               <View style={styles.methodTag}>
-                <Text style={styles.methodTagText}>VIRTUAL ACCOUNT</Text>
+                <Text style={styles.methodTagText}>{t("detailTransfer.virtualAccountTag")}</Text>
               </View>
             </View>
-            <Text style={styles.methodLabel}>Nomor Virtual Account</Text>
+            <Text style={styles.methodLabel}>{t("detailTransfer.vaLabel")}</Text>
             <View style={styles.vaRow}>
               <View>
                 <Text style={styles.vaNumber}>{methodMeta.virtualAccount}</Text>
                 <Text style={styles.vaMerchant}>Dueday Studio</Text>
               </View>
               <Pressable style={styles.copyButton} onPress={handleCopyVA} accessibilityRole="button">
-                <Text style={styles.copyText}>{copyLabel}</Text>
+                <Text style={styles.copyText}>{copied ? t("detailTransfer.copied") : t("detailTransfer.copy")}</Text>
                 <Ionicons name="copy-outline" size={14} color={colors.primaryContainer} />
               </Pressable>
             </View>
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Petunjuk Pembayaran</Text>
+        <Text style={styles.sectionTitle}>{t("detailTransfer.instructions")}</Text>
         <View style={styles.stepsList}>
           {(methodType === "QRIS"
             ? [
-                Platform.OS === "web" ? "Klik tombol ungu unggah di bawah secara langsung." : "Simpan atau Screenshot gambar QR code di atas.",
-                Platform.OS === "web" ? "Sistem browser akan mensimulasikan pemindaian." : "Klik tombol 'Unggah Screenshot QRIS' di bawah.",
-                Platform.OS === "web" ? "Data subskripsi langsung diperbarui di database." : "Pilih foto screenshot QRIS Anda dari galeri ponsel.",
-                "Tunggu beberapa saat sampai sistem memvalidasi struk belanja otomatis."
+                Platform.OS === "web" ? t("detailTransfer.qrisWeb1") : t("detailTransfer.qrisNative1"),
+                Platform.OS === "web" ? t("detailTransfer.qrisWeb2") : t("detailTransfer.qrisNative2"),
+                Platform.OS === "web" ? t("detailTransfer.qrisWeb3") : t("detailTransfer.qrisNative3"),
+                t("detailTransfer.qrisStep4"),
               ]
             : [
-                "Buka aplikasi bank atau aplikasi ATM pilihan Anda.",
-                "Masuk ke menu Transfer / Bayar lalu pilih opsi Virtual Account.",
-                "Masukkan nomor urut kode Virtual Account yang tertera di atas.",
-                "Konfirmasi penyelesaian data nominal transaksi Anda."
+                t("detailTransfer.va1"),
+                t("detailTransfer.va2"),
+                t("detailTransfer.va3"),
+                t("detailTransfer.va4"),
               ]
           ).map((step, index) => (
             <View key={step} style={styles.stepRow}>
@@ -441,19 +431,19 @@ export default function DetailTransferScreen(): React.JSX.Element {
               disabled={isUploading}
             >
               <Text style={styles.confirmButtonText}>
-                {isUploading ? "Memverifikasi Gambar..." : "📸 Unggah Screenshot QRIS"}
+                {isUploading ? t("detailTransfer.verifyingImage") : t("detailTransfer.uploadQris")}
               </Text>
             </Pressable>
           )}
 
           <Pressable style={styles.confirmButton} accessibilityRole="button" onPress={() => void refreshPaymentStatus({ notify: true })} disabled={refreshing}>
             <Text style={styles.confirmButtonText}>
-              {refreshing ? "Mengecek Status..." : "Cek Status Transaksi"}
+              {refreshing ? t("detailTransfer.checkingStatus") : t("detailTransfer.checkStatus")}
             </Text>
           </Pressable>
 
           <Pressable style={styles.cancelButton} accessibilityRole="button" onPress={() => void handleCancelPayment()} disabled={isCancelling}>
-            <Text style={styles.cancelButtonText}>{isCancelling ? "Membatalkan..." : "Batalkan Pembayaran"}</Text>
+            <Text style={styles.cancelButtonText}>{isCancelling ? t("detailTransfer.cancelling") : t("detailTransfer.cancelPayment")}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -464,8 +454,8 @@ export default function DetailTransferScreen(): React.JSX.Element {
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingCard}>
             <ActivityIndicator size="large" color={colors.primaryContainer} />
-            <Text style={styles.loadingTitle}>Memverifikasi Gambar</Text>
-            <Text style={styles.loadingText}>Sedang memindai QRIS dan menyiapkan verifikasi pembayaran.</Text>
+            <Text style={styles.loadingTitle}>{t("detailTransfer.verifyingTitle")}</Text>
+            <Text style={styles.loadingText}>{t("detailTransfer.verifyingBody")}</Text>
           </View>
         </View>
       ) : null}

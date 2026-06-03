@@ -5,7 +5,10 @@ export async function getMe(token: string | null): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/me`, token);
 }
 
-export async function updateMe(input: Partial<{ nickname: string }>, token: string | null): Promise<AuthUser> {
+export async function updateMe(
+  input: Partial<{ nickname: string; language: "Indonesia" | "English" }>,
+  token: string | null,
+): Promise<AuthUser> {
   return apiFetch<AuthUser>(`/me`, token, {
     method: "PATCH",
     body: JSON.stringify(input),

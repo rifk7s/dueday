@@ -7,6 +7,7 @@ import { useLocalSearchParams } from "expo-router";
 import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Animated,
   BackHandler,
@@ -90,6 +91,7 @@ function AccentDot({ size, color, top, left, right, delay }: AccentDotProps): Re
 }
 
 export default function PaymentSuccessScreen(): React.JSX.Element {
+  const { t } = useTranslation();
   const { top, bottom } = useSafeAreaInsets();
   const params = useLocalSearchParams();
 
@@ -175,18 +177,18 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
     () => [
       {
         key: "unlimited_import",
-        title: "Import E-Learn Tanpa Batas",
-        desc: "Impor tugas dari e-learn sepuasnya. Versi gratis dibatasi 3x impor per bulan.",
+        title: t("premiumPlan.benefit1Title"),
+        desc: t("premiumPlan.benefit1Desc"),
         icon: "infinite-outline",
       },
       {
         key: "reminders",
-        title: "Reminder Personalization",
-        desc: "Reminder otomatis yang menyesuaikan deadline, waktu kosong, dan kebiasaan kamu setiap hari.",
+        title: t("premiumPlan.benefit2Title"),
+        desc: t("premiumPlan.benefit2Desc"),
         icon: "notifications-outline",
       },
     ],
-    []
+    [t]
   );
 
   useEffect(() => {
@@ -203,8 +205,8 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
         // scheduleNotificationAsync typings require a trigger; cast to any to present immediately
         await (Notifications as any).scheduleNotificationAsync({
           content: {
-            title: "Pembayaran Berhasil",
-            body: `${planName} sudah aktif. Ketuk untuk melihat fitur yang didapatkan.`,
+            title: t("paymentSuccess.notifTitle"),
+            body: t("paymentSuccess.notifBody", { planName }),
             data: {
               type: "payment-success",
               planName,
@@ -224,7 +226,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
     return () => {
       active = false;
     };
-  }, [planName, features]);
+  }, [planName, features, t]);
 
   return (
     <View style={[styles.root, { paddingTop: top }]}>
@@ -271,26 +273,26 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
             width: "100%",
           }}
         >
-          <Text style={styles.title}>Pembayaran Berhasil</Text>
-          <Text style={styles.subtitle}>Langganan premium kamu sudah aktif dan siap dipakai.</Text>
+          <Text style={styles.title}>{t("paymentSuccess.title")}</Text>
+          <Text style={styles.subtitle}>{t("paymentSuccess.subtitle")}</Text>
 
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Paket</Text>
+              <Text style={styles.summaryLabel}>{t("paymentSuccess.labelPlan")}</Text>
               <Text style={styles.summaryValue}>{planName}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Metode</Text>
+              <Text style={styles.summaryLabel}>{t("paymentSuccess.labelMethod")}</Text>
               <Text style={styles.summaryValue}>{methodName}</Text>
             </View>
             <View style={[styles.summaryRow, styles.summaryRowLast]}>
-              <Text style={styles.summaryLabel}>Total</Text>
+              <Text style={styles.summaryLabel}>{t("paymentSuccess.labelTotal")}</Text>
               <Text style={styles.summaryPrice}>{planPrice}</Text>
             </View>
           </View>
 
             <View style={styles.featuresWrap}>
-              <Text style={styles.featuresTitle}>Fitur yang dibuka</Text>
+              <Text style={styles.featuresTitle}>{t("paymentSuccess.featuresUnlocked")}</Text>
               {features.map((f) => (
                 <View key={f.key} style={styles.featureRow}>
                   <View style={styles.featureIconWrap}>
@@ -313,7 +315,7 @@ export default function PaymentSuccessScreen(): React.JSX.Element {
           accessibilityRole="button"
           onPress={handleDone}
         >
-          <Text style={styles.primaryButtonText}>Kembali ke Profil</Text>
+          <Text style={styles.primaryButtonText}>{t("premiumPlan.ctaView")}</Text>
         </Pressable>
       </View>
     </View>
