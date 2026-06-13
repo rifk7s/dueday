@@ -57,10 +57,12 @@ class ActivitySeeder extends Seeder
             // Set anchor_date to the same value as `date` if a repeat rule exists
             $anchorDate = (!empty($activity['recurrence'])) ? $activity['date'] : null;
 
+            $tags = [1, 2, 3, 4, null];
+            
             Activity::create([
                 'id' => Str::uuid(),
                 'user_id' => $user->id,
-                'tag_id' => fake()->randomElement([1, 2, 3, 4, null]),
+                'tag_id' => $tags[array_rand($tags)],
                 'anchor_date' => $anchorDate,
                 ...$activity,
                 'created_at' => now(),
